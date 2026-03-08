@@ -12,7 +12,7 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list <skills|bundles|agents>",
+	Use:   "list <skills|bundles|agents|plugins|resources>",
 	Short: "List items in the agentfiles store",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -34,8 +34,12 @@ var listCmd = &cobra.Command{
 		case "agents":
 			dir = s.AgentsDir()
 			stripExt = true
+		case "plugins":
+			dir = s.PluginsDir()
+		case "resources":
+			dir = s.ResourcesDir()
 		default:
-			return fmt.Errorf("unknown list type %q (use skills, bundles, or agents)", kind)
+			return fmt.Errorf("unknown list type %q (use skills, bundles, agents, plugins, or resources)", kind)
 		}
 
 		entries, err := os.ReadDir(dir)
@@ -52,7 +56,7 @@ var listCmd = &cobra.Command{
 			if strings.HasPrefix(name, ".") {
 				continue
 			}
-			if kind == "skills" && !e.IsDir() {
+			if (kind == "skills" || kind == "plugins" || kind == "resources") && !e.IsDir() {
 				continue
 			}
 			if stripExt {

@@ -3,9 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/danielbenner/agentfiles/internal/lock"
+	"github.com/danielbenner/agentfiles/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -13,6 +15,11 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show the status of deployed files compared to lock and store",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		s, err := store.Open(storePath)
+		if err != nil {
+			return err
+		}
+
 		lf, err := lock.Load(".")
 		if err != nil {
 			return err
@@ -31,18 +38,19 @@ var statusCmd = &cobra.Command{
 
 		if lf.Deployed.AgentsMD != nil {
 			e := lf.Deployed.AgentsMD
-			items = append(items, item{"agents.md", e.StorePath, e.DeployedPath, e.Hash, false})
+			items = append(items, item{"agents.md", filepath.Join(s.Root, e.StorePath), e.DeployedPath, e.Hash, false})
 		}
 		for name, e := range lf.Deployed.Skills {
-			items = append(items, item{"skill:" + name, e.StorePath, e.DeployedPath, e.Hash, true})
+			items = append(items, item{"skill:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath, e.Hash, true})
 		}
 		for name, e := range lf.Deployed.Plugins {
-			items = append(items, item{"plugin:" + name, e.StorePath, e.DeployedPath, e.Hash, true})
+			items = append(items, item{"plugin:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath, e.Hash, true})
 		}
 		for name, e := range lf.Deployed.Resources {
-			info, _ := os.Stat(e.StorePath)
+			absStorePath := filepath.Join(s.Root, e.StorePath)
+			info, _ := os.Stat(absStorePath)
 			isDir := info != nil && info.IsDir()
-			items = append(items, item{"resource:" + name, e.StorePath, e.DeployedPath, e.Hash, isDir})
+			items = append(items, item{"resource:" + name, absStorePath, e.DeployedPath, e.Hash, isDir})
 		}
 
 		sort.Slice(items, func(i, j int) bool { return items[i].name < items[j].name })

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/danielbenner/agentfiles/internal/lock"
+	"github.com/danielbenner/agentfiles/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -15,6 +16,11 @@ var diffCmd = &cobra.Command{
 	Use:   "diff",
 	Short: "Show differences between deployed files and store sources",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		s, err := store.Open(storePath)
+		if err != nil {
+			return err
+		}
+
 		lf, err := lock.Load(".")
 		if err != nil {
 			return err
@@ -32,16 +38,16 @@ var diffCmd = &cobra.Command{
 		var entries []entryInfo
 
 		if lf.Deployed.AgentsMD != nil {
-			entries = append(entries, entryInfo{"agents.md", lf.Deployed.AgentsMD.StorePath, lf.Deployed.AgentsMD.DeployedPath})
+			entries = append(entries, entryInfo{"agents.md", filepath.Join(s.Root, lf.Deployed.AgentsMD.StorePath), lf.Deployed.AgentsMD.DeployedPath})
 		}
 		for name, e := range lf.Deployed.Skills {
-			entries = append(entries, entryInfo{"skill:" + name, e.StorePath, e.DeployedPath})
+			entries = append(entries, entryInfo{"skill:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath})
 		}
 		for name, e := range lf.Deployed.Plugins {
-			entries = append(entries, entryInfo{"plugin:" + name, e.StorePath, e.DeployedPath})
+			entries = append(entries, entryInfo{"plugin:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath})
 		}
 		for name, e := range lf.Deployed.Resources {
-			entries = append(entries, entryInfo{"resource:" + name, e.StorePath, e.DeployedPath})
+			entries = append(entries, entryInfo{"resource:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath})
 		}
 
 		for _, ei := range entries {

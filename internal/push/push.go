@@ -136,6 +136,9 @@ func Push(s *store.Store, repoDir string, opts Options) (*Result, error) {
 func pushFile(deployedPath, storeDest string, e *lock.Entry, name, assetType string, dryRun bool) (*Change, error) {
 	newHash, err := lock.Hash(deployedPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return &Change{Name: name, Type: assetType, OldHash: e.Hash, NewHash: "(deleted)"}, nil
+		}
 		return nil, err
 	}
 	if newHash == e.Hash {
@@ -155,6 +158,9 @@ func pushFile(deployedPath, storeDest string, e *lock.Entry, name, assetType str
 func pushDir(deployedPath, storeDest string, e *lock.Entry, name, assetType string, dryRun bool) (*Change, error) {
 	newHash, err := lock.HashDir(deployedPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return &Change{Name: name, Type: assetType, OldHash: e.Hash, NewHash: "(deleted)"}, nil
+		}
 		return nil, err
 	}
 	if newHash == e.Hash {
@@ -173,10 +179,18 @@ func pushDir(deployedPath, storeDest string, e *lock.Entry, name, assetType stri
 // into the repo root. It hashes the corresponding repo-side files by
 // walking the store resource directory structure, then syncs back.
 func pushResource(repoDir, storeResDir string, e *lock.Entry, name string, dryRun bool) (*Change, error) {
+	// If the store resource dir doesn't exist, report as deleted.
+	if _, err := os.Stat(storeResDir); os.IsNotExist(err) {
+		return &Change{Name: name, Type: lock.AssetResources, OldHash: e.Hash, NewHash: "(deleted)"}, nil
+	}
+
 	// Hash the deployed resource files using the store directory structure
 	// to know which repo-root paths belong to this resource.
 	newHash, err := hashResourceDeployed(repoDir, storeResDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return &Change{Name: name, Type: lock.AssetResources, OldHash: e.Hash, NewHash: "(deleted)"}, nil
+		}
 		return nil, err
 	}
 	if newHash == e.Hash {

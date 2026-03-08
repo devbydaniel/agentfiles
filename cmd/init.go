@@ -13,12 +13,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var validLayouts = []string{"pi", "claude-code", "cursor", "all"}
+var validLayouts = []string{"pi", "claude", "cursor", "all"}
 
 var gitignoreByLayout = map[string][]string{
-	"pi":         {"AGENTS.md", ".pi/skills/", ".pi/plugins/"},
-	"claude-code": {"CLAUDE.md", ".claude/skills/"},
-	"cursor":     {".cursorrules", ".cursor/skills/", ".cursor/plugins/"},
+	"pi":     {"AGENTS.md", ".pi/skills/", ".pi/plugins/"},
+	"claude": {"CLAUDE.md", ".claude/skills/"},
+	"cursor": {".cursorrules", ".cursor/skills/", ".cursor/plugins/"},
 }
 
 var initCmd = &cobra.Command{
@@ -145,7 +145,7 @@ func gitignoreSuggestions(layout string) []string {
 	var suggestions []string
 
 	if layout == "all" {
-		for _, l := range []string{"pi", "claude-code", "cursor"} {
+		for _, l := range []string{"pi", "claude", "cursor"} {
 			suggestions = append(suggestions, gitignoreByLayout[l]...)
 		}
 	} else {
@@ -158,6 +158,6 @@ func gitignoreSuggestions(layout string) []string {
 
 func init() {
 	initCmd.Flags().String("bundle", "", "bundle name to use")
-	initCmd.Flags().String("layout", "", "layout name (pi, claude-code, cursor, all)")
+	initCmd.Flags().String("layout", "", "layout name (pi, claude, cursor, all)")
 	rootCmd.AddCommand(initCmd)
 }

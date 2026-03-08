@@ -84,7 +84,7 @@ func TestInitParsableByManifestLoad(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"init", "--bundle", "assistant", "--layout", "claude-code"})
+	rootCmd.SetArgs([]string{"init", "--bundle", "assistant", "--layout", "claude"})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -98,7 +98,7 @@ func TestInitParsableByManifestLoad(t *testing.T) {
 	if m.Bundle != "assistant" {
 		t.Errorf("bundle = %q, want %q", m.Bundle, "assistant")
 	}
-	if m.Layout != "claude-code" {
-		t.Errorf("layout = %q, want %q", m.Layout, "claude-code")
+	if m.Layout != "claude" {
+		t.Errorf("layout = %q, want %q", m.Layout, "claude")
 	}
 }

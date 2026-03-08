@@ -77,12 +77,15 @@ func TestListBundlesEmpty(t *testing.T) {
 }
 
 func TestDiffClean(t *testing.T) {
+	storeDir := setupStore(t)
 	projDir := t.TempDir()
 	orig, _ := os.Getwd()
 	defer os.Chdir(orig)
 	os.Chdir(projDir)
 
-	srcFile := filepath.Join(projDir, "src_agents.md")
+	// Write the source file into the store
+	os.MkdirAll(filepath.Join(storeDir, "agents"), 0o755)
+	srcFile := filepath.Join(storeDir, "agents", "default.md")
 	os.WriteFile(srcFile, []byte("hello world\n"), 0o644)
 
 	deployFile := filepath.Join(projDir, "AGENTS.md")
@@ -95,8 +98,8 @@ func TestDiffClean(t *testing.T) {
 	lf.Deployed.Plugins = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
 	lf.Deployed.AgentsMD = &lock.Entry{
-		StorePath:    srcFile,
-		DeployedPath: deployFile,
+		StorePath:    "agents/default.md",
+		DeployedPath: "AGENTS.md",
 		Hash:         hash,
 	}
 	lock.Save(projDir, lf)
@@ -104,7 +107,7 @@ func TestDiffClean(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(new(bytes.Buffer))
-	rootCmd.SetArgs([]string{"diff"})
+	rootCmd.SetArgs([]string{"diff", "--store", storeDir})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -117,12 +120,14 @@ func TestDiffClean(t *testing.T) {
 }
 
 func TestDiffWithLocalEdit(t *testing.T) {
+	storeDir := setupStore(t)
 	projDir := t.TempDir()
 	orig, _ := os.Getwd()
 	defer os.Chdir(orig)
 	os.Chdir(projDir)
 
-	srcFile := filepath.Join(projDir, "src_agents.md")
+	os.MkdirAll(filepath.Join(storeDir, "agents"), 0o755)
+	srcFile := filepath.Join(storeDir, "agents", "default.md")
 	os.WriteFile(srcFile, []byte("line one\nline two\n"), 0o644)
 
 	deployFile := filepath.Join(projDir, "AGENTS.md")
@@ -135,8 +140,8 @@ func TestDiffWithLocalEdit(t *testing.T) {
 	lf.Deployed.Plugins = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
 	lf.Deployed.AgentsMD = &lock.Entry{
-		StorePath:    srcFile,
-		DeployedPath: deployFile,
+		StorePath:    "agents/default.md",
+		DeployedPath: "AGENTS.md",
 		Hash:         hash,
 	}
 	lock.Save(projDir, lf)
@@ -144,7 +149,7 @@ func TestDiffWithLocalEdit(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(new(bytes.Buffer))
-	rootCmd.SetArgs([]string{"diff"})
+	rootCmd.SetArgs([]string{"diff", "--store", storeDir})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -160,12 +165,14 @@ func TestDiffWithLocalEdit(t *testing.T) {
 }
 
 func TestStatusShowsCorrectStates(t *testing.T) {
+	storeDir := setupStore(t)
 	projDir := t.TempDir()
 	orig, _ := os.Getwd()
 	defer os.Chdir(orig)
 	os.Chdir(projDir)
 
-	storeResDir := filepath.Join(projDir, "storefiles")
+	// Create resource files inside the store's resources directory
+	storeResDir := filepath.Join(storeDir, "resources", "myres")
 	os.MkdirAll(storeResDir, 0o755)
 
 	// Unchanged
@@ -203,17 +210,17 @@ func TestStatusShowsCorrectStates(t *testing.T) {
 	lf.Deployed.Skills = make(map[string]*lock.Entry)
 	lf.Deployed.Plugins = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = map[string]*lock.Entry{
-		"unchanged": {StorePath: srcUnchanged, DeployedPath: deployUnchanged, Hash: hashUnchanged},
-		"local":     {StorePath: srcLocal, DeployedPath: deployLocal, Hash: hashLocal},
-		"remote":    {StorePath: srcStore, DeployedPath: deployStore, Hash: hashStore},
-		"conflict":  {StorePath: srcConflict, DeployedPath: deployConflict, Hash: hashConflict},
+		"unchanged": {StorePath: "resources/myres/unchanged.txt", DeployedPath: "unchanged.txt", Hash: hashUnchanged},
+		"local":     {StorePath: "resources/myres/local.txt", DeployedPath: "local.txt", Hash: hashLocal},
+		"remote":    {StorePath: "resources/myres/remote.txt", DeployedPath: "remote.txt", Hash: hashStore},
+		"conflict":  {StorePath: "resources/myres/conflict.txt", DeployedPath: "conflict.txt", Hash: hashConflict},
 	}
 	lock.Save(projDir, lf)
 
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(new(bytes.Buffer))
-	rootCmd.SetArgs([]string{"status"})
+	rootCmd.SetArgs([]string{"status", "--store", storeDir})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
