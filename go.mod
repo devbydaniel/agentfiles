@@ -1,4 +1,4 @@
-module github.com/danielbenner/agentfiles
+module github.com/devbydaniel/agentfiles
 
 go 1.25.5
 

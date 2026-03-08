@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/danielbenner/agentfiles/internal/bundle"
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/bundle"
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 func setupStore(t *testing.T) *store.Store {

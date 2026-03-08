@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielbenner/agentfiles/internal/lock"
+	"github.com/devbydaniel/agentfiles/internal/lock"
 )
 
 // setupStore creates a minimal store with git init and required subdirs.

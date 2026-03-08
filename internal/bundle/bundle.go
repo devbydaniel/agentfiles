@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 // Bundle represents a parsed bundle TOML file.

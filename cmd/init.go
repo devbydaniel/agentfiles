@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/store"
 	"github.com/spf13/cobra"
 )
 

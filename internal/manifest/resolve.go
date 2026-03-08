@@ -1,8 +1,8 @@
 package manifest
 
 import (
-	"github.com/danielbenner/agentfiles/internal/bundle"
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/bundle"
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 // ResolvedManifest contains the fully expanded lists after resolving

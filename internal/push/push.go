@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/danielbenner/agentfiles/internal/fsutil"
-	"github.com/danielbenner/agentfiles/internal/lock"
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/fsutil"
+	"github.com/devbydaniel/agentfiles/internal/lock"
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 // Change describes a single asset that was (or would be) pushed.

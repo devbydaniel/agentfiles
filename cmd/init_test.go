@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/danielbenner/agentfiles/internal/manifest"
+	"github.com/devbydaniel/agentfiles/internal/manifest"
 )
 
 func TestInitCreatesManifest(t *testing.T) {

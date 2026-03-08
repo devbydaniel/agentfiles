@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/danielbenner/agentfiles/internal/apply"
-	"github.com/danielbenner/agentfiles/internal/manifest"
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/apply"
+	"github.com/devbydaniel/agentfiles/internal/manifest"
+	"github.com/devbydaniel/agentfiles/internal/store"
 	"github.com/spf13/cobra"
 )
 

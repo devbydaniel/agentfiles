@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/danielbenner/agentfiles/internal/apply"
-	"github.com/danielbenner/agentfiles/internal/lock"
-	"github.com/danielbenner/agentfiles/internal/manifest"
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/apply"
+	"github.com/devbydaniel/agentfiles/internal/lock"
+	"github.com/devbydaniel/agentfiles/internal/manifest"
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 func setupStore(t *testing.T) *store.Store {

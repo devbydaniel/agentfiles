@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/danielbenner/agentfiles/internal/push"
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/push"
+	"github.com/devbydaniel/agentfiles/internal/store"
 	"github.com/spf13/cobra"
 )
 

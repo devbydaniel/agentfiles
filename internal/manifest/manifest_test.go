@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/danielbenner/agentfiles/internal/manifest"
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/manifest"
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 func TestLoadBundleRef(t *testing.T) {

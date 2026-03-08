@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/danielbenner/agentfiles/internal/fsutil"
+	"github.com/devbydaniel/agentfiles/internal/fsutil"
 )
 
 // AddSkill copies a skill directory into store/skills/<dirname>/.

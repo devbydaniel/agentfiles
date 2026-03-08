@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielbenner/agentfiles/internal/lock"
-	"github.com/danielbenner/agentfiles/internal/manifest"
-	"github.com/danielbenner/agentfiles/internal/store"
+	"github.com/devbydaniel/agentfiles/internal/lock"
+	"github.com/devbydaniel/agentfiles/internal/manifest"
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 // setupStore creates a temp store with git init'd and required subdirs.

@@ -143,7 +143,7 @@ hash = "d4e5f6..."
 ## Install
 
 ```bash
-go install github.com/danielbenner/agentfiles@latest
+go install github.com/devbydaniel/agentfiles@latest
 ```
 
 The binary is called `agentfiles`. Create an alias:
