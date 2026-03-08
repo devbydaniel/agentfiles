@@ -23,8 +23,9 @@ const (
 )
 
 type Entry struct {
-	Source string `toml:"source"`
-	Hash   string `toml:"hash"`
+	StorePath    string `toml:"source"`
+	DeployedPath string `toml:"path"`
+	Hash         string `toml:"hash"`
 }
 
 type DeployedMap struct {
@@ -89,8 +90,8 @@ func Save(dir string, lf *LockFile) error {
 	return os.Rename(tmpName, path)
 }
 
-func (lf *LockFile) Record(assetType, name, sourcePath, hash string) error {
-	entry := &Entry{Source: sourcePath, Hash: hash}
+func (lf *LockFile) Record(assetType, name, sourcePath, deployedPath, hash string) error {
+	entry := &Entry{StorePath: sourcePath, DeployedPath: deployedPath, Hash: hash}
 	switch assetType {
 	case AssetAgentsMD:
 		lf.Deployed.AgentsMD = entry
@@ -125,6 +126,43 @@ func Hash(filePath string) (string, error) {
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// HashDirMapped hashes files using the directory structure from structDir but
+// reading file contents from contentDir. Each relative path found in structDir
+// is read from contentDir instead.
+func HashDirMapped(structDir, contentDir string) (string, error) {
+	var paths []string
+	err := filepath.WalkDir(structDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(structDir, path)
+		if err != nil {
+			return err
+		}
+		paths = append(paths, rel)
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	sort.Strings(paths)
+
+	h := sha256.New()
+	for _, rel := range paths {
+		fmt.Fprintf(h, "file:%s\n", rel)
+		fh, err := Hash(filepath.Join(contentDir, rel))
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(h, "hash:%s\n", fh)
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }

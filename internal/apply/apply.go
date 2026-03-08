@@ -74,7 +74,8 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 				return nil, fmt.Errorf("hashing agent md: %w", err)
 			}
 			relSource := filepath.Join("agents", resolved.AgentsMd+".md")
-			if err := lf.Record(lock.AssetAgentsMD, resolved.AgentsMd, relSource, h); err != nil {
+			deployedPath := primaryRegularPath(entries)
+			if err := lf.Record(lock.AssetAgentsMD, resolved.AgentsMd, relSource, deployedPath, h); err != nil {
 				return nil, err
 			}
 			res.Deployed++
@@ -116,7 +117,8 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 				return nil, fmt.Errorf("hashing skill %q: %w", name, err)
 			}
 			relSource := filepath.Join("skills", name) + "/"
-			if err := lf.Record(lock.AssetSkills, name, relSource, h); err != nil {
+			deployedPath := primaryRegularPath(entries)
+			if err := lf.Record(lock.AssetSkills, name, relSource, deployedPath, h); err != nil {
 				return nil, err
 			}
 			res.Deployed++
@@ -152,7 +154,8 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 					return nil, fmt.Errorf("hashing plugin %q: %w", name, err)
 				}
 				relSource := filepath.Join("plugins", name) + "/"
-				if err := lf.Record(lock.AssetPlugins, name, relSource, h); err != nil {
+				deployedPath := primaryRegularPath(entries)
+				if err := lf.Record(lock.AssetPlugins, name, relSource, deployedPath, h); err != nil {
 					return nil, err
 				}
 				res.Deployed++
@@ -182,7 +185,9 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 					return nil, fmt.Errorf("hashing resource %q: %w", name, err)
 				}
 				relSource := filepath.Join("resources", name) + "/"
-				if err := lf.Record(lock.AssetResources, name, relSource, h); err != nil {
+				// Record the resource name as deployed path so push can
+				// reconstruct the individual paths from the store directory.
+				if err := lf.Record(lock.AssetResources, name, relSource, name, h); err != nil {
 					return nil, err
 				}
 				res.Deployed++
@@ -305,6 +310,19 @@ func copyDir(dest, src string, force bool) (bool, string, error) {
 // deployResource copies the contents of a resource directory to repo root.
 func deployResource(repoDir, srcDir string, force bool) (bool, string, error) {
 	return copyDir(repoDir, srcDir, force)
+}
+
+// primaryRegularPath returns the Path of the first KindRegular entry.
+func primaryRegularPath(entries []layout.Entry) string {
+	for _, e := range entries {
+		if e.Kind == layout.KindRegular {
+			return e.Path
+		}
+	}
+	if len(entries) > 0 {
+		return entries[0].Path
+	}
+	return ""
 }
 
 func contains(slice []string, val string) bool {

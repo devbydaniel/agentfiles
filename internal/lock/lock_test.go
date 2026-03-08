@@ -12,9 +12,9 @@ func TestWriteAndReadBack(t *testing.T) {
 
 	lf := &LockFile{}
 	lf.Deployed.Skills = make(map[string]*Entry)
-	mustRecord(t, lf, AssetAgentsMD, "", "agents/ayunis-core.md", "abc123")
-	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", "def456")
-	mustRecord(t, lf, AssetSkills, "git-workflow", "skills/git-workflow/", "ghi789")
+	mustRecord(t, lf, AssetAgentsMD, "", "agents/ayunis-core.md", "AGENTS.md", "abc123")
+	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", ".pi/skills/browse", "def456")
+	mustRecord(t, lf, AssetSkills, "git-workflow", "skills/git-workflow/", ".pi/skills/git-workflow", "ghi789")
 
 	if err := Save(dir, lf); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -28,7 +28,7 @@ func TestWriteAndReadBack(t *testing.T) {
 	if got.Deployed.AgentsMD == nil {
 		t.Fatal("agents_md entry missing")
 	}
-	if got.Deployed.AgentsMD.Source != "agents/ayunis-core.md" || got.Deployed.AgentsMD.Hash != "abc123" {
+	if got.Deployed.AgentsMD.StorePath != "agents/ayunis-core.md" || got.Deployed.AgentsMD.Hash != "abc123" {
 		t.Errorf("agents_md mismatch: %+v", got.Deployed.AgentsMD)
 	}
 
@@ -38,10 +38,10 @@ func TestWriteAndReadBack(t *testing.T) {
 			t.Errorf("skill %q missing", name)
 			continue
 		}
-		if name == "browse" && (e.Source != "skills/browse/" || e.Hash != "def456") {
+		if name == "browse" && (e.StorePath != "skills/browse/" || e.Hash != "def456") {
 			t.Errorf("browse mismatch: %+v", e)
 		}
-		if name == "git-workflow" && (e.Source != "skills/git-workflow/" || e.Hash != "ghi789") {
+		if name == "git-workflow" && (e.StorePath != "skills/git-workflow/" || e.Hash != "ghi789") {
 			t.Errorf("git-workflow mismatch: %+v", e)
 		}
 	}
@@ -111,7 +111,7 @@ func TestLoadNonexistent(t *testing.T) {
 
 func TestRecordUnknownAssetType(t *testing.T) {
 	lf := &LockFile{}
-	if err := lf.Record("bogus", "", "", ""); err == nil {
+	if err := lf.Record("bogus", "", "", "", ""); err == nil {
 		t.Fatal("expected error for unknown asset type")
 	}
 }
@@ -160,9 +160,9 @@ func TestHashDirContentChange(t *testing.T) {
 	}
 }
 
-func mustRecord(t *testing.T, lf *LockFile, assetType, name, source, hash string) {
+func mustRecord(t *testing.T, lf *LockFile, assetType, name, source, path, hash string) {
 	t.Helper()
-	if err := lf.Record(assetType, name, source, hash); err != nil {
+	if err := lf.Record(assetType, name, source, path, hash); err != nil {
 		t.Fatalf("Record(%q, %q): %v", assetType, name, err)
 	}
 }

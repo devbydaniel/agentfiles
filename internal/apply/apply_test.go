@@ -303,22 +303,22 @@ func TestApplyWritesLockFile(t *testing.T) {
 		t.Fatal("lock file missing agents_md entry")
 	}
 	// Source should be store-relative, not absolute.
-	if strings.HasPrefix(lf.Deployed.AgentsMD.Source, "/") {
-		t.Errorf("agents_md source is absolute: %s", lf.Deployed.AgentsMD.Source)
+	if strings.HasPrefix(lf.Deployed.AgentsMD.StorePath, "/") {
+		t.Errorf("agents_md source is absolute: %s", lf.Deployed.AgentsMD.StorePath)
 	}
-	if lf.Deployed.AgentsMD.Source != filepath.Join("agents", "main.md") {
-		t.Errorf("agents_md source = %q, want %q", lf.Deployed.AgentsMD.Source, filepath.Join("agents", "main.md"))
+	if lf.Deployed.AgentsMD.StorePath != filepath.Join("agents", "main.md") {
+		t.Errorf("agents_md source = %q, want %q", lf.Deployed.AgentsMD.StorePath, filepath.Join("agents", "main.md"))
 	}
 
 	skill, ok := lf.Deployed.Skills["golang"]
 	if !ok {
 		t.Fatal("lock file missing skill 'golang'")
 	}
-	if strings.HasPrefix(skill.Source, "/") {
-		t.Errorf("skill source is absolute: %s", skill.Source)
+	if strings.HasPrefix(skill.StorePath, "/") {
+		t.Errorf("skill source is absolute: %s", skill.StorePath)
 	}
-	if skill.Source != "skills/golang/" {
-		t.Errorf("skill source = %q, want %q", skill.Source, "skills/golang/")
+	if skill.StorePath != "skills/golang/" {
+		t.Errorf("skill source = %q, want %q", skill.StorePath, "skills/golang/")
 	}
 }
 
@@ -353,8 +353,8 @@ func TestApplyWritesLockForPluginsAndResources(t *testing.T) {
 	if !ok {
 		t.Fatal("lock file missing plugin 'myplugin'")
 	}
-	if plugin.Source != "plugins/myplugin/" {
-		t.Errorf("plugin source = %q, want %q", plugin.Source, "plugins/myplugin/")
+	if plugin.StorePath != "plugins/myplugin/" {
+		t.Errorf("plugin source = %q, want %q", plugin.StorePath, "plugins/myplugin/")
 	}
 	if plugin.Hash == "" {
 		t.Error("plugin hash is empty")
@@ -364,8 +364,8 @@ func TestApplyWritesLockForPluginsAndResources(t *testing.T) {
 	if !ok {
 		t.Fatal("lock file missing resource 'myresource'")
 	}
-	if resource.Source != "resources/myresource/" {
-		t.Errorf("resource source = %q, want %q", resource.Source, "resources/myresource/")
+	if resource.StorePath != "resources/myresource/" {
+		t.Errorf("resource source = %q, want %q", resource.StorePath, "resources/myresource/")
 	}
 	if resource.Hash == "" {
 		t.Error("resource hash is empty")

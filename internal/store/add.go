@@ -2,10 +2,11 @@ package store
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/danielbenner/agentfiles/internal/fsutil"
 )
 
 // AddSkill copies a skill directory into store/skills/<dirname>/.
@@ -102,35 +103,5 @@ func (s *Store) addDir(srcPath, parentDir string, force bool) (string, bool, err
 		}
 	}
 
-	return name, overwritten, copyDir(abs, dest)
-}
-
-// copyDir recursively copies src directory to dst, preserving file permissions.
-func copyDir(src, dst string) error {
-	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(dst, rel)
-
-		if d.IsDir() {
-			return os.MkdirAll(target, 0o755)
-		}
-
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(target, data, info.Mode())
-	})
+	return name, overwritten, fsutil.CopyDir(abs, dest)
 }
