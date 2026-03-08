@@ -14,6 +14,21 @@ import (
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show the status of deployed files compared to lock and store",
+	Long: `Show the sync status of every deployed asset.
+
+Compares three versions of each asset:
+  - The deployed file in the repo (what's on disk now)
+  - The lock file hash (what was deployed by "af apply")
+  - The store file (the current source of truth)
+
+Possible states:
+  unchanged         Deployed = lock = store (everything in sync)
+  modified locally  Deployed ≠ lock (you edited the file; push to propagate)
+  modified in store Store ≠ lock (store updated; apply --force to update)
+  conflict          Both deployed and store differ from lock
+  missing           File not found on disk or in store
+
+Requires a prior "af apply" (needs .agentfiles.lock).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := store.Open(storePath)
 		if err != nil {

@@ -14,6 +14,19 @@ import (
 var listCmd = &cobra.Command{
 	Use:   "list <skills|bundles|agents|plugins|resources>",
 	Short: "List items in the agentfiles store",
+	Long: `List assets in the source store by type.
+
+Types:
+  skills      Skill directories (each containing SKILL.md)
+  agents      Agent instruction files (shown without .md extension)
+  bundles     Bundle definitions (shown without .toml extension)
+  plugins     Plugin directories
+  resources   Resource directories
+
+Examples:
+  af list skills
+  af list bundles
+  af list agents`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := store.Open(storePath)

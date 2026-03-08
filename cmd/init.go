@@ -24,7 +24,27 @@ var gitignoreByLayout = map[string][]string{
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize an .agentfiles manifest in the current directory",
-	Long:  "Creates an .agentfiles manifest in the current directory. Use --bundle and --layout flags for non-interactive mode, or run without flags for interactive selection.",
+	Long: `Create an .agentfiles manifest in the current directory.
+
+The manifest declares which bundle (or individual assets) and layout this
+repo uses. Run "af apply" after init to deploy the files.
+
+Non-interactive mode (both flags):
+  af init --bundle backend --layout pi
+
+Interactive mode (no flags):
+  Lists available bundles from the store and prompts for selection.
+
+Layouts control where deployed files are placed:
+  pi       AGENTS.md + .pi/skills/ + .pi/plugins/
+  claude   CLAUDE.md + .claude/skills/ + .claude/plugins/
+  cursor   .cursorrules + .cursor/skills/ + .cursor/plugins/
+  all      All of the above (pi primary, claude symlinks, cursor copies)
+
+Layout defaults to "pi" if not specified.
+
+Refuses to overwrite an existing .agentfiles — use "af apply" to redeploy.
+Prints suggested .gitignore entries after creating the manifest.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		bundleFlag, _ := cmd.Flags().GetString("bundle")
 		layoutFlag, _ := cmd.Flags().GetString("layout")

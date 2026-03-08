@@ -13,7 +13,30 @@ import (
 var applyCmd = &cobra.Command{
 	Use:   "apply",
 	Short: "Deploy agent files from the store into the current repository",
-	Long:  "Reads .agentfiles from the current directory, resolves assets from the store, and copies them into the repo according to the configured layout.",
+	Long: `Deploy agent files from the source store into the current repository.
+
+Reads the .agentfiles manifest in the current directory, resolves the
+referenced bundle or cherry-picked assets from the store, and copies
+them to the paths determined by the configured layout.
+
+What gets deployed (per layout):
+  pi:      AGENTS.md, .pi/skills/<name>/, .pi/plugins/<name>/
+  claude:  CLAUDE.md, .claude/skills/<name>/, .claude/plugins/<name>/
+  cursor:  .cursorrules, .cursor/skills/<name>/, .cursor/plugins/<name>/
+  all:     All of the above (pi primary + claude symlinks + cursor copies)
+
+Resources are always copied to the repo root regardless of layout.
+
+Creates/updates .agentfiles.lock to track what was deployed and content
+hashes. The lock file is used by "af push", "af diff", and "af status".
+
+Without --force, existing files are skipped with a warning and not
+recorded in the lock file. Use --force to overwrite.
+
+Examples:
+  af apply                    # deploy everything in the manifest
+  af apply --force            # overwrite existing files
+  af apply --skill browse     # deploy only the "browse" skill`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := store.Open(storePath)
 		if err != nil {

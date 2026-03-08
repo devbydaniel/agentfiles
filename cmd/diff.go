@@ -15,6 +15,15 @@ import (
 var diffCmd = &cobra.Command{
 	Use:   "diff",
 	Short: "Show differences between deployed files and store sources",
+	Long: `Show a line-by-line diff between deployed files in the current repo
+and their corresponding source files in the store.
+
+Reads .agentfiles.lock to find deployed assets and their store paths.
+For directory assets (skills, plugins), diffs each file individually.
+Prints "clean" when all deployed files match the store.
+
+Useful for seeing what you've changed locally before running "af push",
+or what's changed in the store since your last "af apply".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := store.Open(storePath)
 		if err != nil {

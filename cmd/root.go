@@ -13,7 +13,26 @@ var storePath string
 var rootCmd = &cobra.Command{
 	Use:   "af",
 	Short: "agentfiles — portable context files for AI coding agents",
-	Long:  "agentfiles (af) manages portable context files that AI coding agents can use across projects.",
+	Long: `agentfiles (af) manages a central source store of AI agent config files
+(skills, agent instructions, plugins, resources) and deploys them into
+repositories using layout presets for different tools (pi, Claude Code, Cursor).
+
+Key concepts:
+  Store     Git-managed directory (~/.agentfiles) holding all agent assets.
+  Manifest  A .agentfiles TOML file in each repo declaring what it needs.
+  Bundle    A named grouping of assets (store/bundles/<name>.toml).
+  Layout    How assets map to files on disk (pi, claude, cursor, all).
+
+Typical workflow:
+  af init-store                       # create the store (once)
+  af add skill ./my-skill/            # populate the store
+  af init --bundle backend --layout pi  # set up a repo
+  af apply                            # deploy files into the repo
+  # ... edit files in context ...
+  af push                             # send edits back to the store
+  af apply --force                    # update other repos
+
+Use "af <command> --help" for detailed usage of each command.`,
 }
 
 func Execute() {

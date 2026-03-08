@@ -11,7 +11,22 @@ import (
 var pushCmd = &cobra.Command{
 	Use:   "push",
 	Short: "Push modified deployed files back to the store",
-	Long:  "Compares deployed files to their lock hashes and copies changed files back to the agentfiles store.",
+	Long: `Push locally modified agent files back to the source store.
+
+Reads .agentfiles.lock, hashes each deployed file on disk, and compares
+to the hash recorded at deploy time. Changed files are copied back to
+the store at their original source path.
+
+After pushing, commit in the store (cd ~/.agentfiles && git commit)
+and run "af apply --force" in other repos to propagate changes.
+
+Requires a prior "af apply" (needs .agentfiles.lock to exist).
+Use --dry-run to preview changes without modifying the store.
+
+Examples:
+  af push                     # push all local changes
+  af push --dry-run           # show what would be pushed
+  af push --skill browse      # push only the browse skill`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := store.Open(storePath)
 		if err != nil {
