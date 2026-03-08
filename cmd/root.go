@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
+	"github.com/danielbenner/agentfiles/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -25,10 +25,5 @@ func Execute() {
 }
 
 func init() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "."
-	}
-	defaultStore := filepath.Join(home, ".agentfiles")
-	rootCmd.PersistentFlags().StringVar(&storePath, "store", defaultStore, "path to the agentfiles store")
+	rootCmd.PersistentFlags().StringVar(&storePath, "store", store.DefaultStorePath(), "path to the agentfiles store")
 }
