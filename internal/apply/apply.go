@@ -26,14 +26,7 @@ type ApplyResult struct {
 	Warnings []string
 }
 
-// lookupStore retrieves a store by name, returning a clear error if not found.
-func lookupStore(stores map[string]*store.Store, name string) (*store.Store, error) {
-	s, ok := stores[name]
-	if !ok || s == nil {
-		return nil, fmt.Errorf("store %q not found or nil in stores map", name)
-	}
-	return s, nil
-}
+
 
 // lockKey returns the key used in the lock file for an asset. Assets from the
 // default store use just the name; assets from other stores are prefixed with
@@ -70,7 +63,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 
 	// Deploy agent md (unless skill-only filter is set).
 	if opts.SkillOnly == "" && resolved.AgentsMd.Name != "" {
-		s, err := lookupStore(stores, resolved.AgentsMd.Store)
+		s, err := store.LookupStore(stores, resolved.AgentsMd.Store)
 		if err != nil {
 			return nil, fmt.Errorf("agent %q: %w", resolved.AgentsMd.Name, err)
 		}
@@ -125,7 +118,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		}
 	}
 	for _, skill := range resolvedSkills {
-		s, err := lookupStore(stores, skill.Store)
+		s, err := store.LookupStore(stores, skill.Store)
 		if err != nil {
 			return nil, fmt.Errorf("skill %q: %w", skill.Name, err)
 		}
@@ -167,7 +160,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 	// Deploy plugins (unless skill-only filter).
 	if opts.SkillOnly == "" {
 		for _, plugin := range resolved.Plugins {
-			s, err := lookupStore(stores, plugin.Store)
+			s, err := store.LookupStore(stores, plugin.Store)
 			if err != nil {
 				return nil, fmt.Errorf("plugin %q: %w", plugin.Name, err)
 			}
@@ -210,7 +203,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 	// Deploy resources (layout-independent, copy to repo root).
 	if opts.SkillOnly == "" {
 		for _, resource := range resolved.Resources {
-			s, err := lookupStore(stores, resource.Store)
+			s, err := store.LookupStore(stores, resource.Store)
 			if err != nil {
 				return nil, fmt.Errorf("resource %q: %w", resource.Name, err)
 			}

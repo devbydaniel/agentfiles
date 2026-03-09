@@ -106,3 +106,13 @@ func InitFromClone(url, path string) (*Store, error) {
 
 	return Open(abs)
 }
+
+// LookupStore retrieves a store by name from a map, returning a clear error
+// if the name is not found or the value is nil.
+func LookupStore(stores map[string]*Store, name string) (*Store, error) {
+	s, ok := stores[name]
+	if !ok || s == nil {
+		return nil, fmt.Errorf("store %q not found", name)
+	}
+	return s, nil
+}

@@ -34,10 +34,11 @@ Examples:
 			return err
 		}
 
+		stores := map[string]*store.Store{"default": s}
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		skill, _ := cmd.Flags().GetString("skill")
 
-		res, err := push.Push(s, ".", push.Options{
+		res, err := push.Push(stores, "default", ".", push.Options{
 			DryRun:    dryRun,
 			SkillOnly: skill,
 		})

@@ -3,6 +3,7 @@ package push
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/devbydaniel/agentfiles/internal/apply"
@@ -75,6 +76,16 @@ func applyToRepo(t *testing.T, s *store.Store, m *manifest.Manifest, repo string
 	}
 }
 
+func pushFromRepo(t *testing.T, s *store.Store, repo string, opts Options) *Result {
+	t.Helper()
+	stores := map[string]*store.Store{"default": s}
+	res, err := Push(stores, "default", repo, opts)
+	if err != nil {
+		t.Fatalf("Push: %v", err)
+	}
+	return res
+}
+
 func TestPushModifiedSkill(t *testing.T) {
 	s := setupStore(t)
 	addAgent(t, s, "main", "# Agent")
@@ -90,10 +101,7 @@ func TestPushModifiedSkill(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push: %v", err)
-	}
+	res := pushFromRepo(t, s, repo, Options{})
 
 	if len(res.Changes) != 1 {
 		t.Fatalf("expected 1 change, got %d", len(res.Changes))
@@ -112,10 +120,7 @@ func TestPushModifiedSkill(t *testing.T) {
 	}
 
 	// Verify lock was updated — pushing again should find no changes.
-	res2, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push (2nd): %v", err)
-	}
+	res2 := pushFromRepo(t, s, repo, Options{})
 	if len(res2.Changes) != 0 {
 		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
 	}
@@ -130,10 +135,7 @@ func TestPushUnmodifiedNoop(t *testing.T) {
 	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Skills: []string{"browse"}}
 	applyToRepo(t, s, m, repo)
 
-	res, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push: %v", err)
-	}
+	res := pushFromRepo(t, s, repo, Options{})
 	if len(res.Changes) != 0 {
 		t.Errorf("expected 0 changes, got %d", len(res.Changes))
 	}
@@ -157,10 +159,7 @@ func TestPushDryRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := Push(s, repo, Options{DryRun: true})
-	if err != nil {
-		t.Fatalf("Push: %v", err)
-	}
+	res := pushFromRepo(t, s, repo, Options{DryRun: true})
 	if len(res.Changes) != 1 {
 		t.Fatalf("dry-run expected 1 change, got %d", len(res.Changes))
 	}
@@ -181,7 +180,7 @@ func TestPushDryRun(t *testing.T) {
 	}
 	// Do a real push now and check the old hash is still there.
 	origHash := lf.Deployed.Skills["browse"].Hash
-	res2, _ := Push(s, repo, Options{DryRun: true})
+	res2 := pushFromRepo(t, s, repo, Options{DryRun: true})
 	lf2, _ := lock.Load(repo)
 	if lf2.Deployed.Skills["browse"].Hash != origHash {
 		t.Error("lock hash changed during dry-run")
@@ -203,10 +202,7 @@ func TestPushSkillFilter(t *testing.T) {
 	os.WriteFile(filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), []byte("# Browse MOD"), 0o644)
 	os.WriteFile(filepath.Join(repo, ".pi", "skills", "git", "SKILL.md"), []byte("# Git MOD"), 0o644)
 
-	res, err := Push(s, repo, Options{SkillOnly: "browse"})
-	if err != nil {
-		t.Fatalf("Push: %v", err)
-	}
+	res := pushFromRepo(t, s, repo, Options{SkillOnly: "browse"})
 	if len(res.Changes) != 1 {
 		t.Fatalf("expected 1 change, got %d", len(res.Changes))
 	}
@@ -237,7 +233,7 @@ func TestPushNoLockFile(t *testing.T) {
 	s := setupStore(t)
 	repo := t.TempDir()
 
-	_, err := Push(s, repo, Options{})
+	_, err := Push(map[string]*store.Store{"default": s}, "default", repo, Options{})
 	if err == nil {
 		t.Fatal("expected error when no lock file exists")
 	}
@@ -264,10 +260,7 @@ func TestPushModifiedPlugin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push: %v", err)
-	}
+	res := pushFromRepo(t, s, repo, Options{})
 	if len(res.Changes) != 1 {
 		t.Fatalf("expected 1 change, got %d", len(res.Changes))
 	}
@@ -288,10 +281,7 @@ func TestPushModifiedPlugin(t *testing.T) {
 	}
 
 	// Second push should find no changes.
-	res2, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push (2nd): %v", err)
-	}
+	res2 := pushFromRepo(t, s, repo, Options{})
 	if len(res2.Changes) != 0 {
 		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
 	}
@@ -323,10 +313,7 @@ func TestPushModifiedResource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push: %v", err)
-	}
+	res := pushFromRepo(t, s, repo, Options{})
 	if len(res.Changes) != 1 {
 		t.Fatalf("expected 1 change, got %d", len(res.Changes))
 	}
@@ -356,10 +343,7 @@ func TestPushModifiedResource(t *testing.T) {
 	}
 
 	// Second push should find no changes.
-	res2, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push (2nd): %v", err)
-	}
+	res2 := pushFromRepo(t, s, repo, Options{})
 	if len(res2.Changes) != 0 {
 		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
 	}
@@ -374,10 +358,7 @@ func TestPushUnmodifiedPlugin(t *testing.T) {
 	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Plugins: []string{"myplugin"}}
 	applyToRepo(t, s, m, repo)
 
-	res, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push: %v", err)
-	}
+	res := pushFromRepo(t, s, repo, Options{})
 	if len(res.Changes) != 0 {
 		t.Errorf("expected 0 changes, got %d", len(res.Changes))
 	}
@@ -392,10 +373,7 @@ func TestPushUnmodifiedResource(t *testing.T) {
 	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Resources: []string{"configs"}}
 	applyToRepo(t, s, m, repo)
 
-	res, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push: %v", err)
-	}
+	res := pushFromRepo(t, s, repo, Options{})
 	if len(res.Changes) != 0 {
 		t.Errorf("expected 0 changes, got %d", len(res.Changes))
 	}
@@ -414,10 +392,7 @@ func TestPushModifiedAgentMd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := Push(s, repo, Options{})
-	if err != nil {
-		t.Fatalf("Push: %v", err)
-	}
+	res := pushFromRepo(t, s, repo, Options{})
 	if len(res.Changes) != 1 {
 		t.Fatalf("expected 1 change, got %d", len(res.Changes))
 	}
@@ -432,5 +407,133 @@ func TestPushModifiedAgentMd(t *testing.T) {
 	}
 	if string(data) != "# Updated agent" {
 		t.Errorf("store agent = %q", data)
+	}
+}
+
+func TestPushMultiStore(t *testing.T) {
+	// Create two stores.
+	workStore := setupStore(t)
+	personalStore := setupStore(t)
+
+	// Add an agent and skill to the work store (default).
+	addAgent(t, workStore, "main", "# Work Agent")
+	addSkill(t, workStore, "backend", "# Backend skill")
+
+	// Add a skill to the personal store.
+	addSkill(t, personalStore, "golang", "# Golang skill")
+
+	stores := map[string]*store.Store{
+		"work":     workStore,
+		"personal": personalStore,
+	}
+
+	// Apply backend from work store (default).
+	m2 := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Skills: []string{"backend"}}
+	repo2 := t.TempDir()
+	if _, err := apply.Apply(stores, "work", m2, repo2, apply.Options{Force: true}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	// Now manually deploy golang skill from personal store and record it.
+	golangDeployed := filepath.Join(repo2, ".pi", "skills", "golang")
+	if err := os.MkdirAll(golangDeployed, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(golangDeployed, "SKILL.md"), []byte("# Golang skill"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	lf2, err := lock.Load(repo2)
+	if err != nil {
+		t.Fatalf("Load lock: %v", err)
+	}
+	golangHash, err := lock.HashDir(golangDeployed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lf2.Deployed.Skills["golang"] = &lock.Entry{
+		Store:        "personal",
+		StorePath:    "skills/golang",
+		DeployedPath: ".pi/skills/golang",
+		Hash:         golangHash,
+	}
+	if err := lock.Save(repo2, lf2); err != nil {
+		t.Fatal(err)
+	}
+
+	// Modify both deployed skills.
+	if err := os.WriteFile(filepath.Join(repo2, ".pi", "skills", "backend", "SKILL.md"), []byte("# Backend MODIFIED"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo2, ".pi", "skills", "golang", "SKILL.md"), []byte("# Golang MODIFIED"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Push — should route changes to the correct stores.
+	res, err := Push(stores, "work", repo2, Options{})
+	if err != nil {
+		t.Fatalf("Push: %v", err)
+	}
+	if len(res.Changes) != 2 {
+		t.Fatalf("expected 2 changes, got %d", len(res.Changes))
+	}
+
+	// Verify backend was pushed to work store.
+	data, err := os.ReadFile(filepath.Join(workStore.SkillsDir(), "backend", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "# Backend MODIFIED" {
+		t.Errorf("work store backend = %q", data)
+	}
+
+	// Verify golang was pushed to personal store.
+	data, err = os.ReadFile(filepath.Join(personalStore.SkillsDir(), "golang", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "# Golang MODIFIED" {
+		t.Errorf("personal store golang = %q", data)
+	}
+
+	// Verify work store does NOT have golang.
+	if _, err := os.Stat(filepath.Join(workStore.SkillsDir(), "golang")); !os.IsNotExist(err) {
+		t.Error("golang skill should not exist in work store")
+	}
+
+	// Second push should find no changes.
+	res2, err := Push(stores, "work", repo2, Options{})
+	if err != nil {
+		t.Fatalf("Push (2nd): %v", err)
+	}
+	if len(res2.Changes) != 0 {
+		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
+	}
+}
+
+func TestPushUnknownStoreError(t *testing.T) {
+	s := setupStore(t)
+	addAgent(t, s, "main", "# Agent")
+	addSkill(t, s, "browse", "# Browse")
+
+	repo := t.TempDir()
+	stores := map[string]*store.Store{"default": s}
+	if _, err := apply.Apply(stores, "default", &manifest.Manifest{
+		Layout: "pi", AgentsMd: "main", Skills: []string{"browse"},
+	}, repo, apply.Options{Force: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Manually set a store name that doesn't exist in the map.
+	lf, _ := lock.Load(repo)
+	lf.Deployed.Skills["browse"].Store = "nonexistent"
+	lock.Save(repo, lf)
+
+	_, err := Push(stores, "default", repo, Options{})
+	if err == nil {
+		t.Fatal("expected error for unknown store")
+	}
+	if !strings.Contains(err.Error(), "nonexistent") {
+		t.Errorf("error should mention store name: %v", err)
 	}
 }

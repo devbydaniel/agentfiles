@@ -168,7 +168,7 @@ include = ["configs"]
 	mustWrite(t, skillDeployed, "# My Skill\nModified in repo\n")
 
 	// ── 7. push → verify change in store ───────────────────────────
-	pushRes, err := push.Push(s, repo1, push.Options{})
+	pushRes, err := push.Push(map[string]*store.Store{"default": s}, "default", repo1, push.Options{})
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}
@@ -247,7 +247,7 @@ include = ["configs"]
 	}
 
 	// Verify a second push from repo2 reports no changes (everything in sync).
-	pushRes2, err := push.Push(s, repo2, push.Options{})
+	pushRes2, err := push.Push(map[string]*store.Store{"default": s}, "default", repo2, push.Options{})
 	if err != nil {
 		t.Fatalf("push repo2: %v", err)
 	}
@@ -516,7 +516,7 @@ include = ["my-skill"]
 	}
 
 	// Push should detect the change.
-	pushRes, err := push.Push(s, repo, push.Options{})
+	pushRes, err := push.Push(map[string]*store.Store{"default": s}, "default", repo, push.Options{})
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}

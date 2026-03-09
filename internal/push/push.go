@@ -31,9 +31,19 @@ type Options struct {
 	SkillOnly string
 }
 
+// entryStore returns the store for the given lock entry. If the entry has no
+// Store field, the defaultStore is used.
+func entryStore(stores map[string]*store.Store, defaultStore string, e *lock.Entry) (*store.Store, error) {
+	name := e.Store
+	if name == "" {
+		name = defaultStore
+	}
+	return store.LookupStore(stores, name)
+}
+
 // Push compares deployed files to their lock hashes and copies changed files
 // back to the store. Returns a result describing what changed.
-func Push(s *store.Store, repoDir string, opts Options) (*Result, error) {
+func Push(stores map[string]*store.Store, defaultStore string, repoDir string, opts Options) (*Result, error) {
 	lockPath := filepath.Join(repoDir, lock.FileName)
 	if _, err := os.Stat(lockPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("no lock file found — run af apply first")
@@ -49,6 +59,10 @@ func Push(s *store.Store, repoDir string, opts Options) (*Result, error) {
 	// Push agents_md (unless filtering by skill).
 	if opts.SkillOnly == "" && lf.Deployed.AgentsMD != nil {
 		e := lf.Deployed.AgentsMD
+		s, err := entryStore(stores, defaultStore, e)
+		if err != nil {
+			return nil, fmt.Errorf("pushing agent md: %w", err)
+		}
 		deployed := filepath.Join(repoDir, e.DeployedPath)
 		ch, err := pushFile(deployed, filepath.Join(s.Root, e.StorePath), e, "agents_md", lock.AssetAgentsMD, opts.DryRun)
 		if err != nil {
@@ -68,6 +82,10 @@ func Push(s *store.Store, repoDir string, opts Options) (*Result, error) {
 		if opts.SkillOnly != "" && name != opts.SkillOnly {
 			continue
 		}
+		s, err := entryStore(stores, defaultStore, e)
+		if err != nil {
+			return nil, fmt.Errorf("pushing skill %q: %w", name, err)
+		}
 		deployed := filepath.Join(repoDir, e.DeployedPath)
 		ch, err := pushDir(deployed, filepath.Join(s.Root, e.StorePath), e, name, lock.AssetSkills, opts.DryRun)
 		if err != nil {
@@ -85,6 +103,10 @@ func Push(s *store.Store, repoDir string, opts Options) (*Result, error) {
 	// Push plugins (unless filtering by skill).
 	if opts.SkillOnly == "" {
 		for name, e := range lf.Deployed.Plugins {
+			s, err := entryStore(stores, defaultStore, e)
+			if err != nil {
+				return nil, fmt.Errorf("pushing plugin %q: %w", name, err)
+			}
 			deployed := filepath.Join(repoDir, e.DeployedPath)
 			ch, err := pushDir(deployed, filepath.Join(s.Root, e.StorePath), e, name, lock.AssetPlugins, opts.DryRun)
 			if err != nil {
@@ -106,6 +128,10 @@ func Push(s *store.Store, repoDir string, opts Options) (*Result, error) {
 	// individual top-level children from the store's resource directory.
 	if opts.SkillOnly == "" {
 		for name, e := range lf.Deployed.Resources {
+			s, err := entryStore(stores, defaultStore, e)
+			if err != nil {
+				return nil, fmt.Errorf("pushing resource %q: %w", name, err)
+			}
 			storeResDir := filepath.Join(s.Root, e.StorePath)
 			ch, err := pushResource(repoDir, storeResDir, e, name, opts.DryRun)
 			if err != nil {
