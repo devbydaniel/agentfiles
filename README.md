@@ -35,9 +35,11 @@ A git repository (default `~/.agentfiles/`) containing all your agent assets:
 │   │       └── rules.json
 │   └── editorconfig/
 │       └── .editorconfig
-└── bundles/          # named groupings of assets
-    ├── assistant.toml
-    └── backend.toml
+├── bundles/          # named groupings of assets
+│   ├── assistant.toml
+│   └── backend.toml
+├── registry.toml     # central registry: shared team config (optional)
+└── registry.local.toml  # per-developer paths and overrides (gitignored)
 ```
 
 The store is just a git repo. You manage it with normal git operations (commit, push, pull, branch).
@@ -75,6 +77,53 @@ exclude = []
 include = ["cursor-config", "editorconfig"]
 exclude = []
 ```
+
+### Registry (`registry.toml` + `registry.local.toml`)
+
+An optional central registry in the store that maps repositories to their bundle/layout configuration. Instead of `cd`-ing into each repo to run `af init`, you declare all deployments in one place and batch-apply them with `af apply-all`.
+
+The registry uses **two files** to support team workflows:
+
+**`registry.toml`** — shared team config (committed). Uses logical names so paths stay developer-independent:
+
+```toml
+# ~/.agentfiles/registry.toml
+
+[[repos]]
+name = "api-server"
+bundle = "backend"
+layout = "pi"
+
+[[repos]]
+name = "web-app"
+bundle = "frontend"
+layout = "all"
+skills_add = ["browse"]
+```
+
+**`registry.local.toml`** — per-developer paths and overrides (gitignored):
+
+```toml
+# ~/.agentfiles/registry.local.toml
+
+[[repos]]
+name = "api-server"
+path = "~/dev/api-server"
+layout = "claude"              # optional: override layout
+
+[[repos]]
+name = "web-app"
+path = "~/work/web-app"
+skip = true                    # optional: skip this repo
+```
+
+**Merge rules:**
+- Named repos in `registry.toml` get their `path` from the matching local entry. Named repos without a local entry are silently skipped (the dev doesn't have that repo checked out).
+- Local entries can override `layout`, `skills_add`, and `skills_remove`.
+- Setting `skip = true` in a local entry excludes that repo from `apply-all`.
+- For **solo use** (no team), you can put `path` directly in `registry.toml` and skip the local file entirely.
+
+The registry is **additive** to the per-repo workflow. Repos can still have their own `.agentfiles` managed manually — the registry simply provides a central view and batch operations. When `af apply-all` runs, it writes/updates the `.agentfiles` manifest in each registered repo to keep it in sync with the registry.
 
 ### Manifest (`.agentfiles`)
 
@@ -274,6 +323,21 @@ af apply --skill browse     # deploy only one skill
 
 Without `--force`, existing files are skipped with a warning. The lock file only records assets that were actually deployed (not skipped).
 
+### `af apply-all`
+
+Deploy agent files to every repo listed in the central registry (`registry.toml` in the store). For each entry the command:
+
+1. Creates the target directory if it doesn't exist
+2. Writes/updates the `.agentfiles` manifest from the registry entry
+3. Runs `apply --force` to deploy all assets
+
+```bash
+af apply-all              # deploy to all registered repos
+af apply-all --dry-run    # show what would be done, don't deploy
+```
+
+This is the fastest way to propagate store changes (new skills, updated agent instructions) to all your projects at once. Repos that aren't in the registry are unaffected.
+
 ### `af push`
 
 Detect local edits to deployed files and copy them back to the source store.
@@ -391,6 +455,9 @@ vim ~/.agentfiles/bundles/backend.toml  # add "new-skill" to skills.include
 # Re-apply in each repo
 cd ~/project-1 && af apply --force
 cd ~/project-2 && af apply --force
+
+# Or, if using the registry, just:
+af apply-all
 ```
 
 ### Checking for drift across repos
@@ -518,6 +585,40 @@ exclude = []
 [resources]
 include = ["cursor-config"]
 exclude = []
+```
+
+### Registry (`registry.toml`)
+
+Optional. Lives in the store root. Shared team config — committed to git.
+
+```toml
+# Named repos (team use — paths come from registry.local.toml)
+[[repos]]
+name = "api-server"              # logical name, matched in local file
+bundle = "backend"               # required: bundle name
+layout = "pi"                    # pi | claude | cursor | all (default: pi)
+
+# Path-only repos (solo use — no local file needed)
+[[repos]]
+path = "~/dev/project-b"         # target directory (~ expanded)
+bundle = "frontend"
+layout = "all"
+skills_add = ["browse"]          # optional: add skills on top of bundle
+skills_remove = ["unwanted"]     # optional: remove skills from bundle
+```
+
+### Registry Local (`registry.local.toml`)
+
+Optional. Lives in the store root. Per-developer overrides — gitignored.
+
+```toml
+[[repos]]
+name = "api-server"              # matches name in registry.toml
+path = "~/dev/api-server"        # required: where this dev has the repo
+layout = "claude"                # optional: override layout
+skills_add = ["extra"]           # optional: add more skills locally
+skills_remove = ["unwanted"]     # optional: remove skills locally
+skip = false                     # optional: set true to exclude from apply-all
 ```
 
 ### Lock File (`.agentfiles.lock`)
