@@ -73,7 +73,7 @@ Prints suggested .gitignore entries after creating the manifest.`,
 			layoutName = layoutFlag
 		} else {
 			// Interactive mode
-			s, err := store.Open(storePath)
+			s, err := openStore()
 			if err != nil {
 				return fmt.Errorf("opening store: %w", err)
 			}

@@ -25,7 +25,7 @@ Prints "clean" when all deployed files match the store.
 Useful for seeing what you've changed locally before running "af push",
 or what's changed in the store since your last "af apply".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stores, defaultStore, err := openStoresForLock()
+		stores, defaultStore, err := openStores()
 		if err != nil {
 			return err
 		}

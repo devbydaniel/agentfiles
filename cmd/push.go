@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/devbydaniel/agentfiles/internal/push"
-	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var pushCmd = &cobra.Command{
@@ -29,16 +28,15 @@ Examples:
   af push --dry-run           # show what would be pushed
   af push --skill browse      # push only the browse skill`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s, err := store.Open(storePath)
+		stores, defaultStore, err := openStores()
 		if err != nil {
 			return err
 		}
 
-		stores := map[string]*store.Store{"default": s}
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		skill, _ := cmd.Flags().GetString("skill")
 
-		res, err := push.Push(stores, "default", ".", push.Options{
+		res, err := push.Push(stores, defaultStore, ".", push.Options{
 			DryRun:    dryRun,
 			SkillOnly: skill,
 		})

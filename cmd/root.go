@@ -5,11 +5,12 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-
-	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
-var storePath string
+var (
+	storePath  string
+	configPath string
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "af",
@@ -45,5 +46,6 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&storePath, "store", store.DefaultStorePath(), "path to the agentfiles store")
+	rootCmd.PersistentFlags().StringVar(&storePath, "store", "", "store name (from config) or path; defaults to the config's default_store")
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "path to config file (default: ~/.config/agentfiles/config.toml)")
 }

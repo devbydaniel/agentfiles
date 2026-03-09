@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var addPluginCmd = &cobra.Command{
@@ -13,7 +11,7 @@ var addPluginCmd = &cobra.Command{
 	Short: "Add a plugin directory to the store",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s, err := store.Open(storePath)
+		s, err := openStore()
 		if err != nil {
 			return err
 		}

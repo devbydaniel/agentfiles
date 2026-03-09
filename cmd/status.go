@@ -29,7 +29,7 @@ Possible states:
 
 Requires a prior "af apply" (needs .agentfiles.lock).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stores, defaultStore, err := openStoresForLock()
+		stores, defaultStore, err := openStores()
 		if err != nil {
 			return err
 		}

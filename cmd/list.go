@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var listCmd = &cobra.Command{
@@ -30,7 +28,7 @@ Examples:
   af list agents`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s, err := store.Open(storePath)
+		s, err := openStore()
 		if err != nil {
 			return err
 		}

@@ -8,7 +8,6 @@ import (
 
 	"github.com/devbydaniel/agentfiles/internal/apply"
 	"github.com/devbydaniel/agentfiles/internal/manifest"
-	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var applyCmd = &cobra.Command{
@@ -39,7 +38,7 @@ Examples:
   af apply --force            # overwrite existing files
   af apply --skill browse     # deploy only the "browse" skill`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s, err := store.Open(storePath)
+		stores, defaultStore, err := openStores()
 		if err != nil {
 			return err
 		}
@@ -52,8 +51,7 @@ Examples:
 		force, _ := cmd.Flags().GetBool("force")
 		skill, _ := cmd.Flags().GetString("skill")
 
-		stores := map[string]*store.Store{"default": s}
-		res, err := apply.Apply(stores, "default", m, ".", apply.Options{
+		res, err := apply.Apply(stores, defaultStore, m, ".", apply.Options{
 			Force:     force,
 			SkillOnly: skill,
 		})

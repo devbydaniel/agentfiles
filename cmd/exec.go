@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/devbydaniel/agentfiles/internal/registry"
-	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 // agentCmd returns the CLI command name for a given layout.
@@ -48,12 +47,17 @@ Examples:
 		repoName := args[0]
 		agentArgs := args[1:]
 
-		s, err := store.Open(storePath)
+		cfg, err := loadConfig()
 		if err != nil {
 			return err
 		}
 
-		reg, err := registry.Load(s)
+		stores, defaultStore, err := openStores()
+		if err != nil {
+			return err
+		}
+
+		reg, err := loadRegistry(cfg, stores, defaultStore)
 		if err != nil {
 			return err
 		}

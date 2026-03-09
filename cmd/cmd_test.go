@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -42,18 +40,23 @@ func TestVersionVar(t *testing.T) {
 }
 
 func TestStoreDefaultFlag(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Skipf("cannot determine home dir: %v", err)
-	}
-	want := filepath.Join(home, ".agentfiles")
-
 	f := rootCmd.PersistentFlags().Lookup("store")
 	if f == nil {
 		t.Fatal("--store flag not registered")
 	}
-	if f.DefValue != want {
-		t.Errorf("default store = %q, want %q", f.DefValue, want)
+	// Default is empty; resolved at runtime via config or fallback.
+	if f.DefValue != "" {
+		t.Errorf("default store = %q, want %q", f.DefValue, "")
+	}
+}
+
+func TestConfigFlag(t *testing.T) {
+	f := rootCmd.PersistentFlags().Lookup("config")
+	if f == nil {
+		t.Fatal("--config flag not registered")
+	}
+	if f.DefValue != "" {
+		t.Errorf("default config = %q, want %q", f.DefValue, "")
 	}
 }
 

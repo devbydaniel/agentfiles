@@ -10,7 +10,6 @@ import (
 	"github.com/devbydaniel/agentfiles/internal/apply"
 	"github.com/devbydaniel/agentfiles/internal/manifest"
 	"github.com/devbydaniel/agentfiles/internal/registry"
-	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var applyAllCmd = &cobra.Command{
@@ -23,15 +22,20 @@ For each registry entry the command will:
   2. Write/update the .agentfiles manifest from the registry entry
   3. Run apply --force to deploy all assets
 
-The registry uses two files in the store root:
+The registry is configured in ~/.config/agentfiles/config.toml using
+[[repos]] entries. Local overrides live in config.local.toml alongside it.
 
-  registry.toml        Shared team config (committed). Uses logical names.
-  registry.local.toml  Per-developer paths and overrides (gitignored).
+Config (config.toml):
 
-Shared registry (registry.toml):
+  default_store = "work"
+
+  [stores]
+  work = "~/.agentfiles"
+  personal = "~/.agentfiles-personal"
 
   [[repos]]
   name = "api-server"
+  store = "work"
   bundle = "backend"
   layout = "pi"
 
@@ -39,9 +43,9 @@ Shared registry (registry.toml):
   name = "web-app"
   bundle = "frontend"
   layout = "all"
-  skills_add = ["browse"]
+  skills_add = ["personal:browse"]
 
-Local overrides (registry.local.toml):
+Local overrides (config.local.toml):
 
   [[repos]]
   name = "api-server"
@@ -54,19 +58,28 @@ Local overrides (registry.local.toml):
   skip = true                 # optional: skip this repo
 
 Named repos without a local entry are silently skipped (the dev doesn't
-have that repo checked out). Repos with path set directly in registry.toml
+have that repo checked out). Repos with path set directly in config.toml
 work without a local entry (solo/non-team use).
+
+For backward compatibility, apply-all also supports the legacy registry.toml
+inside a store. If no repos are found in config.toml, it falls back to the
+store-level registry.
 
 Examples:
   af apply-all              # deploy to all registered repos
   af apply-all --dry-run    # show what would be done, don't deploy`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s, err := store.Open(storePath)
+		cfg, err := loadConfig()
 		if err != nil {
 			return err
 		}
 
-		reg, err := registry.Load(s)
+		stores, defaultStore, err := openStores()
+		if err != nil {
+			return err
+		}
+
+		reg, err := loadRegistry(cfg, stores, defaultStore)
 		if err != nil {
 			return err
 		}
@@ -96,7 +109,7 @@ Examples:
 			}
 
 			// Write/update the .agentfiles manifest.
-			if err := writeManifest(repo); err != nil {
+			if err := writeManifest(repo, defaultStore); err != nil {
 				fmt.Fprintf(os.Stderr, "  error: writing manifest: %v\n", err)
 				failed = append(failed, repo.Path)
 				continue
@@ -110,8 +123,12 @@ Examples:
 				continue
 			}
 
-			stores := map[string]*store.Store{"default": s}
-			res, err := apply.Apply(stores, "default", m, repo.Path, apply.Options{Force: true})
+			repoStore := repo.Store
+			if repoStore == "" {
+				repoStore = defaultStore
+			}
+
+			res, err := apply.Apply(stores, repoStore, m, repo.Path, apply.Options{Force: true})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "  error: apply: %v\n", err)
 				failed = append(failed, repo.Path)
@@ -141,9 +158,12 @@ Examples:
 // writeManifest writes the .agentfiles manifest into the repo directory
 // based on the registry entry. It always overwrites to keep the manifest
 // in sync with the registry.
-func writeManifest(repo registry.Repo) error {
+func writeManifest(repo registry.Repo, defaultStore string) error {
 	var lines []string
 
+	if repo.Store != "" && repo.Store != defaultStore {
+		lines = append(lines, fmt.Sprintf("store = %q", repo.Store))
+	}
 	lines = append(lines, fmt.Sprintf("bundle = %q", repo.Bundle))
 	lines = append(lines, fmt.Sprintf("layout = %q", repo.Layout))
 
@@ -180,3 +200,4 @@ func init() {
 	applyAllCmd.Flags().Bool("dry-run", false, "show what would be done without deploying")
 	rootCmd.AddCommand(applyAllCmd)
 }
+
