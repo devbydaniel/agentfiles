@@ -1,0 +1,53 @@
+version: 2
+
+builds:
+  - id: agentfiles
+    main: .
+    binary: agentfiles
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/devbydaniel/agentfiles/cmd.Version={{.Version}}
+
+archives:
+  - id: agentfiles
+    ids:
+      - agentfiles
+    name_template: "agentfiles_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+
+brews:
+  - name: agentfiles
+    ids:
+      - agentfiles
+    repository:
+      owner: devbydaniel
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/devbydaniel/agentfiles"
+    description: "A CLI for managing AI agent configuration files"
+    license: "MIT"
