@@ -125,19 +125,10 @@ func openStore() (*store.Store, error) {
 	return store.Open(fallbackStorePath())
 }
 
-// loadRegistry returns a registry from config-based repos if available,
-// otherwise falls back to the store-level registry.toml.
-func loadRegistry(cfg *config.Config, stores map[string]*store.Store, defaultStore string) (*registry.Registry, error) {
-	if len(cfg.Repos) > 0 {
-		return registry.LoadFromConfig(cfg)
-	}
-
-	// Fallback: load from store-level registry.toml.
-	s, ok := stores[defaultStore]
-	if !ok {
-		return nil, fmt.Errorf("default store %q not found", defaultStore)
-	}
-	return registry.Load(s)
+// loadRegistry returns a registry from config-based repos.
+// Returns an empty registry if no repos are configured.
+func loadRegistry(cfg *config.Config) (*registry.Registry, error) {
+	return registry.LoadFromConfig(cfg)
 }
 
 // loadConfig loads the config from the resolved path.

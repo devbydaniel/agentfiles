@@ -111,14 +111,6 @@ func TestOpenNonexistent(t *testing.T) {
 	}
 }
 
-func TestInitNoArgUsesDefault(t *testing.T) {
-	// Verify DefaultStorePath returns something reasonable
-	p := DefaultStorePath()
-	if p == "" {
-		t.Fatal("DefaultStorePath returned empty string")
-	}
-}
-
 func TestDirMethods(t *testing.T) {
 	s := &Store{Root: "/tmp/store"}
 	checks := map[string]string{

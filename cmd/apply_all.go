@@ -61,10 +61,6 @@ Named repos without a local entry are silently skipped (the dev doesn't
 have that repo checked out). Repos with path set directly in config.toml
 work without a local entry (solo/non-team use).
 
-For backward compatibility, apply-all also supports the legacy registry.toml
-inside a store. If no repos are found in config.toml, it falls back to the
-store-level registry.
-
 Examples:
   af apply-all              # deploy to all registered repos
   af apply-all --dry-run    # show what would be done, don't deploy`,
@@ -79,7 +75,7 @@ Examples:
 			return err
 		}
 
-		reg, err := loadRegistry(cfg, stores, defaultStore)
+		reg, err := loadRegistry(cfg)
 		if err != nil {
 			return err
 		}

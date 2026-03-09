@@ -52,12 +52,7 @@ Examples:
 			return err
 		}
 
-		stores, defaultStore, err := openStores()
-		if err != nil {
-			return err
-		}
-
-		reg, err := loadRegistry(cfg, stores, defaultStore)
+		reg, err := loadRegistry(cfg)
 		if err != nil {
 			return err
 		}
