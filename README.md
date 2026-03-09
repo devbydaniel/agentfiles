@@ -142,6 +142,14 @@ hash = "d4e5f6..."
 
 ## Install
 
+### Homebrew
+
+```bash
+brew install devbydaniel/tap/agentfiles
+```
+
+### Go
+
 ```bash
 go install github.com/devbydaniel/agentfiles@latest
 ```
