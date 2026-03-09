@@ -24,6 +24,7 @@ import (
 //  7. push → verify change reflected in store
 //  8. init + apply a second repo with same bundle
 //  9. verify second repo picks up pushed change
+//
 // 10. verify lock file accuracy throughout
 func TestIntegrationRoundTrip(t *testing.T) {
 	tmp := t.TempDir()

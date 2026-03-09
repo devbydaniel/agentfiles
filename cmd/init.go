@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/devbydaniel/agentfiles/internal/store"
 	"github.com/spf13/cobra"
+
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var validLayouts = []string{"pi", "claude", "cursor", "all"}

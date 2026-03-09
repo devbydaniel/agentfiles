@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/devbydaniel/agentfiles/internal/apply"
 	"github.com/devbydaniel/agentfiles/internal/manifest"
 	"github.com/devbydaniel/agentfiles/internal/store"
-	"github.com/spf13/cobra"
 )
 
 var applyCmd = &cobra.Command{

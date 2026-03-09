@@ -3,9 +3,10 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/devbydaniel/agentfiles/internal/push"
 	"github.com/devbydaniel/agentfiles/internal/store"
-	"github.com/spf13/cobra"
 )
 
 var pushCmd = &cobra.Command{

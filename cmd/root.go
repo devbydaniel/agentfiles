@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/devbydaniel/agentfiles/internal/store"
 	"github.com/spf13/cobra"
+
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var storePath string

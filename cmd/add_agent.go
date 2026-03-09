@@ -3,8 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/devbydaniel/agentfiles/internal/store"
 	"github.com/spf13/cobra"
+
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var addAgentName string

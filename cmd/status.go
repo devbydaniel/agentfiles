@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/spf13/cobra"
+
 	"github.com/devbydaniel/agentfiles/internal/lock"
 	"github.com/devbydaniel/agentfiles/internal/store"
-	"github.com/spf13/cobra"
 )
 
 var statusCmd = &cobra.Command{

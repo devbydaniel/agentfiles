@@ -7,8 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/devbydaniel/agentfiles/internal/store"
 	"github.com/spf13/cobra"
+
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var listCmd = &cobra.Command{
@@ -27,7 +28,7 @@ Examples:
   af list skills
   af list bundles
   af list agents`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := store.Open(storePath)
 		if err != nil {
