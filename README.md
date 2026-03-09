@@ -1,8 +1,8 @@
 # agentfiles (`af`)
 
-Portable config management for AI coding agents. One source store, many repos, any tool.
+Portable config management for AI coding agents. Multiple named stores, many repos, any tool.
 
-`af` keeps skills, agent instructions, plugins, and resources in a central git-managed store (`~/.agentfiles/`) and deploys them into repositories using **layouts** that match each tool's expected file structure. Edit files in any repo, push changes back, and every other repo picks them up on the next `af apply`.
+`af` keeps skills, agent instructions, plugins, and resources in git-managed stores and deploys them into repositories using **layouts** that match each tool's expected file structure. Multiple named stores let you separate personal and work assets while composing them freely across repos. Edit files in any repo, push changes back, and every other repo picks them up on the next `af apply`.
 
 Think **chezmoi, but for AI agent context files**.
 
@@ -10,39 +10,55 @@ Think **chezmoi, but for AI agent context files**.
 
 ## Concepts
 
-### Source Store
+### Source Stores
 
-A git repository (default `~/.agentfiles/`) containing all your agent assets:
+Each store is a git repository containing agent assets. You can have multiple named stores — for example, one for personal skills and another for work:
 
 ```
-~/.agentfiles/
-├── skills/           # skill directories (each contains SKILL.md + supporting files)
+~/.agentfiles/              # "personal" store
+├── skills/
 │   ├── browse/
 │   │   └── SKILL.md
-│   ├── web-search/
-│   │   └── SKILL.md
+│   └── web-search/
+│       └── SKILL.md
+├── agents/
+│   └── assistant.md
+├── plugins/
+├── resources/
+│   └── editorconfig/
+│       └── .editorconfig
+└── bundles/
+    └── oss.toml
+
+~/.agentfiles-work/         # "work" store
+├── skills/
 │   └── git-workflow/
 │       ├── SKILL.md
 │       └── examples/
-├── agents/           # agent instruction files (markdown)
-│   ├── assistant.md
+├── agents/
 │   └── backend.md
-├── plugins/          # plugin directories
+├── plugins/
 │   └── formatter/
-├── resources/        # arbitrary file trees, copied as-is to repo root
-│   ├── cursor-config/
-│   │   └── .cursor/
-│   │       └── rules.json
-│   └── editorconfig/
-│       └── .editorconfig
-├── bundles/          # named groupings of assets
-│   ├── assistant.toml
-│   └── backend.toml
-├── registry.toml     # central registry: shared team config (optional)
-└── registry.local.toml  # per-developer paths and overrides (gitignored)
+├── resources/
+│   └── cursor-config/
+│       └── .cursor/
+│           └── rules.json
+└── bundles/
+    ├── backend.toml
+    └── frontend.toml
 ```
 
-The store is just a git repo. You manage it with normal git operations (commit, push, pull, branch).
+Stores are named in `~/.config/agentfiles/config.toml`:
+
+```toml
+default_store = "work"
+
+[stores]
+personal = "~/.agentfiles"
+work = "~/.agentfiles-work"
+```
+
+Each store is just a git repo. You manage them with normal git operations (commit, push, pull, branch). A single-store setup works too — just define one store.
 
 ### Assets
 
@@ -78,34 +94,37 @@ include = ["cursor-config", "editorconfig"]
 exclude = []
 ```
 
-### Registry (`registry.toml` + `registry.local.toml`)
+### Repo Registry (in config)
 
-An optional central registry in the store that maps repositories to their bundle/layout configuration. Instead of `cd`-ing into each repo to run `af init`, you declare all deployments in one place and batch-apply them with `af apply-all`.
+The config file optionally maps repositories to their bundle/layout configuration. Instead of `cd`-ing into each repo to run `af init`, you declare all deployments in one place and batch-apply them with `af apply-all`.
 
 The registry uses **two files** to support team workflows:
 
-**`registry.toml`** — shared team config (committed). Uses logical names so paths stay developer-independent:
+**`~/.config/agentfiles/config.toml`** — shared team config:
 
 ```toml
-# ~/.agentfiles/registry.toml
+default_store = "work"
+
+[stores]
+personal = "~/.agentfiles"
+work = "~/.agentfiles-work"
 
 [[repos]]
 name = "api-server"
 bundle = "backend"
+store = "work"                 # optional: defaults to default_store
 layout = "pi"
 
 [[repos]]
 name = "web-app"
 bundle = "frontend"
 layout = "all"
-skills_add = ["browse"]
+skills_add = ["personal:browse"]  # cross-store: prefix with storename:
 ```
 
-**`registry.local.toml`** — per-developer paths and overrides (gitignored):
+**`~/.config/agentfiles/config.local.toml`** — per-developer overrides:
 
 ```toml
-# ~/.agentfiles/registry.local.toml
-
 [[repos]]
 name = "api-server"
 path = "~/dev/api-server"
@@ -118,12 +137,13 @@ skip = true                    # optional: skip this repo
 ```
 
 **Merge rules:**
-- Named repos in `registry.toml` get their `path` from the matching local entry. Named repos without a local entry are silently skipped (the dev doesn't have that repo checked out).
+- Named repos in `config.toml` get their `path` from the matching local entry. Named repos without a local entry are silently skipped (the dev doesn't have that repo checked out).
 - Local entries can override `layout`, `skills_add`, and `skills_remove`.
 - Setting `skip = true` in a local entry excludes that repo from `apply-all`.
-- For **solo use** (no team), you can put `path` directly in `registry.toml` and skip the local file entirely.
+- For **solo use** (no team), you can put `path` directly in `config.toml` and skip the local file entirely.
+- Each repo can specify a `store` to target a specific named store (defaults to `default_store`).
 
-The registry is **additive** to the per-repo workflow. Repos can still have their own `.agentfiles` managed manually — the registry simply provides a central view and batch operations. When `af apply-all` runs, it writes/updates the `.agentfiles` manifest in each registered repo to keep it in sync with the registry.
+The registry is **additive** to the per-repo workflow. Repos can still have their own `.agentfiles` managed manually — the registry simply provides a central view and batch operations. When `af apply-all` runs, it writes/updates the `.agentfiles` manifest in each registered repo to keep it in sync with the config.
 
 ### Manifest (`.agentfiles`)
 
@@ -136,19 +156,21 @@ bundle = "backend"
 layout = "pi"
 
 # Optional overrides (only valid with bundle):
-skills_add = ["browse"]                    # add to bundle's list
-skills_remove = ["typeorm-migrations"]     # remove from bundle's list
+skills_add = ["browse", "personal:my-skill"]  # add skills (cross-store with prefix)
+skills_remove = ["typeorm-migrations"]         # remove from bundle's list
 ```
 
 **Cherry-pick mode** — select individual assets, no bundle:
 
 ```toml
 agents_md = "assistant"
-skills = ["browse", "web-search", "git-workflow"]
+skills = ["browse", "web-search", "personal:git-workflow"]  # storename: prefix for cross-store
 plugins = ["formatter"]
 resources = ["editorconfig"]
 layout = "pi"
 ```
+
+Assets without a `storename:` prefix use the default store. Use the prefix to pull assets from other named stores.
 
 Bundle mode and cherry-pick mode are **mutually exclusive**. The `layout` field defaults to `"pi"` if omitted.
 
@@ -267,11 +289,7 @@ af init-store ~/my-store                         # custom path
 af init-store --from git@github.com:me/store.git # clone existing
 ```
 
-Default store path: `~/.agentfiles`, overridable via `~/.config/agentfiles/config.toml`:
-
-```toml
-source = "/custom/path/to/store"
-```
+New stores can optionally be registered in `~/.config/agentfiles/config.toml` under `[stores]` with a name.
 
 ### `af add <type> <path>`
 
@@ -321,7 +339,7 @@ Without `--force`, existing files are skipped with a warning. The lock file only
 
 ### `af apply-all`
 
-Deploy agent files to every repo listed in the central registry (`registry.toml` in the store). For each entry the command:
+Deploy agent files to every repo listed in the config (`[[repos]]` in `config.toml`). For each entry the command:
 
 1. Creates the target directory if it doesn't exist
 2. Writes/updates the `.agentfiles` manifest from the registry entry
@@ -332,11 +350,11 @@ af apply-all              # deploy to all registered repos
 af apply-all --dry-run    # show what would be done, don't deploy
 ```
 
-This is the fastest way to propagate store changes (new skills, updated agent instructions) to all your projects at once. Repos that aren't in the registry are unaffected.
+This is the fastest way to propagate store changes (new skills, updated agent instructions) to all your projects at once. Repos that aren't in the config are unaffected.
 
 ### `af exec <repo-name>`
 
-Look up a repo by name in the registry and launch the appropriate agent CLI in that repo's directory. The agent is chosen based on the repo's layout:
+Look up a repo by name in the config and launch the appropriate agent CLI in that repo's directory. The agent is chosen based on the repo's layout:
 
 | Layout | Agent CLI |
 |--------|-----------|
@@ -417,7 +435,8 @@ Print the version string.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--store <path>` | `~/.agentfiles` | Path to the source store. Overrides the config file. |
+| `--store <name\|path>` | default store from config | Named store or direct path. For single-store commands. |
+| `--config <path>` | `~/.config/agentfiles/config.toml` | Path to the config file. |
 
 ---
 
@@ -473,6 +492,33 @@ cd ~/project-2 && af apply --force
 
 # Or, if using the registry, just:
 af apply-all
+```
+
+### Using multiple stores
+
+```bash
+# Set up two stores
+af init-store ~/.agentfiles           # personal skills
+af init-store ~/.agentfiles-work      # work skills
+
+# Configure in ~/.config/agentfiles/config.toml:
+# default_store = "work"
+# [stores]
+# personal = "~/.agentfiles"
+# work = "~/.agentfiles-work"
+
+# Add skills to each store
+af add skill ~/ai/skills/browse/ --store personal
+af add skill ~/work/skills/api-patterns/ --store work
+
+# Use cross-store references in manifests:
+# bundle = "backend"                       ← from default (work) store
+# skills_add = ["personal:browse"]         ← from personal store
+
+af apply   # deploys from both stores
+
+# Push routes changes to the correct store automatically
+af push    # modified personal skills go to personal store
 ```
 
 ### Checking for drift across repos
@@ -551,15 +597,19 @@ CLAUDE.md
 
 ## Store Configuration
 
-The default store location is `~/.agentfiles`. Override it:
-
-**Per-command:** `--store /path/to/store`
-
-**Permanently:** Create `~/.config/agentfiles/config.toml`:
+Stores are configured in `~/.config/agentfiles/config.toml`:
 
 ```toml
-source = "/custom/path/to/store"
+default_store = "personal"
+
+[stores]
+personal = "~/.agentfiles"
+work = "~/.agentfiles-work"
 ```
+
+**Per-command override:** `--store <name>` selects a named store for commands that target a single store (e.g., `af list`, `af add`). Also accepts a direct path for backward compat.
+
+**Config override:** `--config /path/to/config.toml` uses a custom config file.
 
 ---
 
@@ -602,33 +652,13 @@ include = ["cursor-config"]
 exclude = []
 ```
 
-### Registry (`registry.toml`)
+### Config Local (`~/.config/agentfiles/config.local.toml`)
 
-Optional. Lives in the store root. Shared team config — committed to git.
-
-```toml
-# Named repos (team use — paths come from registry.local.toml)
-[[repos]]
-name = "api-server"              # logical name, matched in local file
-bundle = "backend"               # required: bundle name
-layout = "pi"                    # pi | claude | cursor | all (default: pi)
-
-# Path-only repos (solo use — no local file needed)
-[[repos]]
-path = "~/dev/project-b"         # target directory (~ expanded)
-bundle = "frontend"
-layout = "all"
-skills_add = ["browse"]          # optional: add skills on top of bundle
-skills_remove = ["unwanted"]     # optional: remove skills from bundle
-```
-
-### Registry Local (`registry.local.toml`)
-
-Optional. Lives in the store root. Per-developer overrides — gitignored.
+Optional. Per-developer overrides — not shared.
 
 ```toml
 [[repos]]
-name = "api-server"              # matches name in registry.toml
+name = "api-server"              # matches name in config.toml
 path = "~/dev/api-server"        # required: where this dev has the repo
 layout = "claude"                # optional: override layout
 skills_add = ["extra"]           # optional: add more skills locally
@@ -642,28 +672,53 @@ Auto-generated by `af apply`. Do not edit manually.
 
 ```toml
 [deployed.agents_md]
+store = "work"                   # which named store this came from
 source = "agents/backend.md"     # store-relative path
 path = "AGENTS.md"               # repo-relative deployed path
 hash = "sha256hex..."            # content hash at deploy time
 
 [deployed.skills.browse]
+store = "work"
 source = "skills/browse/"
 path = ".pi/skills/browse"
 hash = "sha256hex..."
 
+# Cross-store skill — key is "personal:my-skill"
+[deployed.skills."personal:my-skill"]
+store = "personal"
+source = "skills/my-skill/"
+path = ".pi/skills/my-skill"
+hash = "sha256hex..."
+
 [deployed.plugins.formatter]
+store = "work"
 source = "plugins/formatter/"
 path = ".pi/plugins/formatter"
 hash = "sha256hex..."
 
 [deployed.resources.cursor-config]
+store = "work"
 source = "resources/cursor-config/"
 path = "cursor-config"
 hash = "sha256hex..."
 ```
 
-### Store Config (`~/.config/agentfiles/config.toml`)
+The `store` field is omitted for backward compat when empty (defaults to the default store).
+
+### Config (`~/.config/agentfiles/config.toml`)
 
 ```toml
-source = "/path/to/store"        # overrides default ~/.agentfiles
+default_store = "work"
+
+[stores]
+personal = "~/.agentfiles"
+work = "~/.agentfiles-work"
+
+# Optional: repo registry for af apply-all
+[[repos]]
+name = "api-server"
+bundle = "backend"
+store = "work"
+layout = "pi"
+skills_add = ["personal:browse"]
 ```

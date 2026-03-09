@@ -528,6 +528,203 @@ include = ["my-skill"]
 	assertFileContains(t, filepath.Join(s.SkillsDir(), "my-skill", "SKILL.md"), "Modified locally")
 }
 
+// TestIntegrationMultiStore exercises cross-store apply and push:
+//  1. Create two stores (personal + work).
+//  2. Add a skill to personal store, a bundle + agent + skill to work store.
+//  3. Build a store map with work as default.
+//  4. Create a repo manifest with bundle from work + skills_add from personal.
+//  5. Apply — verify both skills deployed, lock entries have correct store names.
+//  6. Modify the personal skill in the repo.
+//  7. Push — verify the change goes to personal store, not work store.
+//  8. Apply to a second repo — verify the pushed change propagates.
+func TestIntegrationMultiStore(t *testing.T) {
+	tmp := t.TempDir()
+
+	// ── 1. Create two stores ───────────────────────────────────────
+	personalPath := filepath.Join(tmp, "store-personal")
+	personal, err := store.Init(personalPath)
+	if err != nil {
+		t.Fatalf("init personal store: %v", err)
+	}
+
+	workPath := filepath.Join(tmp, "store-work")
+	work, err := store.Init(workPath)
+	if err != nil {
+		t.Fatalf("init work store: %v", err)
+	}
+
+	// ── 2. Add assets ──────────────────────────────────────────────
+	// Personal store: one skill
+	pSkillSrc := filepath.Join(tmp, "src-personal-skill", "my-personal-skill")
+	mustMkdir(t, pSkillSrc)
+	mustWrite(t, filepath.Join(pSkillSrc, "SKILL.md"), "# Personal Skill\nOriginal content\n")
+
+	if _, _, err := personal.AddSkill(pSkillSrc, false); err != nil {
+		t.Fatalf("add personal skill: %v", err)
+	}
+
+	// Work store: agent, skill, bundle
+	wSkillSrc := filepath.Join(tmp, "src-work-skill", "work-skill")
+	mustMkdir(t, wSkillSrc)
+	mustWrite(t, filepath.Join(wSkillSrc, "SKILL.md"), "# Work Skill\n")
+
+	if _, _, err := work.AddSkill(wSkillSrc, false); err != nil {
+		t.Fatalf("add work skill: %v", err)
+	}
+
+	agentSrc := filepath.Join(tmp, "src-agent.md")
+	mustWrite(t, agentSrc, "# Work Agent\n")
+	if _, err := work.AddAgent(agentSrc, "default", false); err != nil {
+		t.Fatalf("add work agent: %v", err)
+	}
+
+	bundleTOML := `[bundle]
+name = "backend"
+agents_md = "default"
+
+[skills]
+include = ["work-skill"]
+`
+	mustWrite(t, filepath.Join(work.BundlesDir(), "backend.toml"), bundleTOML)
+
+	// ── 3. Build store map ─────────────────────────────────────────
+	stores := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	defaultStore := "work"
+
+	// ── 4. Create repo manifest with cross-store skills_add ────────
+	repo1 := filepath.Join(tmp, "repo1")
+	mustMkdir(t, repo1)
+	mustWrite(t, filepath.Join(repo1, ".agentfiles"), `bundle = "backend"
+layout = "pi"
+skills_add = ["personal:my-personal-skill"]
+`)
+
+	m, err := manifest.Load(repo1)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	// ── 5. Apply — verify both skills deployed with correct provenance ──
+	res, err := apply.Apply(stores, defaultStore, m, repo1, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	// agent + work-skill + personal skill = 3 deployed
+	if res.Deployed != 3 {
+		t.Fatalf("expected 3 deployed, got %d", res.Deployed)
+	}
+
+	// Verify files exist.
+	assertFileContains(t, filepath.Join(repo1, "AGENTS.md"), "Work Agent")
+	assertFileContains(t, filepath.Join(repo1, ".pi", "skills", "work-skill", "SKILL.md"), "# Work Skill")
+	assertFileContains(t, filepath.Join(repo1, ".pi", "skills", "my-personal-skill", "SKILL.md"), "# Personal Skill")
+
+	// Verify lock entries have correct store names.
+	lf, err := lock.Load(repo1)
+	if err != nil {
+		t.Fatalf("load lock: %v", err)
+	}
+
+	// Work skill uses default store, so lock key is just "work-skill".
+	workEntry, ok := lf.Deployed.Skills["work-skill"]
+	if !ok {
+		t.Fatal("lock missing skill 'work-skill'")
+	}
+	if workEntry.Store != "work" {
+		t.Fatalf("expected work-skill store='work', got %q", workEntry.Store)
+	}
+
+	// Personal skill is from non-default store, lock key is "personal:my-personal-skill".
+	personalEntry, ok := lf.Deployed.Skills["personal:my-personal-skill"]
+	if !ok {
+		// Dump actual keys for debugging.
+		var keys []string
+		for k := range lf.Deployed.Skills {
+			keys = append(keys, k)
+		}
+		t.Fatalf("lock missing skill 'personal:my-personal-skill'; keys: %v", keys)
+	}
+	if personalEntry.Store != "personal" {
+		t.Fatalf("expected personal skill store='personal', got %q", personalEntry.Store)
+	}
+
+	personalHashBefore := personalEntry.Hash
+
+	// ── 6. Modify personal skill in the repo ───────────────────────
+	personalSkillDeployed := filepath.Join(repo1, ".pi", "skills", "my-personal-skill", "SKILL.md")
+	mustWrite(t, personalSkillDeployed, "# Personal Skill\nModified in repo\n")
+
+	// ── 7. Push — verify change goes to personal store ─────────────
+	pushRes, err := push.Push(stores, defaultStore, repo1, push.Options{})
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if len(pushRes.Changes) == 0 {
+		t.Fatal("push reported no changes after modifying personal skill")
+	}
+
+	// The personal store should have the updated content.
+	assertFileContains(t, filepath.Join(personal.SkillsDir(), "my-personal-skill", "SKILL.md"), "Modified in repo")
+
+	// The work store skill should be unchanged.
+	assertFileContains(t, filepath.Join(work.SkillsDir(), "work-skill", "SKILL.md"), "# Work Skill")
+
+	// Verify lock was updated with new hash.
+	lfAfter, err := lock.Load(repo1)
+	if err != nil {
+		t.Fatalf("load lock after push: %v", err)
+	}
+	personalHashAfter := lfAfter.Deployed.Skills["personal:my-personal-skill"].Hash
+	if personalHashAfter == personalHashBefore {
+		t.Fatal("personal skill lock hash not updated after push")
+	}
+
+	// ── 8. Apply to second repo — verify pushed change propagates ──
+	repo2 := filepath.Join(tmp, "repo2")
+	mustMkdir(t, repo2)
+	mustWrite(t, filepath.Join(repo2, ".agentfiles"), `bundle = "backend"
+layout = "pi"
+skills_add = ["personal:my-personal-skill"]
+`)
+
+	m2, err := manifest.Load(repo2)
+	if err != nil {
+		t.Fatalf("load manifest repo2: %v", err)
+	}
+
+	res2, err := apply.Apply(stores, defaultStore, m2, repo2, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply repo2: %v", err)
+	}
+	if res2.Deployed != 3 {
+		t.Fatalf("expected 3 deployed in repo2, got %d", res2.Deployed)
+	}
+
+	// Repo2 should have the pushed modification from repo1.
+	assertFileContains(t, filepath.Join(repo2, ".pi", "skills", "my-personal-skill", "SKILL.md"), "Modified in repo")
+
+	// Hashes should match.
+	lf2, err := lock.Load(repo2)
+	if err != nil {
+		t.Fatalf("load lock repo2: %v", err)
+	}
+	if lf2.Deployed.Skills["personal:my-personal-skill"].Hash != personalHashAfter {
+		t.Fatal("repo2 personal skill hash doesn't match repo1 post-push hash")
+	}
+
+	// A second push from repo2 should show no changes.
+	pushRes2, err := push.Push(stores, defaultStore, repo2, push.Options{})
+	if err != nil {
+		t.Fatalf("push repo2: %v", err)
+	}
+	if len(pushRes2.Changes) != 0 {
+		t.Fatalf("expected no changes on push from fresh repo2, got %d", len(pushRes2.Changes))
+	}
+}
+
 // ── helpers ────────────────────────────────────────────────────────
 
 func mustMkdir(t *testing.T, path string) {

@@ -7,32 +7,41 @@ Go CLI (`af`) using cobra. Entry: `main.go` → `cmd/root.go`. All commands in `
 ## Key data flow
 
 ```
-Store (~/.agentfiles/)
-  → Manifest (.agentfiles per repo) or Registry (registry.toml + registry.local.toml)
-  → manifest.Resolve() expands bundle refs + skill overrides into flat asset lists
+Config (~/.config/agentfiles/config.toml)
+  → Named stores (personal = "~/.agentfiles", work = "~/.agentfiles-work")
+  → Manifest (.agentfiles per repo) or Config repos ([[repos]] entries)
+  → manifest.Resolve(m, stores, defaultStore) expands bundle refs + skill overrides
+    into flat ResolvedAsset lists (each carries Name + Store provenance)
   → layout.Get() determines file paths per tool (pi/claude/cursor/all)
-  → apply.Apply() copies files + writes .agentfiles.lock with content hashes
-  → push.Push() diffs deployed files against lock hashes, copies changes back to store
+  → apply.Apply(stores, defaultStore, ...) copies files from correct stores
+    + writes .agentfiles.lock with content hashes and store provenance
+  → push.Push(stores, defaultStore, ...) diffs deployed files against lock hashes,
+    routes changes back to the correct store per lock entry
 ```
 
 ## Non-obvious design decisions
 
+- **Multi-store with config-level registry**: Stores are named in `~/.config/agentfiles/config.toml` under `[stores]`. The registry (`[[repos]]`) lives in the same config file (not inside any store). Assets can reference cross-store items with `storename:assetname` syntax.
+- **Store provenance in lock**: Each lock `Entry` has a `Store` field recording which named store the asset came from. Empty means default store (backward compat with pre-multi-store lock files).
+- **Lock keys for non-default stores**: Assets from non-default stores use `storename:assetname` as the lock key. Default store assets use just the name.
 - **Layout "all"**: all three tool paths get full copies. See `internal/layout/all.go`.
 - **Entry**: Just a `Path` string. All entries are full copies. Apply's `deployEntry` calls `deployCopy` directly.
 - **Lock hashing**: Directories use sorted `file:<rel>\nhash:<sha256>\n` pairs fed into sha256. This means file renames change the hash. See `lock.HashDir`.
 - **Lock HashDirMapped**: Used by push to hash using store directory structure but reading from deployed paths (which may differ per layout).
-- **Registry merge**: Named repos in `registry.toml` are skipped if no matching `registry.local.toml` entry exists. Path-only repos work standalone. Local entries can override layout/skills or skip entirely. See `internal/registry/registry.go` merge().
-- **apply-all always force-writes the manifest**: It overwrites `.agentfiles` in each repo to keep it in sync with the registry. Then runs apply with Force=true.
+- **Config repo merge**: Named repos in config.toml are skipped if no matching config.local.toml entry exists. Path-only repos work standalone. Local entries can override layout/skills or skip entirely. See `internal/config/config.go` mergeRepos().
+- **apply-all always force-writes the manifest**: It overwrites `.agentfiles` in each repo to keep it in sync with the config. Then runs apply with Force=true.
 - **exec uses os/exec.Command.Run()**, not syscall.Exec, so it works cross-platform. Looks up by name first, falls back to path basename.
 - **Store must be a git repo**: `store.Open` checks for `.git` directory.
 - **Bundle vs cherry-pick modes are mutually exclusive** in manifest validation. `skills_add`/`skills_remove` only work with bundle mode.
 - **Resources are layout-independent**: copied to repo root preserving internal structure, not placed in `.pi/` etc.
+- **Backward compat**: Single-store setups work with `--store <path>` flag. Lock files without store fields default to the default store. The `storename:` prefix is optional — unprefixed assets use the default store.
 
-## Store config resolution
+## Config resolution
 
-`store.DefaultStorePath()` checks `~/.config/agentfiles/config.toml` for `source = "..."`, falls back to `~/.agentfiles`. The `--store` global flag overrides everything.
+`config.DefaultConfigPath()` returns `~/.config/agentfiles/config.toml`. The `--config` flag overrides. Config defines named stores, a default store, and repo entries. The `--store` flag selects a named store or accepts a direct path for backward compat.
 
 ## Testing patterns
 
 - Tests create temp stores via `store.Init(t.TempDir())` which handles git init + subdirectory creation.
-- Integration test in `internal/integration_test.go` exercises the full init→apply→push cycle.
+- Integration tests in `internal/integration_test.go` exercise the full lifecycle including multi-store cross-store apply/push.
+- Multi-store tests use `map[string]*store.Store{"name": s}` maps passed to apply/push.
