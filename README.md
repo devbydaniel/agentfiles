@@ -338,6 +338,25 @@ af apply-all --dry-run    # show what would be done, don't deploy
 
 This is the fastest way to propagate store changes (new skills, updated agent instructions) to all your projects at once. Repos that aren't in the registry are unaffected.
 
+### `af exec <repo-name>`
+
+Look up a repo by name in the registry and launch the appropriate agent CLI in that repo's directory. The agent is chosen based on the repo's layout:
+
+| Layout | Agent CLI |
+|--------|-----------|
+| `pi` | `pi` |
+| `claude` | `claude` |
+| `cursor` | `cursor-agent` |
+| `all` | `pi` (primary) |
+
+```bash
+af exec api-server                         # launch the agent for this repo
+af exec web-app -- -p "fix the tests"      # forward args to the agent
+af exec api-server --agent claude           # override agent choice
+```
+
+Looks up by name first, then falls back to matching the basename of the repo path.
+
 ### `af push`
 
 Detect local edits to deployed files and copy them back to the source store.
