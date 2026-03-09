@@ -75,7 +75,7 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 			}
 			relSource := filepath.Join("agents", resolved.AgentsMd+".md")
 			deployedPath := primaryPath(entries)
-			if err := lf.Record(lock.AssetAgentsMD, resolved.AgentsMd, relSource, deployedPath, h); err != nil {
+			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetAgentsMD, Name: resolved.AgentsMd, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
 				return nil, err
 			}
 			res.Deployed++
@@ -118,7 +118,7 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 			}
 			relSource := filepath.Join("skills", name) + "/"
 			deployedPath := primaryPath(entries)
-			if err := lf.Record(lock.AssetSkills, name, relSource, deployedPath, h); err != nil {
+			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetSkills, Name: name, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
 				return nil, err
 			}
 			res.Deployed++
@@ -155,7 +155,7 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 				}
 				relSource := filepath.Join("plugins", name) + "/"
 				deployedPath := primaryPath(entries)
-				if err := lf.Record(lock.AssetPlugins, name, relSource, deployedPath, h); err != nil {
+				if err := lf.Record(lock.RecordParams{AssetType: lock.AssetPlugins, Name: name, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
 					return nil, err
 				}
 				res.Deployed++
@@ -187,7 +187,7 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 				relSource := filepath.Join("resources", name) + "/"
 				// Record the resource name as deployed path so push can
 				// reconstruct the individual paths from the store directory.
-				if err := lf.Record(lock.AssetResources, name, relSource, name, h); err != nil {
+				if err := lf.Record(lock.RecordParams{AssetType: lock.AssetResources, Name: name, SourcePath: relSource, DeployedPath: name, Hash: h}); err != nil {
 					return nil, err
 				}
 				res.Deployed++

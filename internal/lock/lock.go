@@ -23,6 +23,7 @@ const (
 )
 
 type Entry struct {
+	Store        string `toml:"store,omitempty"`
 	StorePath    string `toml:"source"`
 	DeployedPath string `toml:"path"`
 	Hash         string `toml:"hash"`
@@ -90,8 +91,20 @@ func Save(dir string, lf *LockFile) error {
 	return os.Rename(tmpName, path)
 }
 
-func (lf *LockFile) Record(assetType, name, sourcePath, deployedPath, hash string) error {
-	entry := &Entry{StorePath: sourcePath, DeployedPath: deployedPath, Hash: hash}
+// RecordParams holds the parameters for recording a deployed asset in the lock file.
+type RecordParams struct {
+	AssetType    string
+	Name         string
+	StoreName    string
+	SourcePath   string
+	DeployedPath string
+	Hash         string
+}
+
+func (lf *LockFile) Record(p RecordParams) error {
+	assetType := p.AssetType
+	name := p.Name
+	entry := &Entry{Store: p.StoreName, StorePath: p.SourcePath, DeployedPath: p.DeployedPath, Hash: p.Hash}
 	switch assetType {
 	case AssetAgentsMD:
 		lf.Deployed.AgentsMD = entry

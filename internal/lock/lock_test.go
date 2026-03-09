@@ -111,7 +111,7 @@ func TestLoadNonexistent(t *testing.T) {
 
 func TestRecordUnknownAssetType(t *testing.T) {
 	lf := &LockFile{}
-	if err := lf.Record("bogus", "", "", "", ""); err == nil {
+	if err := lf.Record(RecordParams{AssetType: "bogus"}); err == nil {
 		t.Fatal("expected error for unknown asset type")
 	}
 }
@@ -162,7 +162,74 @@ func TestHashDirContentChange(t *testing.T) {
 
 func mustRecord(t *testing.T, lf *LockFile, assetType, name, source, path, hash string) {
 	t.Helper()
-	if err := lf.Record(assetType, name, source, path, hash); err != nil {
+	if err := lf.Record(RecordParams{AssetType: assetType, Name: name, SourcePath: source, DeployedPath: path, Hash: hash}); err != nil {
 		t.Fatalf("Record(%q, %q): %v", assetType, name, err)
+	}
+}
+
+func TestStoreFieldRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+
+	lf := &LockFile{}
+	lf.Deployed.Skills = make(map[string]*Entry)
+	if err := lf.Record(RecordParams{AssetType: AssetSkills, Name: "my-skill", StoreName: "personal", SourcePath: "skills/my-skill/", DeployedPath: ".pi/skills/my-skill", Hash: "aaa111"}); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	if err := lf.Record(RecordParams{AssetType: AssetSkills, Name: "other-skill", StoreName: "work", SourcePath: "skills/other-skill/", DeployedPath: ".pi/skills/other-skill", Hash: "bbb222"}); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	if err := Save(dir, lf); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	e := got.Deployed.Skills["my-skill"]
+	if e == nil {
+		t.Fatal("my-skill missing")
+	}
+	if e.Store != "personal" {
+		t.Errorf("my-skill.Store = %q, want %q", e.Store, "personal")
+	}
+
+	e2 := got.Deployed.Skills["other-skill"]
+	if e2 == nil {
+		t.Fatal("other-skill missing")
+	}
+	if e2.Store != "work" {
+		t.Errorf("other-skill.Store = %q, want %q", e2.Store, "work")
+	}
+}
+
+func TestLegacyLockNoStoreField(t *testing.T) {
+	dir := t.TempDir()
+
+	// Write a lock file without the store field (legacy format).
+	legacy := `[deployed]
+[deployed.skills.browse]
+source = "skills/browse/"
+path = ".pi/skills/browse"
+hash = "def456"
+`
+	os.WriteFile(filepath.Join(dir, FileName), []byte(legacy), 0644)
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	e := got.Deployed.Skills["browse"]
+	if e == nil {
+		t.Fatal("browse skill missing")
+	}
+	if e.Store != "" {
+		t.Errorf("Store should be empty for legacy lock, got %q", e.Store)
+	}
+	if e.StorePath != "skills/browse/" {
+		t.Errorf("StorePath = %q, want %q", e.StorePath, "skills/browse/")
 	}
 }
