@@ -20,6 +20,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/devbydaniel/agentfiles/internal/config"
 	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
@@ -31,8 +32,12 @@ type Registry struct {
 // Repo is a single entry in the registry mapping a directory to its
 // bundle/layout configuration.
 type Repo struct {
-	Name         string   `toml:"name"`
-	Path         string   `toml:"path"`
+	Name string `toml:"name"`
+	Path string `toml:"path"`
+	// Store is the name of the store to use for this repo. Only populated
+	// by LoadFromConfig (config.toml path); the legacy Load() path does not
+	// set this field since it always operates on a single store.
+	Store string `toml:"store"`
 	Bundle       string   `toml:"bundle"`
 	Layout       string   `toml:"layout"`
 	SkillsAdd    []string `toml:"skills_add"`
@@ -43,6 +48,7 @@ type Repo struct {
 type localEntry struct {
 	Name         string   `toml:"name"`
 	Path         string   `toml:"path"`
+	Bundle       string   `toml:"bundle"`
 	Layout       string   `toml:"layout"`
 	SkillsAdd    []string `toml:"skills_add"`
 	SkillsRemove []string `toml:"skills_remove"`
@@ -181,6 +187,9 @@ func merge(reg *Registry, local *localFile) (*Registry, error) {
 			if le.Path != "" {
 				repo.Path = le.Path
 			}
+			if le.Bundle != "" {
+				repo.Bundle = le.Bundle
+			}
 			if le.Layout != "" {
 				repo.Layout = le.Layout
 			}
@@ -202,6 +211,7 @@ func merge(reg *Registry, local *localFile) (*Registry, error) {
 			merged = append(merged, Repo{
 				Name:         e.Name,
 				Path:         e.Path,
+				Bundle:       e.Bundle,
 				Layout:       e.Layout,
 				SkillsAdd:    e.SkillsAdd,
 				SkillsRemove: e.SkillsRemove,
@@ -219,7 +229,7 @@ func (r *Registry) validate() error {
 		if identifier == "" {
 			identifier = repo.Path
 		}
-		if repo.Path == "" {
+		if repo.Path == "" || repo.Path == "." {
 			return fmt.Errorf("registry: repos[%d] (%s) missing path (set it in registry.local.toml or registry.toml)", i, identifier)
 		}
 		if repo.Bundle == "" {
@@ -239,6 +249,30 @@ func expandPath(p, home string) string {
 		p = filepath.Join(home, p[2:])
 	}
 	return filepath.Clean(p)
+}
+
+// LoadFromConfig builds a Registry from a config.Config's repo list.
+// The repos are already merged and expanded by config.Load, so this is a
+// straightforward conversion. Validation is applied (path + bundle required,
+// no duplicate paths).
+func LoadFromConfig(cfg *config.Config) (*Registry, error) {
+	reg := &Registry{}
+	for _, cr := range cfg.Repos {
+		reg.Repos = append(reg.Repos, Repo{
+			Name:         cr.Name,
+			Path:         cr.Path,
+			Store:        cr.Store,
+			Bundle:       cr.Bundle,
+			Layout:       cr.Layout,
+			SkillsAdd:    cr.SkillsAdd,
+			SkillsRemove: cr.SkillsRemove,
+		})
+	}
+
+	if err := reg.validate(); err != nil {
+		return nil, err
+	}
+	return reg, nil
 }
 
 // mergeStringSlices returns a combined slice with no duplicates.
