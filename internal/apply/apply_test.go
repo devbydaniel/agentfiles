@@ -22,6 +22,11 @@ func setupStore(t *testing.T) *store.Store {
 	return s
 }
 
+// singleStoreMap wraps a single store into the map+default format.
+func singleStoreMap(s *store.Store) (map[string]*store.Store, string) {
+	return map[string]*store.Store{"default": s}, "default"
+}
+
 // addAgentToStore writes a .md file into the store agents dir.
 func addAgentToStore(t *testing.T, s *store.Store, name, content string) {
 	t.Helper()
@@ -85,7 +90,8 @@ func TestApplyPiLayout(t *testing.T) {
 		Skills:   []string{"golang"},
 	}
 
-	if _, err := Apply(s, m, repo, Options{Force: true}); err != nil {
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 
@@ -120,7 +126,8 @@ func TestApplyClaudeLayout(t *testing.T) {
 		Skills:   []string{"testing"},
 	}
 
-	if _, err := Apply(s, m, repo, Options{Force: true}); err != nil {
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 
@@ -153,7 +160,8 @@ func TestApplyCursorLayout(t *testing.T) {
 		Skills:   []string{"refactor"},
 	}
 
-	res, err := Apply(s, m, repo, Options{Force: true})
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -192,7 +200,8 @@ func TestApplyAllLayout(t *testing.T) {
 		Skills:   []string{"debug"},
 	}
 
-	if _, err := Apply(s, m, repo, Options{Force: true}); err != nil {
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 
@@ -249,7 +258,8 @@ func TestApplyResources(t *testing.T) {
 		Resources: []string{"configs"},
 	}
 
-	if _, err := Apply(s, m, repo, Options{Force: true}); err != nil {
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 
@@ -282,7 +292,8 @@ func TestApplyWritesLockFile(t *testing.T) {
 		Skills:   []string{"golang"},
 	}
 
-	if _, err := Apply(s, m, repo, Options{Force: true}); err != nil {
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 
@@ -300,6 +311,9 @@ func TestApplyWritesLockFile(t *testing.T) {
 	if lf.Deployed.AgentsMD.StorePath != filepath.Join("agents", "main.md") {
 		t.Errorf("agents_md source = %q, want %q", lf.Deployed.AgentsMD.StorePath, filepath.Join("agents", "main.md"))
 	}
+	if lf.Deployed.AgentsMD.Store != "default" {
+		t.Errorf("agents_md store = %q, want %q", lf.Deployed.AgentsMD.Store, "default")
+	}
 
 	skill, ok := lf.Deployed.Skills["golang"]
 	if !ok {
@@ -310,6 +324,9 @@ func TestApplyWritesLockFile(t *testing.T) {
 	}
 	if skill.StorePath != "skills/golang/" {
 		t.Errorf("skill source = %q, want %q", skill.StorePath, "skills/golang/")
+	}
+	if skill.Store != "default" {
+		t.Errorf("skill store = %q, want %q", skill.Store, "default")
 	}
 }
 
@@ -331,7 +348,8 @@ func TestApplyWritesLockForPluginsAndResources(t *testing.T) {
 		Resources: []string{"myresource"},
 	}
 
-	if _, err := Apply(s, m, repo, Options{Force: true}); err != nil {
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 
@@ -376,7 +394,8 @@ func TestApplySkillOnly(t *testing.T) {
 		Skills:   []string{"golang", "python"},
 	}
 
-	if _, err := Apply(s, m, repo, Options{Force: true, SkillOnly: "golang"}); err != nil {
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true, SkillOnly: "golang"}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 
@@ -408,7 +427,8 @@ func TestApplySkillNotInManifest(t *testing.T) {
 		Skills:   []string{"golang"},
 	}
 
-	_, err := Apply(s, m, repo, Options{SkillOnly: "nonexistent"})
+	stores, defaultStore := singleStoreMap(s)
+	_, err := Apply(stores, defaultStore, m, repo, Options{SkillOnly: "nonexistent"})
 	if err == nil {
 		t.Fatal("expected error for skill not in manifest")
 	}
@@ -428,7 +448,8 @@ func TestApplySkillNotInStore(t *testing.T) {
 		Skills:   []string{"nonexistent"},
 	}
 
-	_, err := Apply(s, m, repo, Options{Force: true})
+	stores, defaultStore := singleStoreMap(s)
+	_, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
 	if err == nil {
 		t.Fatal("expected error for skill not in store")
 	}
@@ -452,7 +473,8 @@ func TestApplyNoForceSkipsExisting(t *testing.T) {
 		AgentsMd: "main",
 	}
 
-	res, err := Apply(s, m, repo, Options{Force: false})
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: false})
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -480,5 +502,78 @@ func TestApplyNoForceSkipsExisting(t *testing.T) {
 	}
 	if res.Deployed != 0 {
 		t.Errorf("deployed = %d, want 0", res.Deployed)
+	}
+}
+
+func TestApplyMultiStore(t *testing.T) {
+	// Create two stores
+	work := setupStore(t)
+	personal := setupStore(t)
+
+	// Add skill to each store
+	addSkillToStore(t, work, "backend", "# Backend skill")
+	addSkillToStore(t, personal, "my-utils", "# My utils")
+	addAgentToStore(t, work, "main", "# Agent")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout:   "pi",
+		AgentsMd: "main",
+		Skills:   []string{"backend", "personal:my-utils"},
+	}
+
+	stores := map[string]*store.Store{
+		"work":     work,
+		"personal": personal,
+	}
+	res, err := Apply(stores, "work", m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Deployed != 3 { // agent + 2 skills
+		t.Errorf("deployed = %d, want 3", res.Deployed)
+	}
+
+	// Both skills deployed
+	data, err := os.ReadFile(filepath.Join(repo, ".pi", "skills", "backend", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("backend skill not found: %v", err)
+	}
+	if string(data) != "# Backend skill" {
+		t.Errorf("backend content = %q", data)
+	}
+
+	data, err = os.ReadFile(filepath.Join(repo, ".pi", "skills", "my-utils", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("my-utils skill not found: %v", err)
+	}
+	if string(data) != "# My utils" {
+		t.Errorf("my-utils content = %q", data)
+	}
+
+	// Lock records correct store names
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("loading lock: %v", err)
+	}
+
+	backendEntry, ok := lf.Deployed.Skills["backend"]
+	if !ok {
+		t.Fatal("lock missing backend skill")
+	}
+	if backendEntry.Store != "work" {
+		t.Errorf("backend store = %q, want %q", backendEntry.Store, "work")
+	}
+
+	utilsEntry, ok := lf.Deployed.Skills["personal:my-utils"]
+	if !ok {
+		t.Fatal("lock missing personal:my-utils skill")
+	}
+	if utilsEntry.Store != "personal" {
+		t.Errorf("my-utils store = %q, want %q", utilsEntry.Store, "personal")
+	}
+
+	if lf.Deployed.AgentsMD.Store != "work" {
+		t.Errorf("agents_md store = %q, want %q", lf.Deployed.AgentsMD.Store, "work")
 	}
 }

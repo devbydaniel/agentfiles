@@ -115,7 +115,7 @@ include = ["configs"]
 		t.Fatalf("load manifest: %v", err)
 	}
 
-	res, err := apply.Apply(s, m, repo1, apply.Options{Force: true})
+	res, err := apply.Apply(map[string]*store.Store{"default": s}, "default", m, repo1, apply.Options{Force: true})
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
@@ -214,7 +214,7 @@ include = ["configs"]
 		t.Fatalf("load manifest repo2: %v", err)
 	}
 
-	res2, err := apply.Apply(s, m2, repo2, apply.Options{Force: true})
+	res2, err := apply.Apply(map[string]*store.Store{"default": s}, "default", m2, repo2, apply.Options{Force: true})
 	if err != nil {
 		t.Fatalf("apply repo2: %v", err)
 	}
@@ -313,7 +313,7 @@ include = ["my-plugin"]
 		t.Fatalf("load manifest: %v", err)
 	}
 
-	res, err := apply.Apply(s, m, repo, apply.Options{Force: true})
+	res, err := apply.Apply(map[string]*store.Store{"default": s}, "default", m, repo, apply.Options{Force: true})
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
@@ -399,7 +399,7 @@ resources = ["dotfiles"]
 		t.Fatalf("load manifest: %v", err)
 	}
 
-	res, err := apply.Apply(s, m, repo, apply.Options{Force: true})
+	res, err := apply.Apply(map[string]*store.Store{"default": s}, "default", m, repo, apply.Options{Force: true})
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
@@ -474,7 +474,7 @@ include = ["my-skill"]
 		t.Fatalf("load manifest: %v", err)
 	}
 
-	if _, err := apply.Apply(s, m, repo, apply.Options{Force: true}); err != nil {
+	if _, err := apply.Apply(map[string]*store.Store{"default": s}, "default", m, repo, apply.Options{Force: true}); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 

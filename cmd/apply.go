@@ -52,7 +52,8 @@ Examples:
 		force, _ := cmd.Flags().GetBool("force")
 		skill, _ := cmd.Flags().GetString("skill")
 
-		res, err := apply.Apply(s, m, ".", apply.Options{
+		stores := map[string]*store.Store{"default": s}
+		res, err := apply.Apply(stores, "default", m, ".", apply.Options{
 			Force:     force,
 			SkillOnly: skill,
 		})

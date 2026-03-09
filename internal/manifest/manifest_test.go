@@ -89,6 +89,11 @@ func setupStore(t *testing.T) *store.Store {
 	return s
 }
 
+// singleStoreMap wraps a single store into the map format expected by Resolve.
+func singleStoreMap(s *store.Store) (map[string]*store.Store, string) {
+	return map[string]*store.Store{"default": s}, "default"
+}
+
 func TestResolveBundleWithOverrides(t *testing.T) {
 	s := setupStore(t)
 
@@ -120,13 +125,17 @@ skills_remove = ["typeorm-migrations"]
 		t.Fatalf("Load: %v", err)
 	}
 
-	r, err := manifest.Resolve(m, s)
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 
-	if r.AgentsMd != "ayunis-core" {
-		t.Errorf("AgentsMd = %q, want %q", r.AgentsMd, "ayunis-core")
+	if r.AgentsMd.Name != "ayunis-core" {
+		t.Errorf("AgentsMd.Name = %q, want %q", r.AgentsMd.Name, "ayunis-core")
+	}
+	if r.AgentsMd.Store != "default" {
+		t.Errorf("AgentsMd.Store = %q, want %q", r.AgentsMd.Store, "default")
 	}
 	if r.Layout != "pi" {
 		t.Errorf("Layout = %q, want %q", r.Layout, "pi")
@@ -140,19 +149,22 @@ skills_remove = ["typeorm-migrations"]
 		"browse":                   true,
 	}
 	if len(r.Skills) != len(expectedSkills) {
-		t.Errorf("Skills len = %d, want %d; got %v", len(r.Skills), len(expectedSkills), r.Skills)
+		t.Errorf("Skills len = %d, want %d; got %v", len(r.Skills), len(expectedSkills), assetNames(r.Skills))
 	}
 	for _, sk := range r.Skills {
-		if !expectedSkills[sk] {
-			t.Errorf("unexpected skill %q", sk)
+		if !expectedSkills[sk.Name] {
+			t.Errorf("unexpected skill %q", sk.Name)
+		}
+		if sk.Store != "default" {
+			t.Errorf("skill %q store = %q, want %q", sk.Name, sk.Store, "default")
 		}
 	}
 
-	if len(r.Plugins) != 1 || r.Plugins[0] != "my-plugin" {
-		t.Errorf("Plugins = %v, want [my-plugin]", r.Plugins)
+	if len(r.Plugins) != 1 || r.Plugins[0].Name != "my-plugin" {
+		t.Errorf("Plugins = %v, want [my-plugin]", assetNames(r.Plugins))
 	}
-	if len(r.Resources) != 1 || r.Resources[0] != "cursor-config" {
-		t.Errorf("Resources = %v, want [cursor-config]", r.Resources)
+	if len(r.Resources) != 1 || r.Resources[0].Name != "cursor-config" {
+		t.Errorf("Resources = %v, want [cursor-config]", assetNames(r.Resources))
 	}
 }
 
@@ -172,13 +184,14 @@ resources = ["cursor-config"]
 		t.Fatalf("Load: %v", err)
 	}
 
-	r, err := manifest.Resolve(m, s)
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 
-	if r.AgentsMd != "ayunis-core" {
-		t.Errorf("AgentsMd = %q, want %q", r.AgentsMd, "ayunis-core")
+	if r.AgentsMd.Name != "ayunis-core" {
+		t.Errorf("AgentsMd.Name = %q, want %q", r.AgentsMd.Name, "ayunis-core")
 	}
 	if r.Layout != "pi" {
 		t.Errorf("Layout = %q, want %q", r.Layout, "pi")
@@ -186,19 +199,19 @@ resources = ["cursor-config"]
 
 	expectedSkills := []string{"browse", "git-workflow"}
 	if len(r.Skills) != len(expectedSkills) {
-		t.Fatalf("Skills = %v, want %v", r.Skills, expectedSkills)
+		t.Fatalf("Skills = %v, want %v", assetNames(r.Skills), expectedSkills)
 	}
 	for i, sk := range expectedSkills {
-		if r.Skills[i] != sk {
-			t.Errorf("Skills[%d] = %q, want %q", i, r.Skills[i], sk)
+		if r.Skills[i].Name != sk {
+			t.Errorf("Skills[%d].Name = %q, want %q", i, r.Skills[i].Name, sk)
 		}
 	}
 
-	if len(r.Plugins) != 1 || r.Plugins[0] != "my-plugin" {
-		t.Errorf("Plugins = %v, want [my-plugin]", r.Plugins)
+	if len(r.Plugins) != 1 || r.Plugins[0].Name != "my-plugin" {
+		t.Errorf("Plugins = %v, want [my-plugin]", assetNames(r.Plugins))
 	}
-	if len(r.Resources) != 1 || r.Resources[0] != "cursor-config" {
-		t.Errorf("Resources = %v, want [cursor-config]", r.Resources)
+	if len(r.Resources) != 1 || r.Resources[0].Name != "cursor-config" {
+		t.Errorf("Resources = %v, want [cursor-config]", assetNames(r.Resources))
 	}
 }
 
@@ -278,8 +291,206 @@ func TestResolveMissingBundle(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	_, err = manifest.Resolve(m, s)
+	stores, defaultStore := singleStoreMap(s)
+	_, err = manifest.Resolve(m, stores, defaultStore)
 	if err == nil {
 		t.Fatal("expected error for missing bundle, got nil")
 	}
+}
+
+func TestResolveCrossStoreSkillsAdd(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+
+	bundleContent := `
+[bundle]
+name = "backend"
+agents_md = "backend"
+
+[skills]
+include = ["golang"]
+`
+	os.WriteFile(filepath.Join(work.BundlesDir(), "backend.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "backend"
+skills_add = ["personal:my-skill"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"work":     work,
+		"personal": personal,
+	}
+	r, err := manifest.Resolve(m, stores, "work")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	// Should have golang from work and my-skill from personal
+	if len(r.Skills) != 2 {
+		t.Fatalf("Skills len = %d, want 2; got %v", len(r.Skills), assetNames(r.Skills))
+	}
+
+	// golang should be from work
+	found := false
+	for _, sk := range r.Skills {
+		if sk.Name == "golang" && sk.Store == "work" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected golang skill from work store")
+	}
+
+	// my-skill should be from personal
+	found = false
+	for _, sk := range r.Skills {
+		if sk.Name == "my-skill" && sk.Store == "personal" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected my-skill from personal store")
+	}
+}
+
+func TestResolveCrossStoreSkillsRemove(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+
+	bundleContent := `
+[bundle]
+name = "backend"
+agents_md = "backend"
+
+[skills]
+include = ["golang", "my-skill"]
+`
+	os.WriteFile(filepath.Join(work.BundlesDir(), "backend.toml"), []byte(bundleContent), 0o644)
+
+	// Also add my-skill to personal store so both stores have it
+	os.MkdirAll(filepath.Join(personal.SkillsDir(), "my-skill"), 0o755)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "backend"
+skills_add = ["personal:my-skill"]
+skills_remove = ["personal:my-skill"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"work":     work,
+		"personal": personal,
+	}
+	r, err := manifest.Resolve(m, stores, "work")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	// skills_remove = ["personal:my-skill"] should only remove my-skill from
+	// personal store, leaving the work store's my-skill (from the bundle) intact.
+	// Expected: golang (work), my-skill (work)
+	if len(r.Skills) != 2 {
+		t.Fatalf("Skills len = %d, want 2; got %v", len(r.Skills), assetNames(r.Skills))
+	}
+
+	for _, sk := range r.Skills {
+		if sk.Name == "my-skill" && sk.Store == "personal" {
+			t.Error("personal:my-skill should have been removed by store-qualified skills_remove")
+		}
+	}
+
+	found := false
+	for _, sk := range r.Skills {
+		if sk.Name == "my-skill" && sk.Store == "work" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected my-skill from work store to survive store-qualified removal")
+	}
+}
+
+func TestResolveCrossStoreCherryPick(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+agents_md = "personal:my-agent"
+skills = ["work:backend", "personal:utils"]
+plugins = ["work:formatter"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"work":     work,
+		"personal": personal,
+	}
+	r, err := manifest.Resolve(m, stores, "work")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if r.AgentsMd.Name != "my-agent" || r.AgentsMd.Store != "personal" {
+		t.Errorf("AgentsMd = %+v, want {Name:my-agent Store:personal}", r.AgentsMd)
+	}
+
+	if len(r.Skills) != 2 {
+		t.Fatalf("Skills len = %d, want 2", len(r.Skills))
+	}
+	if r.Skills[0].Name != "backend" || r.Skills[0].Store != "work" {
+		t.Errorf("Skills[0] = %+v, want {Name:backend Store:work}", r.Skills[0])
+	}
+	if r.Skills[1].Name != "utils" || r.Skills[1].Store != "personal" {
+		t.Errorf("Skills[1] = %+v, want {Name:utils Store:personal}", r.Skills[1])
+	}
+
+	if len(r.Plugins) != 1 || r.Plugins[0].Name != "formatter" || r.Plugins[0].Store != "work" {
+		t.Errorf("Plugins = %v, want [{Name:formatter Store:work}]", r.Plugins)
+	}
+}
+
+func TestResolveUnknownStoreError(t *testing.T) {
+	s := setupStore(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+skills = ["unknown:some-skill"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	_, err = manifest.Resolve(m, stores, defaultStore)
+	if err == nil {
+		t.Fatal("expected error for unknown store reference, got nil")
+	}
+}
+
+// assetNames extracts names from a slice of ResolvedAssets for test output.
+func assetNames(assets []manifest.ResolvedAsset) []string {
+	names := make([]string, len(assets))
+	for i, a := range assets {
+		names[i] = a.Store + ":" + a.Name
+	}
+	return names
 }

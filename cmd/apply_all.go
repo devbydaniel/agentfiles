@@ -110,7 +110,8 @@ Examples:
 				continue
 			}
 
-			res, err := apply.Apply(s, m, repo.Path, apply.Options{Force: true})
+			stores := map[string]*store.Store{"default": s}
+			res, err := apply.Apply(stores, "default", m, repo.Path, apply.Options{Force: true})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "  error: apply: %v\n", err)
 				failed = append(failed, repo.Path)

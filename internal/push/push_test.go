@@ -69,7 +69,8 @@ func addSkill(t *testing.T, s *store.Store, name, content string) {
 
 func applyToRepo(t *testing.T, s *store.Store, m *manifest.Manifest, repo string) {
 	t.Helper()
-	if _, err := apply.Apply(s, m, repo, apply.Options{Force: true}); err != nil {
+	stores := map[string]*store.Store{"default": s}
+	if _, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 }
