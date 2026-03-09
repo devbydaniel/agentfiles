@@ -3,13 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/spf13/cobra"
 
 	"github.com/devbydaniel/agentfiles/internal/lock"
-	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var statusCmd = &cobra.Command{
@@ -31,7 +29,7 @@ Possible states:
 
 Requires a prior "af apply" (needs .agentfiles.lock).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s, err := store.Open(storePath)
+		stores, defaultStore, err := openStoresForLock()
 		if err != nil {
 			return err
 		}
@@ -54,19 +52,34 @@ Requires a prior "af apply" (needs .agentfiles.lock).`,
 
 		if lf.Deployed.AgentsMD != nil {
 			e := lf.Deployed.AgentsMD
-			items = append(items, item{"agents.md", filepath.Join(s.Root, e.StorePath), e.DeployedPath, e.Hash, false})
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			items = append(items, item{"agents.md", sp, e.DeployedPath, e.Hash, false})
 		}
 		for name, e := range lf.Deployed.Skills {
-			items = append(items, item{"skill:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath, e.Hash, true})
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			items = append(items, item{"skill:" + name, sp, e.DeployedPath, e.Hash, true})
 		}
 		for name, e := range lf.Deployed.Plugins {
-			items = append(items, item{"plugin:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath, e.Hash, true})
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			items = append(items, item{"plugin:" + name, sp, e.DeployedPath, e.Hash, true})
 		}
 		for name, e := range lf.Deployed.Resources {
-			absStorePath := filepath.Join(s.Root, e.StorePath)
-			info, _ := os.Stat(absStorePath)
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			info, _ := os.Stat(sp)
 			isDir := info != nil && info.IsDir()
-			items = append(items, item{"resource:" + name, absStorePath, e.DeployedPath, e.Hash, isDir})
+			items = append(items, item{"resource:" + name, sp, e.DeployedPath, e.Hash, isDir})
 		}
 
 		sort.Slice(items, func(i, j int) bool { return items[i].name < items[j].name })

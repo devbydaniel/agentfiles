@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/devbydaniel/agentfiles/internal/lock"
-	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var diffCmd = &cobra.Command{
@@ -26,7 +25,7 @@ Prints "clean" when all deployed files match the store.
 Useful for seeing what you've changed locally before running "af push",
 or what's changed in the store since your last "af apply".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s, err := store.Open(storePath)
+		stores, defaultStore, err := openStoresForLock()
 		if err != nil {
 			return err
 		}
@@ -48,16 +47,32 @@ or what's changed in the store since your last "af apply".`,
 		var entries []entryInfo
 
 		if lf.Deployed.AgentsMD != nil {
-			entries = append(entries, entryInfo{"agents.md", filepath.Join(s.Root, lf.Deployed.AgentsMD.StorePath), lf.Deployed.AgentsMD.DeployedPath})
+			sp, err := entrySourcePath(lf.Deployed.AgentsMD, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			entries = append(entries, entryInfo{"agents.md", sp, lf.Deployed.AgentsMD.DeployedPath})
 		}
 		for name, e := range lf.Deployed.Skills {
-			entries = append(entries, entryInfo{"skill:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath})
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			entries = append(entries, entryInfo{"skill:" + name, sp, e.DeployedPath})
 		}
 		for name, e := range lf.Deployed.Plugins {
-			entries = append(entries, entryInfo{"plugin:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath})
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			entries = append(entries, entryInfo{"plugin:" + name, sp, e.DeployedPath})
 		}
 		for name, e := range lf.Deployed.Resources {
-			entries = append(entries, entryInfo{"resource:" + name, filepath.Join(s.Root, e.StorePath), e.DeployedPath})
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			entries = append(entries, entryInfo{"resource:" + name, sp, e.DeployedPath})
 		}
 
 		for _, ei := range entries {
