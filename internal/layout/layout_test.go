@@ -59,12 +59,9 @@ func TestAllLayoutAgentMdEntries(t *testing.T) {
 		t.Fatalf("expected 3 entries, got %d", len(entries))
 	}
 
-	// AGENTS.md — regular
-	assertEntry(t, entries[0], "AGENTS.md", KindRegular, "")
-	// CLAUDE.md — pointer to @AGENTS.md
-	assertEntry(t, entries[1], "CLAUDE.md", KindPointer, "@AGENTS.md")
-	// .cursorrules — regular
-	assertEntry(t, entries[2], ".cursorrules", KindRegular, "")
+	assertEntryPath(t, entries[0], "AGENTS.md")
+	assertEntryPath(t, entries[1], "CLAUDE.md")
+	assertEntryPath(t, entries[2], ".cursorrules")
 }
 
 func TestAllLayoutSkillEntries(t *testing.T) {
@@ -75,12 +72,9 @@ func TestAllLayoutSkillEntries(t *testing.T) {
 		t.Fatalf("expected 3 entries, got %d", len(entries))
 	}
 
-	// pi — regular
-	assertEntry(t, entries[0], ".pi/skills/browse", KindRegular, "")
-	// claude — symlink to pi
-	assertEntry(t, entries[1], ".claude/skills/browse", KindSymlink, "../../.pi/skills/browse")
-	// cursor — regular
-	assertEntry(t, entries[2], ".cursor/skills/browse", KindRegular, "")
+	assertEntryPath(t, entries[0], ".pi/skills/browse")
+	assertEntryPath(t, entries[1], ".claude/skills/browse")
+	assertEntryPath(t, entries[2], ".cursor/skills/browse")
 }
 
 func TestAllLayoutPluginEntries(t *testing.T) {
@@ -91,9 +85,9 @@ func TestAllLayoutPluginEntries(t *testing.T) {
 		t.Fatalf("expected 3 entries, got %d", len(entries))
 	}
 
-	assertEntry(t, entries[0], ".pi/plugins/myplugin", KindRegular, "")
-	assertEntry(t, entries[1], ".claude/plugins/myplugin", KindSymlink, "../../.pi/plugins/myplugin")
-	assertEntry(t, entries[2], ".cursor/plugins/myplugin", KindRegular, "")
+	assertEntryPath(t, entries[0], ".pi/plugins/myplugin")
+	assertEntryPath(t, entries[1], ".claude/plugins/myplugin")
+	assertEntryPath(t, entries[2], ".cursor/plugins/myplugin")
 }
 
 func assertEqual(t *testing.T, want, got string) {
@@ -103,15 +97,9 @@ func assertEqual(t *testing.T, want, got string) {
 	}
 }
 
-func assertEntry(t *testing.T, e Entry, path string, kind FileKind, target string) {
+func assertEntryPath(t *testing.T, e Entry, path string) {
 	t.Helper()
 	if e.Path != path {
 		t.Errorf("entry path: want %q, got %q", path, e.Path)
-	}
-	if e.Kind != kind {
-		t.Errorf("entry %q kind: want %d, got %d", path, kind, e.Kind)
-	}
-	if e.Target != target {
-		t.Errorf("entry %q target: want %q, got %q", path, target, e.Target)
 	}
 }

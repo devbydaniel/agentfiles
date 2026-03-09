@@ -205,13 +205,13 @@ func TestApplyAllLayout(t *testing.T) {
 		t.Errorf("AGENTS.md content = %q", data)
 	}
 
-	// CLAUDE.md (pointer with @AGENTS.md)
+	// CLAUDE.md (full copy)
 	data, err = os.ReadFile(filepath.Join(repo, "CLAUDE.md"))
 	if err != nil {
 		t.Fatalf("CLAUDE.md not found: %v", err)
 	}
-	if string(data) != "@AGENTS.md" {
-		t.Errorf("CLAUDE.md content = %q, want @AGENTS.md", data)
+	if string(data) != "# All instructions" {
+		t.Errorf("CLAUDE.md content = %q, want same as AGENTS.md", data)
 	}
 
 	// .pi/skills/debug/SKILL.md (regular)
@@ -223,23 +223,14 @@ func TestApplyAllLayout(t *testing.T) {
 		t.Errorf("pi SKILL.md content = %q", data)
 	}
 
-	// .claude/skills/debug should be a symlink
-	linkPath := filepath.Join(repo, ".claude", "skills", "debug")
-	fi, err := os.Lstat(linkPath)
+	// .claude/skills/debug should be a regular copy
+	claudeSkillPath := filepath.Join(repo, ".claude", "skills", "debug", "SKILL.md")
+	data, err = os.ReadFile(claudeSkillPath)
 	if err != nil {
-		t.Fatalf(".claude skill entry not found: %v", err)
-	}
-	if fi.Mode()&os.ModeSymlink == 0 {
-		t.Errorf(".claude/skills/debug should be a symlink, mode=%v", fi.Mode())
-	}
-
-	// Read through the symlink
-	data, err = os.ReadFile(filepath.Join(linkPath, "SKILL.md"))
-	if err != nil {
-		t.Fatalf("reading through symlink: %v", err)
+		t.Fatalf(".claude skill not found: %v", err)
 	}
 	if string(data) != "# Debug skill" {
-		t.Errorf("symlinked SKILL.md content = %q", data)
+		t.Errorf(".claude SKILL.md content = %q", data)
 	}
 }
 

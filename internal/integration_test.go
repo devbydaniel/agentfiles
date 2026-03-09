@@ -326,34 +326,12 @@ include = ["my-plugin"]
 	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "my-skill", "SKILL.md"))
 	assertFileExists(t, filepath.Join(repo, ".pi", "plugins", "my-plugin", "plugin.lua"))
 
-	// CLAUDE.md should be a pointer file.
-	claudeData, err := os.ReadFile(filepath.Join(repo, "CLAUDE.md"))
-	if err != nil {
-		t.Fatalf("reading CLAUDE.md: %v", err)
-	}
-	if string(claudeData) != "@AGENTS.md" {
-		t.Fatalf("expected CLAUDE.md to contain '@AGENTS.md', got %q", string(claudeData))
-	}
+	// CLAUDE.md should be a full copy.
+	assertFileContains(t, filepath.Join(repo, "CLAUDE.md"), "# Agent")
 
-	// Claude skill should be a symlink to pi skill.
-	claudeSkillLink := filepath.Join(repo, ".claude", "skills", "my-skill")
-	linkTarget, err := os.Readlink(claudeSkillLink)
-	if err != nil {
-		t.Fatalf("expected .claude/skills/my-skill to be a symlink: %v", err)
-	}
-	if !strings.Contains(linkTarget, ".pi") {
-		t.Fatalf("expected symlink to point to .pi path, got %q", linkTarget)
-	}
-
-	// Claude plugin should be a symlink to pi plugin.
-	claudePluginLink := filepath.Join(repo, ".claude", "plugins", "my-plugin")
-	linkTarget, err = os.Readlink(claudePluginLink)
-	if err != nil {
-		t.Fatalf("expected .claude/plugins/my-plugin to be a symlink: %v", err)
-	}
-	if !strings.Contains(linkTarget, ".pi") {
-		t.Fatalf("expected symlink to point to .pi path, got %q", linkTarget)
-	}
+	// Claude skill and plugin should be regular copies.
+	assertFileExists(t, filepath.Join(repo, ".claude", "skills", "my-skill", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".claude", "plugins", "my-plugin", "plugin.lua"))
 
 	// Cursor layout files should exist as regular files.
 	assertFileExists(t, filepath.Join(repo, ".cursorrules"))

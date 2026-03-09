@@ -1,12 +1,7 @@
 package layout
 
-import (
-	"path/filepath"
-)
-
 // AllLayout produces paths for all supported layouts combined.
-// It uses PiLayout as the primary layout and creates pointer/symlink
-// entries for the others.
+// Every entry is a full copy — no pointers or symlinks.
 type AllLayout struct {
 	pi     PiLayout
 	claude ClaudeLayout
@@ -25,45 +20,28 @@ func (a AllLayout) SkillPath(name string) string { return a.pi.SkillPath(name) }
 func (a AllLayout) PluginPath(name string) string { return a.pi.PluginPath(name) }
 
 // AgentMdEntries returns entries for the agent file across all layouts.
-// The pi entry is regular; CLAUDE.md is a pointer; .cursorrules is regular.
 func (a AllLayout) AgentMdEntries() []Entry {
 	return []Entry{
-		{Path: a.pi.AgentMdPath(), Kind: KindRegular},
-		{Path: a.claude.AgentMdPath(), Kind: KindPointer, Target: "@AGENTS.md"},
-		{Path: a.cursor.AgentMdPath(), Kind: KindRegular},
+		{Path: a.pi.AgentMdPath()},
+		{Path: a.claude.AgentMdPath()},
+		{Path: a.cursor.AgentMdPath()},
 	}
 }
 
 // SkillEntries returns entries for a skill across all layouts.
-// The pi entry is regular; .claude/skills/<name> symlinks to .pi/skills/<name>.
-// Cursor gets a regular entry.
 func (a AllLayout) SkillEntries(name string) []Entry {
-	piPath := a.pi.SkillPath(name)
-	claudePath := a.claude.SkillPath(name)
 	return []Entry{
-		{Path: piPath, Kind: KindRegular},
-		{Path: claudePath, Kind: KindSymlink, Target: relTarget(claudePath, piPath)},
-		{Path: a.cursor.SkillPath(name), Kind: KindRegular},
+		{Path: a.pi.SkillPath(name)},
+		{Path: a.claude.SkillPath(name)},
+		{Path: a.cursor.SkillPath(name)},
 	}
 }
 
 // PluginEntries returns entries for a plugin across all layouts.
 func (a AllLayout) PluginEntries(name string) []Entry {
-	piPath := a.pi.PluginPath(name)
-	claudePath := a.claude.PluginPath(name)
 	return []Entry{
-		{Path: piPath, Kind: KindRegular},
-		{Path: claudePath, Kind: KindSymlink, Target: relTarget(claudePath, piPath)},
-		{Path: a.cursor.PluginPath(name), Kind: KindRegular},
+		{Path: a.pi.PluginPath(name)},
+		{Path: a.claude.PluginPath(name)},
+		{Path: a.cursor.PluginPath(name)},
 	}
-}
-
-// relTarget computes the relative path from the directory containing symlinkPath to targetPath.
-func relTarget(symlinkPath, targetPath string) string {
-	rel, err := filepath.Rel(filepath.Dir(symlinkPath), targetPath)
-	if err != nil {
-		// Fallback — should never happen with well-formed paths.
-		return targetPath
-	}
-	return rel
 }

@@ -11,11 +11,11 @@ func (ClaudeLayout) SkillPath(name string) string  { return filepath.Join(".clau
 func (ClaudeLayout) PluginPath(name string) string { return filepath.Join(".claude", "plugins", name) }
 
 func (l ClaudeLayout) AgentMdEntries() []Entry {
-	return []Entry{{Path: l.AgentMdPath(), Kind: KindRegular}}
+	return []Entry{{Path: l.AgentMdPath()}}
 }
 func (l ClaudeLayout) SkillEntries(name string) []Entry {
-	return []Entry{{Path: l.SkillPath(name), Kind: KindRegular}}
+	return []Entry{{Path: l.SkillPath(name)}}
 }
 func (l ClaudeLayout) PluginEntries(name string) []Entry {
-	return []Entry{{Path: l.PluginPath(name), Kind: KindRegular}}
+	return []Entry{{Path: l.PluginPath(name)}}
 }

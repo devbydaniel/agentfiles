@@ -1,23 +1,9 @@
 // Package layout defines how agent files are placed in a repository.
 package layout
 
-// FileKind describes special handling for a file entry.
-type FileKind int
-
-const (
-	// KindRegular is a normal file written with its own content.
-	KindRegular FileKind = iota
-	// KindPointer is a file whose content is a reference to another file (e.g. @AGENTS.md).
-	KindPointer
-	// KindSymlink is a symlink to another path.
-	KindSymlink
-)
-
-// Entry describes a single file to be written, with optional special handling.
+// Entry describes a single file or directory to be written.
 type Entry struct {
-	Path   string   // Destination path relative to repo root.
-	Kind   FileKind // How the file should be created.
-	Target string   // For KindPointer: content to write. For KindSymlink: link target.
+	Path string // Destination path relative to repo root.
 }
 
 // Layout maps agent-file concepts to repository paths.

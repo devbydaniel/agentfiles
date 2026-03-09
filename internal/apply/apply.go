@@ -74,7 +74,7 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 				return nil, fmt.Errorf("hashing agent md: %w", err)
 			}
 			relSource := filepath.Join("agents", resolved.AgentsMd+".md")
-			deployedPath := primaryRegularPath(entries)
+			deployedPath := primaryPath(entries)
 			if err := lf.Record(lock.AssetAgentsMD, resolved.AgentsMd, relSource, deployedPath, h); err != nil {
 				return nil, err
 			}
@@ -117,7 +117,7 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 				return nil, fmt.Errorf("hashing skill %q: %w", name, err)
 			}
 			relSource := filepath.Join("skills", name) + "/"
-			deployedPath := primaryRegularPath(entries)
+			deployedPath := primaryPath(entries)
 			if err := lf.Record(lock.AssetSkills, name, relSource, deployedPath, h); err != nil {
 				return nil, err
 			}
@@ -154,7 +154,7 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 					return nil, fmt.Errorf("hashing plugin %q: %w", name, err)
 				}
 				relSource := filepath.Join("plugins", name) + "/"
-				deployedPath := primaryRegularPath(entries)
+				deployedPath := primaryPath(entries)
 				if err := lf.Record(lock.AssetPlugins, name, relSource, deployedPath, h); err != nil {
 					return nil, err
 				}
@@ -206,17 +206,7 @@ func Apply(s *store.Store, m *manifest.Manifest, repoDir string, opts Options) (
 // Returns (skipped, warning, error).
 func deployEntry(repoDir string, e layout.Entry, src string, force bool) (bool, string, error) {
 	dest := filepath.Join(repoDir, e.Path)
-
-	switch e.Kind {
-	case layout.KindRegular:
-		return deployCopy(dest, src, force)
-	case layout.KindPointer:
-		return deployFile(dest, []byte(e.Target), force)
-	case layout.KindSymlink:
-		return deploySymlink(dest, e.Target, force)
-	default:
-		return false, "", fmt.Errorf("unknown entry kind %d", e.Kind)
-	}
+	return deployCopy(dest, src, force)
 }
 
 // deployCopy copies a file or directory from src to dest.
@@ -250,21 +240,6 @@ func deployFile(dest string, data []byte, force bool) (bool, string, error) {
 	// Remove existing (could be symlink or regular file).
 	os.Remove(dest)
 	return false, "", os.WriteFile(dest, data, 0o644)
-}
-
-// deploySymlink creates a symlink at dest pointing to target.
-func deploySymlink(dest, target string, force bool) (bool, string, error) {
-	if !force {
-		if _, err := os.Lstat(dest); err == nil {
-			warn := fmt.Sprintf("warning: skipping %s (already exists, use --force to overwrite)", dest)
-			return true, warn, nil
-		}
-	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return false, "", err
-	}
-	os.Remove(dest)
-	return false, "", os.Symlink(target, dest)
 }
 
 // copyDir recursively copies src directory to dest.
@@ -312,13 +287,8 @@ func deployResource(repoDir, srcDir string, force bool) (bool, string, error) {
 	return copyDir(repoDir, srcDir, force)
 }
 
-// primaryRegularPath returns the Path of the first KindRegular entry.
-func primaryRegularPath(entries []layout.Entry) string {
-	for _, e := range entries {
-		if e.Kind == layout.KindRegular {
-			return e.Path
-		}
-	}
+// primaryPath returns the Path of the first entry.
+func primaryPath(entries []layout.Entry) string {
 	if len(entries) > 0 {
 		return entries[0].Path
 	}

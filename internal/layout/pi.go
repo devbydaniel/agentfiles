@@ -11,11 +11,11 @@ func (PiLayout) SkillPath(name string) string  { return filepath.Join(".pi", "sk
 func (PiLayout) PluginPath(name string) string { return filepath.Join(".pi", "plugins", name) }
 
 func (l PiLayout) AgentMdEntries() []Entry {
-	return []Entry{{Path: l.AgentMdPath(), Kind: KindRegular}}
+	return []Entry{{Path: l.AgentMdPath()}}
 }
 func (l PiLayout) SkillEntries(name string) []Entry {
-	return []Entry{{Path: l.SkillPath(name), Kind: KindRegular}}
+	return []Entry{{Path: l.SkillPath(name)}}
 }
 func (l PiLayout) PluginEntries(name string) []Entry {
-	return []Entry{{Path: l.PluginPath(name), Kind: KindRegular}}
+	return []Entry{{Path: l.PluginPath(name)}}
 }

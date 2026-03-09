@@ -165,11 +165,7 @@ Layouts control where files land in the repo. Different AI tools expect differen
 
 **Resources** are layout-independent — always copied to repo root regardless of layout.
 
-The **`all` layout** deploys for every tool simultaneously:
-- Pi paths are the primary (full copies)
-- `CLAUDE.md` contains `@AGENTS.md` (a pointer to the pi file)
-- `.claude/skills/` entries are symlinks to `.pi/skills/` equivalents
-- Cursor paths get full copies
+The **`all` layout** deploys for every tool simultaneously — all entries are full copies.
 
 ### Lock File (`.agentfiles.lock`)
 
@@ -496,11 +492,11 @@ af apply
 
 This creates:
 ```
-AGENTS.md                           ← full copy (pi primary)
-CLAUDE.md                           ← contains "@AGENTS.md" (pointer)
+AGENTS.md                           ← full copy
+CLAUDE.md                           ← full copy
 .cursorrules                        ← full copy
-.pi/skills/browse/SKILL.md          ← full copy (primary)
-.claude/skills/browse/SKILL.md      ← symlink → ../../.pi/skills/browse
+.pi/skills/browse/SKILL.md          ← full copy
+.claude/skills/browse/SKILL.md      ← full copy
 .cursor/skills/browse/SKILL.md      ← full copy
 ```
 
