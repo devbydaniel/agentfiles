@@ -122,26 +122,7 @@ layout = "all"
 skills_add = ["personal:browse"]  # cross-store: prefix with storename:
 ```
 
-**`~/.config/agentfiles/config.local.toml`** — per-developer overrides:
-
-```toml
-[[repos]]
-name = "api-server"
-path = "~/dev/api-server"
-layout = "claude"              # optional: override layout
-
-[[repos]]
-name = "web-app"
-path = "~/work/web-app"
-skip = true                    # optional: skip this repo
-```
-
-**Merge rules:**
-- Named repos in `config.toml` get their `path` from the matching local entry. Named repos without a local entry are silently skipped (the dev doesn't have that repo checked out).
-- Local entries can override `layout`, `skills_add`, and `skills_remove`.
-- Setting `skip = true` in a local entry excludes that repo from `apply-all`.
-- For **solo use** (no team), you can put `path` directly in `config.toml` and skip the local file entirely.
-- Each repo can specify a `store` to target a specific named store (defaults to `default_store`).
+Each repo can specify a `store` to target a specific named store (defaults to `default_store`).
 
 The registry is **additive** to the per-repo workflow. Repos can still have their own `.agentfiles` managed manually — the registry simply provides a central view and batch operations. When `af apply-all` runs, it writes/updates the `.agentfiles` manifest in each registered repo to keep it in sync with the config.
 
@@ -719,20 +700,6 @@ exclude = []
 [resources]
 include = ["cursor-config"]
 exclude = []
-```
-
-### Config Local (`~/.config/agentfiles/config.local.toml`)
-
-Optional. Per-developer overrides — not shared.
-
-```toml
-[[repos]]
-name = "api-server"              # matches name in config.toml
-path = "~/dev/api-server"        # required: where this dev has the repo
-layout = "claude"                # optional: override layout
-skills_add = ["extra"]           # optional: add more skills locally
-skills_remove = ["unwanted"]     # optional: remove skills locally
-skip = false                     # optional: set true to exclude from apply-all
 ```
 
 ### Lock File (`.agentfiles.lock`)
