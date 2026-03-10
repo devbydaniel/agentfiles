@@ -48,21 +48,6 @@ func addSkillToStore(t *testing.T, s *store.Store, name, content string) {
 	}
 }
 
-// addPluginToStore writes a plugin dir with files into the store.
-func addPluginToStore(t *testing.T, s *store.Store, name string, files map[string]string) {
-	t.Helper()
-	dir := filepath.Join(s.PluginsDir(), name)
-	for rel, content := range files {
-		p := filepath.Join(dir, rel)
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 // addResourceToStore writes a resource dir with files into the store.
 func addResourceToStore(t *testing.T, s *store.Store, name string, files map[string]string) {
 	t.Helper()
@@ -330,12 +315,9 @@ func TestApplyWritesLockFile(t *testing.T) {
 	}
 }
 
-func TestApplyWritesLockForPluginsAndResources(t *testing.T) {
+func TestApplyWritesLockForResources(t *testing.T) {
 	s := setupStore(t)
 	addAgentToStore(t, s, "main", "# Agent")
-	addPluginToStore(t, s, "myplugin", map[string]string{
-		"plugin.yaml": "name: myplugin",
-	})
 	addResourceToStore(t, s, "myresource", map[string]string{
 		"data.txt": "hello",
 	})
@@ -344,7 +326,6 @@ func TestApplyWritesLockForPluginsAndResources(t *testing.T) {
 	m := &manifest.Manifest{
 		Layout:    "pi",
 		AgentsMd:  "main",
-		Plugins:   []string{"myplugin"},
 		Resources: []string{"myresource"},
 	}
 
@@ -356,17 +337,6 @@ func TestApplyWritesLockForPluginsAndResources(t *testing.T) {
 	lf, err := lock.Load(repo)
 	if err != nil {
 		t.Fatalf("loading lock: %v", err)
-	}
-
-	plugin, ok := lf.Deployed.Plugins["myplugin"]
-	if !ok {
-		t.Fatal("lock file missing plugin 'myplugin'")
-	}
-	if plugin.StorePath != "plugins/myplugin/" {
-		t.Errorf("plugin source = %q, want %q", plugin.StorePath, "plugins/myplugin/")
-	}
-	if plugin.Hash == "" {
-		t.Error("plugin hash is empty")
 	}
 
 	resource, ok := lf.Deployed.Resources["myresource"]

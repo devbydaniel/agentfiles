@@ -17,7 +17,7 @@ import (
 // TestIntegrationRoundTrip exercises the full lifecycle:
 //
 //  1. init-store
-//  2. add skill, agent, plugin, resource
+//  2. add skill, agent, resource
 //  3. create bundle TOML
 //  4. init repo (write .agentfiles pointing at bundle, pi layout)
 //  5. apply → verify files at correct pi layout paths
@@ -62,19 +62,6 @@ func TestIntegrationRoundTrip(t *testing.T) {
 		t.Fatalf("add agent: %v", err)
 	}
 
-	// plugin: create a source plugin dir
-	pluginSrc := filepath.Join(tmp, "src-plugin", "my-plugin")
-	mustMkdir(t, pluginSrc)
-	mustWrite(t, filepath.Join(pluginSrc, "plugin.lua"), "-- plugin code\n")
-
-	pname, _, err := s.AddPlugin(pluginSrc, false)
-	if err != nil {
-		t.Fatalf("add plugin: %v", err)
-	}
-	if pname != "my-plugin" {
-		t.Fatalf("expected plugin name 'my-plugin', got %q", pname)
-	}
-
 	// resource: create a source resource dir with files
 	resSrc := filepath.Join(tmp, "src-resource", "configs")
 	mustMkdir(t, resSrc)
@@ -97,9 +84,6 @@ agents_md = "default"
 [skills]
 include = ["my-skill"]
 
-[plugins]
-include = ["my-plugin"]
-
 [resources]
 include = ["configs"]
 `
@@ -120,8 +104,8 @@ include = ["configs"]
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if res.Deployed != 4 { // agent + skill + plugin + resource
-		t.Fatalf("expected 4 deployed, got %d", res.Deployed)
+	if res.Deployed != 3 { // agent + skill + resource
+		t.Fatalf("expected 3 deployed, got %d", res.Deployed)
 	}
 
 	// Verify AGENTS.md
@@ -133,9 +117,6 @@ include = ["configs"]
 
 	// Verify .pi/skills/my-skill/helper.sh
 	assertFileExists(t, filepath.Join(repo1, ".pi", "skills", "my-skill", "helper.sh"))
-
-	// Verify .pi/plugins/my-plugin/plugin.lua
-	assertFileContains(t, filepath.Join(repo1, ".pi", "plugins", "my-plugin", "plugin.lua"), "plugin code")
 
 	// Verify resources deployed to repo root
 	assertFileContains(t, filepath.Join(repo1, ".editorconfig"), "root = true")
@@ -154,9 +135,6 @@ include = ["configs"]
 	}
 	if _, ok := lf1.Deployed.Skills["my-skill"]; !ok {
 		t.Fatal("lock missing skill 'my-skill'")
-	}
-	if _, ok := lf1.Deployed.Plugins["my-plugin"]; !ok {
-		t.Fatal("lock missing plugin 'my-plugin'")
 	}
 	if _, ok := lf1.Deployed.Resources["configs"]; !ok {
 		t.Fatal("lock missing resource 'configs'")
@@ -219,8 +197,8 @@ include = ["configs"]
 	if err != nil {
 		t.Fatalf("apply repo2: %v", err)
 	}
-	if res2.Deployed != 4 {
-		t.Fatalf("expected 4 deployed in repo2, got %d", res2.Deployed)
+	if res2.Deployed != 3 {
+		t.Fatalf("expected 3 deployed in repo2, got %d", res2.Deployed)
 	}
 
 	// ── 9. verify second repo has pushed change ────────────────────
@@ -236,12 +214,9 @@ include = ["configs"]
 		t.Fatalf("repo2 lock hash %q != repo1 post-push hash %q",
 			lf2.Deployed.Skills["my-skill"].Hash, skillHashAfter)
 	}
-	// Agent, plugin, resource hashes should match between repos.
+	// Agent and resource hashes should match between repos.
 	if lf2.Deployed.AgentsMD.Hash != lf1After.Deployed.AgentsMD.Hash {
 		t.Fatal("agent hash mismatch between repos")
-	}
-	if lf2.Deployed.Plugins["my-plugin"].Hash != lf1After.Deployed.Plugins["my-plugin"].Hash {
-		t.Fatal("plugin hash mismatch between repos")
 	}
 	if lf2.Deployed.Resources["configs"].Hash != lf1After.Deployed.Resources["configs"].Hash {
 		t.Fatal("resource hash mismatch between repos")
@@ -283,14 +258,6 @@ func TestIntegrationAllLayout(t *testing.T) {
 		t.Fatalf("add agent: %v", err)
 	}
 
-	// Add a plugin.
-	pluginSrc := filepath.Join(tmp, "src-plugin", "my-plugin")
-	mustMkdir(t, pluginSrc)
-	mustWrite(t, filepath.Join(pluginSrc, "plugin.lua"), "-- code\n")
-	if _, _, err := s.AddPlugin(pluginSrc, false); err != nil {
-		t.Fatalf("add plugin: %v", err)
-	}
-
 	// Bundle
 	bundleTOML := `[bundle]
 name = "all-bundle"
@@ -298,9 +265,6 @@ agents_md = "default"
 
 [skills]
 include = ["my-skill"]
-
-[plugins]
-include = ["my-plugin"]
 `
 	mustWrite(t, filepath.Join(s.BundlesDir(), "all-bundle.toml"), bundleTOML)
 
@@ -318,26 +282,22 @@ include = ["my-plugin"]
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if res.Deployed != 3 { // agent + skill + plugin
-		t.Fatalf("expected 3 deployed, got %d", res.Deployed)
+	if res.Deployed != 2 { // agent + skill
+		t.Fatalf("expected 2 deployed, got %d", res.Deployed)
 	}
 
 	// Primary pi layout files should exist.
 	assertFileContains(t, filepath.Join(repo, "AGENTS.md"), "# Agent")
 	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "my-skill", "SKILL.md"))
-	assertFileExists(t, filepath.Join(repo, ".pi", "plugins", "my-plugin", "plugin.lua"))
 
 	// CLAUDE.md should be a full copy.
 	assertFileContains(t, filepath.Join(repo, "CLAUDE.md"), "# Agent")
 
-	// Claude skill and plugin should be regular copies.
+	// Claude skill should be a regular copy.
 	assertFileExists(t, filepath.Join(repo, ".claude", "skills", "my-skill", "SKILL.md"))
-	assertFileExists(t, filepath.Join(repo, ".claude", "plugins", "my-plugin", "plugin.lua"))
 
 	// Cursor layout files should exist as regular files.
-	// Cursor now uses AGENTS.md (same as pi), so no separate .cursorrules.
 	assertFileExists(t, filepath.Join(repo, ".cursor", "skills", "my-skill", "SKILL.md"))
-	assertFileExists(t, filepath.Join(repo, ".cursor", "plugins", "my-plugin", "plugin.lua"))
 }
 
 // TestIntegrationCherryPick exercises cherry-pick mode (manifest without bundle).
@@ -371,13 +331,6 @@ func TestIntegrationCherryPick(t *testing.T) {
 		t.Fatalf("add agent: %v", err)
 	}
 
-	pluginSrc := filepath.Join(tmp, "src-plugin", "fmt")
-	mustMkdir(t, pluginSrc)
-	mustWrite(t, filepath.Join(pluginSrc, "fmt.lua"), "-- fmt\n")
-	if _, _, err := s.AddPlugin(pluginSrc, false); err != nil {
-		t.Fatalf("add plugin: %v", err)
-	}
-
 	resSrc := filepath.Join(tmp, "src-res", "dotfiles")
 	mustMkdir(t, resSrc)
 	mustWrite(t, filepath.Join(resSrc, ".editorconfig"), "root = true\n")
@@ -391,7 +344,6 @@ func TestIntegrationCherryPick(t *testing.T) {
 	mustWrite(t, filepath.Join(repo, ".agentfiles"), `layout = "pi"
 agents_md = "cherry"
 skills = ["browse"]
-plugins = ["fmt"]
 resources = ["dotfiles"]
 `)
 
@@ -404,14 +356,13 @@ resources = ["dotfiles"]
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if res.Deployed != 4 { // agent + skill + plugin + resource
-		t.Fatalf("expected 4 deployed, got %d", res.Deployed)
+	if res.Deployed != 3 { // agent + skill + resource
+		t.Fatalf("expected 3 deployed, got %d", res.Deployed)
 	}
 
 	// Verify correct files deployed.
 	assertFileContains(t, filepath.Join(repo, "AGENTS.md"), "Cherry Agent")
 	assertFileContains(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), "# Browse")
-	assertFileContains(t, filepath.Join(repo, ".pi", "plugins", "fmt", "fmt.lua"), "-- fmt")
 	assertFileContains(t, filepath.Join(repo, ".editorconfig"), "root = true")
 
 	// "search" skill should NOT be deployed.
@@ -727,7 +678,7 @@ skills_add = ["personal:my-personal-skill"]
 }
 
 // TestIntegrationUserLevelDeploy exercises user-level apply and push:
-//  1. Create a store with agent, skill, plugin.
+//  1. Create a store with agent, skill.
 //  2. Create a bundle.
 //  3. Apply with user layout + home dir + user lock path.
 //  4. Verify files land at correct user-level paths.
@@ -759,14 +710,6 @@ func TestIntegrationUserLevelDeploy(t *testing.T) {
 		t.Fatalf("add skill: %v", err)
 	}
 
-	// Plugin
-	pluginSrc := filepath.Join(tmp, "src-plugin", "formatter")
-	mustMkdir(t, pluginSrc)
-	mustWrite(t, filepath.Join(pluginSrc, "plugin.lua"), "-- formatter\n")
-	if _, _, err := s.AddPlugin(pluginSrc, false); err != nil {
-		t.Fatalf("add plugin: %v", err)
-	}
-
 	// ── 2. Create bundle ───────────────────────────────────────────
 	bundleTOML := `[bundle]
 name = "user-bundle"
@@ -774,9 +717,6 @@ agents_md = "global"
 
 [skills]
 include = ["browse"]
-
-[plugins]
-include = ["formatter"]
 `
 	mustWrite(t, filepath.Join(s.BundlesDir(), "user-bundle.toml"), bundleTOML)
 
@@ -805,25 +745,22 @@ include = ["formatter"]
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if res.Deployed != 3 { // agent + skill + plugin
-		t.Fatalf("expected 3 deployed, got %d", res.Deployed)
+	if res.Deployed != 2 { // agent + skill
+		t.Fatalf("expected 2 deployed, got %d", res.Deployed)
 	}
 
 	// ── 4. Verify files at user-level paths ────────────────────────
 	// Pi layout paths
 	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "User Agent")
 	assertFileContains(t, filepath.Join(home, ".pi", "agent", "skills", "browse", "SKILL.md"), "# Browse")
-	assertFileContains(t, filepath.Join(home, ".pi", "agent", "plugins", "formatter", "plugin.lua"), "-- formatter")
 
 	// Claude layout paths (user-all deploys to all)
 	assertFileContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "User Agent")
 	assertFileExists(t, filepath.Join(home, ".claude", "skills", "browse", "SKILL.md"))
-	assertFileExists(t, filepath.Join(home, ".claude", "plugins", "formatter", "plugin.lua"))
 
 	// Cursor layout paths
 	assertFileContains(t, filepath.Join(home, ".cursor", "rules", "agentfiles.md"), "User Agent")
 	assertFileExists(t, filepath.Join(home, ".cursor", "skills", "browse", "SKILL.md"))
-	assertFileExists(t, filepath.Join(home, ".cursor", "plugins", "formatter", "plugin.lua"))
 
 	// ── 4b. Verify user lock file ──────────────────────────────────
 	lf, err := lock.LoadFrom(userLockPath)
@@ -836,10 +773,6 @@ include = ["formatter"]
 	if _, ok := lf.Deployed.Skills["browse"]; !ok {
 		t.Fatal("user lock missing skill 'browse'")
 	}
-	if _, ok := lf.Deployed.Plugins["formatter"]; !ok {
-		t.Fatal("user lock missing plugin 'formatter'")
-	}
-
 	skillHashBefore := lf.Deployed.Skills["browse"].Hash
 
 	// ── 5. Modify deployed file, push, verify store updated ────────

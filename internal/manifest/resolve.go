@@ -20,7 +20,6 @@ type ResolvedManifest struct {
 	Layout    string
 	AgentsMd  ResolvedAsset
 	Skills    []ResolvedAsset
-	Plugins   []ResolvedAsset
 	Resources []ResolvedAsset
 }
 
@@ -50,7 +49,6 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 			r.AgentsMd = ResolvedAsset{Name: name, Store: defaultStore}
 		}
 		r.Skills = toResolvedAssets(filterExcluded(b.Skills.Include, b.Skills.Exclude), defaultStore)
-		r.Plugins = toResolvedAssets(filterExcluded(b.Plugins.Include, b.Plugins.Exclude), defaultStore)
 		r.Resources = toResolvedAssets(filterExcluded(b.Resources.Include, b.Resources.Exclude), defaultStore)
 	} else {
 		if m.AgentsMd != "" {
@@ -58,7 +56,6 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 			r.AgentsMd = ResolvedAsset{Name: name, Store: storeName}
 		}
 		r.Skills = parseResolvedAssets(m.Skills, defaultStore)
-		r.Plugins = parseResolvedAssets(m.Plugins, defaultStore)
 		r.Resources = parseResolvedAssets(m.Resources, defaultStore)
 	}
 
@@ -81,7 +78,6 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		allAssets = append(allAssets, r.AgentsMd)
 	}
 	allAssets = append(allAssets, r.Skills...)
-	allAssets = append(allAssets, r.Plugins...)
 	allAssets = append(allAssets, r.Resources...)
 	for _, a := range allAssets {
 		if _, ok := stores[a.Store]; !ok {
@@ -91,9 +87,6 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 
 	// Validate no same-name collisions across different stores.
 	if err := checkNameCollisions("skill", r.Skills); err != nil {
-		return nil, err
-	}
-	if err := checkNameCollisions("plugin", r.Plugins); err != nil {
 		return nil, err
 	}
 	if err := checkNameCollisions("resource", r.Resources); err != nil {

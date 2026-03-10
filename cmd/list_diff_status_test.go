@@ -15,7 +15,7 @@ import (
 func setupStore(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	for _, sub := range []string{"skills", "agents", "plugins", "resources", "bundles"} {
+	for _, sub := range []string{"skills", "agents", "resources", "bundles"} {
 		os.MkdirAll(filepath.Join(dir, sub), 0o755)
 	}
 	gitIn(t, dir, "init")
@@ -96,7 +96,6 @@ func TestDiffClean(t *testing.T) {
 
 	lf := &lock.LockFile{}
 	lf.Deployed.Skills = make(map[string]*lock.Entry)
-	lf.Deployed.Plugins = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
 	lf.Deployed.AgentsMD = &lock.Entry{
 		StorePath:    "agents/default.md",
@@ -139,7 +138,6 @@ func TestDiffWithLocalEdit(t *testing.T) {
 
 	lf := &lock.LockFile{}
 	lf.Deployed.Skills = make(map[string]*lock.Entry)
-	lf.Deployed.Plugins = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
 	lf.Deployed.AgentsMD = &lock.Entry{
 		StorePath:    "agents/default.md",
@@ -211,7 +209,6 @@ func TestStatusShowsCorrectStates(t *testing.T) {
 
 	lf := &lock.LockFile{}
 	lf.Deployed.Skills = make(map[string]*lock.Entry)
-	lf.Deployed.Plugins = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = map[string]*lock.Entry{
 		"unchanged": {StorePath: "resources/myres/unchanged.txt", DeployedPath: "unchanged.txt", Hash: hashUnchanged},
 		"local":     {StorePath: "resources/myres/local.txt", DeployedPath: "local.txt", Hash: hashLocal},

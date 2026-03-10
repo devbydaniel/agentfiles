@@ -73,7 +73,6 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 	// Start a fresh lock file so only currently-deployed assets are tracked.
 	lf := &lock.LockFile{}
 	lf.Deployed.Skills = make(map[string]*lock.Entry)
-	lf.Deployed.Plugins = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
 
 	res := &ApplyResult{}
@@ -174,49 +173,6 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		}
 	}
 
-	// Deploy plugins (unless skill-only filter).
-	if opts.SkillOnly == "" {
-		for _, plugin := range resolved.Plugins {
-			s, err := store.LookupStore(stores, plugin.Store)
-			if err != nil {
-				return nil, fmt.Errorf("plugin %q: %w", plugin.Name, err)
-			}
-			src := filepath.Join(s.PluginsDir(), plugin.Name)
-			if _, err := os.Stat(src); err != nil {
-				return nil, fmt.Errorf("plugin %q not found in store %q", plugin.Name, plugin.Store)
-			}
-			entries := lay.PluginEntries(plugin.Name)
-			allSkipped := true
-			for _, e := range entries {
-				skipped, warn, err := deployEntry(repoDir, e, src, opts.Force)
-				if err != nil {
-					return nil, fmt.Errorf("deploying plugin %q to %s: %w", plugin.Name, e.Path, err)
-				}
-				if warn != "" {
-					res.Warnings = append(res.Warnings, warn)
-				}
-				if !skipped {
-					allSkipped = false
-				}
-			}
-			h, err := lock.HashDir(src)
-			if err != nil {
-				return nil, fmt.Errorf("hashing plugin %q: %w", plugin.Name, err)
-			}
-			relSource := filepath.Join("plugins", plugin.Name) + "/"
-			deployedPath := primaryPath(entries)
-			lk := lockKey(plugin.Name, plugin.Store, defaultStore)
-			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetPlugins, Name: lk, StoreName: plugin.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
-				return nil, err
-			}
-			if allSkipped {
-				res.Skipped++
-			} else {
-				res.Deployed++
-			}
-		}
-	}
-
 	// Deploy resources (layout-independent, copy to repo root).
 	if opts.SkillOnly == "" {
 		for _, resource := range resolved.Resources {
@@ -284,9 +240,6 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 	for _, e := range newLF.Deployed.Skills {
 		newPaths[e.DeployedPath] = true
 	}
-	for _, e := range newLF.Deployed.Plugins {
-		newPaths[e.DeployedPath] = true
-	}
 	for _, e := range newLF.Deployed.Resources {
 		newPaths[e.DeployedPath] = true
 	}
@@ -300,15 +253,6 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 
 	// Remove old skills.
 	for _, e := range oldLF.Deployed.Skills {
-		if !newPaths[e.DeployedPath] {
-			if removeDeployed(repoDir, e.DeployedPath) {
-				removed++
-			}
-		}
-	}
-
-	// Remove old plugins.
-	for _, e := range oldLF.Deployed.Plugins {
 		if !newPaths[e.DeployedPath] {
 			if removeDeployed(repoDir, e.DeployedPath) {
 				removed++

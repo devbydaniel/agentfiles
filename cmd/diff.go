@@ -19,7 +19,7 @@ var diffCmd = &cobra.Command{
 and their corresponding source files in the store.
 
 Reads .agentfiles.lock to find deployed assets and their store paths.
-For directory assets (skills, plugins), diffs each file individually.
+For directory assets (skills), diffs each file individually.
 Prints "clean" when all deployed files match the store.
 
 Useful for seeing what you've changed locally before running "af push",
@@ -59,13 +59,6 @@ or what's changed in the store since your last "af apply".`,
 				return err
 			}
 			entries = append(entries, entryInfo{"skill:" + name, sp, e.DeployedPath})
-		}
-		for name, e := range lf.Deployed.Plugins {
-			sp, err := entrySourcePath(e, stores, defaultStore)
-			if err != nil {
-				return err
-			}
-			entries = append(entries, entryInfo{"plugin:" + name, sp, e.DeployedPath})
 		}
 		for name, e := range lf.Deployed.Resources {
 			sp, err := entrySourcePath(e, stores, defaultStore)

@@ -65,13 +65,6 @@ Requires a prior "af apply" (needs .agentfiles.lock).`,
 			}
 			items = append(items, item{"skill:" + name, sp, e.DeployedPath, e.Hash, true})
 		}
-		for name, e := range lf.Deployed.Plugins {
-			sp, err := entrySourcePath(e, stores, defaultStore)
-			if err != nil {
-				return err
-			}
-			items = append(items, item{"plugin:" + name, sp, e.DeployedPath, e.Hash, true})
-		}
 		for name, e := range lf.Deployed.Resources {
 			sp, err := entrySourcePath(e, stores, defaultStore)
 			if err != nil {

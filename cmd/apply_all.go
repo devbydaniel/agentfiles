@@ -206,7 +206,6 @@ func userFields(u *config.UserConfig) manifest.UserFields {
 		Layout:       u.Layout,
 		AgentsMd:     u.AgentsMd,
 		Skills:       u.Skills,
-		Plugins:      u.Plugins,
 		SkillsAdd:    u.SkillsAdd,
 		SkillsRemove: u.SkillsRemove,
 	}

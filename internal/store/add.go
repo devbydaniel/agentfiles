@@ -62,12 +62,6 @@ func (s *Store) AddAgent(srcPath, name string, force bool) (bool, error) {
 	return overwritten, os.WriteFile(dest, data, 0o644)
 }
 
-// AddPlugin copies a plugin directory into store/plugins/<dirname>/.
-// Returns the derived name and whether an existing entry was overwritten.
-func (s *Store) AddPlugin(srcPath string, force bool) (string, bool, error) {
-	return s.addDir(srcPath, s.PluginsDir(), force)
-}
-
 // AddResource copies a resource directory into store/resources/<dirname>/ preserving structure.
 // Returns the derived name and whether an existing entry was overwritten.
 func (s *Store) AddResource(srcPath string, force bool) (string, bool, error) {

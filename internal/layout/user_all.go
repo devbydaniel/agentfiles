@@ -16,9 +16,6 @@ func (a UserAllLayout) AgentMdPath() string { return a.pi.AgentMdPath() }
 // SkillPath returns the primary skill path (pi layout).
 func (a UserAllLayout) SkillPath(name string) string { return a.pi.SkillPath(name) }
 
-// PluginPath returns the primary plugin path (pi layout).
-func (a UserAllLayout) PluginPath(name string) string { return a.pi.PluginPath(name) }
-
 // AgentMdEntries returns entries for the agent file across all user layouts.
 func (a UserAllLayout) AgentMdEntries() []Entry {
 	return []Entry{
@@ -37,11 +34,4 @@ func (a UserAllLayout) SkillEntries(name string) []Entry {
 	}
 }
 
-// PluginEntries returns entries for a plugin across all user layouts.
-func (a UserAllLayout) PluginEntries(name string) []Entry {
-	return []Entry{
-		{Path: a.pi.PluginPath(name)},
-		{Path: a.claude.PluginPath(name)},
-		{Path: a.cursor.PluginPath(name)},
-	}
-}
+

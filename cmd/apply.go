@@ -20,10 +20,10 @@ referenced bundle or cherry-picked assets from the store, and copies
 them to the paths determined by the configured layout.
 
 What gets deployed (per layout):
-  pi:      AGENTS.md, .pi/skills/<name>/, .pi/plugins/<name>/
-  claude:  CLAUDE.md, .claude/skills/<name>/, .claude/plugins/<name>/
-  cursor:  .cursorrules, .cursor/skills/<name>/, .cursor/plugins/<name>/
-  all:     All of the above (pi primary + claude symlinks + cursor copies)
+  pi:      AGENTS.md, .pi/skills/<name>/
+  claude:  CLAUDE.md, .claude/skills/<name>/
+  cursor:  .cursorrules, .cursor/skills/<name>/
+  all:     All of the above (pi primary + claude + cursor copies)
 
 Resources are always copied to the repo root regardless of layout.
 

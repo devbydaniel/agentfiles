@@ -18,7 +18,6 @@ const FileName = ".agentfiles.lock"
 const (
 	AssetAgentsMD  = "agents_md"
 	AssetSkills    = "skills"
-	AssetPlugins   = "plugins"
 	AssetResources = "resources"
 )
 
@@ -32,7 +31,6 @@ type Entry struct {
 type DeployedMap struct {
 	AgentsMD  *Entry            `toml:"agents_md,omitempty"`
 	Skills    map[string]*Entry `toml:"skills,omitempty"`
-	Plugins   map[string]*Entry `toml:"plugins,omitempty"`
 	Resources map[string]*Entry `toml:"resources,omitempty"`
 }
 
@@ -49,7 +47,6 @@ func Load(dir string) (*LockFile, error) {
 func LoadFrom(path string) (*LockFile, error) {
 	lf := &LockFile{}
 	lf.Deployed.Skills = make(map[string]*Entry)
-	lf.Deployed.Plugins = make(map[string]*Entry)
 	lf.Deployed.Resources = make(map[string]*Entry)
 
 	data, err := os.ReadFile(path)
@@ -65,9 +62,6 @@ func LoadFrom(path string) (*LockFile, error) {
 	}
 	if lf.Deployed.Skills == nil {
 		lf.Deployed.Skills = make(map[string]*Entry)
-	}
-	if lf.Deployed.Plugins == nil {
-		lf.Deployed.Plugins = make(map[string]*Entry)
 	}
 	if lf.Deployed.Resources == nil {
 		lf.Deployed.Resources = make(map[string]*Entry)
@@ -127,11 +121,6 @@ func (lf *LockFile) Record(p RecordParams) error {
 			lf.Deployed.Skills = make(map[string]*Entry)
 		}
 		lf.Deployed.Skills[name] = entry
-	case AssetPlugins:
-		if lf.Deployed.Plugins == nil {
-			lf.Deployed.Plugins = make(map[string]*Entry)
-		}
-		lf.Deployed.Plugins[name] = entry
 	case AssetResources:
 		if lf.Deployed.Resources == nil {
 			lf.Deployed.Resources = make(map[string]*Entry)

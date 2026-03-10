@@ -11,7 +11,7 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list <skills|bundles|agents|plugins|resources>",
+	Use:   "list <skills|bundles|agents|resources>",
 	Short: "List items in the agentfiles store",
 	Long: `List assets in the source store by type.
 
@@ -19,7 +19,6 @@ Types:
   skills      Skill directories (each containing SKILL.md)
   agents      Agent instruction files (shown without .md extension)
   bundles     Bundle definitions (shown without .toml extension)
-  plugins     Plugin directories
   resources   Resource directories
 
 Examples:
@@ -46,12 +45,10 @@ Examples:
 		case "agents":
 			dir = s.AgentsDir()
 			stripExt = true
-		case "plugins":
-			dir = s.PluginsDir()
 		case "resources":
 			dir = s.ResourcesDir()
 		default:
-			return fmt.Errorf("unknown list type %q (use skills, bundles, agents, plugins, or resources)", kind)
+			return fmt.Errorf("unknown list type %q (use skills, bundles, agents, or resources)", kind)
 		}
 
 		entries, err := os.ReadDir(dir)
@@ -68,7 +65,7 @@ Examples:
 			if strings.HasPrefix(name, ".") {
 				continue
 			}
-			if (kind == "skills" || kind == "plugins" || kind == "resources") && !e.IsDir() {
+			if (kind == "skills" || kind == "resources") && !e.IsDir() {
 				continue
 			}
 			if stripExt {

@@ -14,7 +14,6 @@ type Manifest struct {
 	Layout       string   `toml:"layout"`
 	AgentsMd     string   `toml:"agents_md"`
 	Skills       []string `toml:"skills"`
-	Plugins      []string `toml:"plugins"`
 	Resources    []string `toml:"resources"`
 	SkillsAdd    []string `toml:"skills_add"`
 	SkillsRemove []string `toml:"skills_remove"`
@@ -52,7 +51,6 @@ type UserFields struct {
 	Layout       string
 	AgentsMd     string
 	Skills       []string
-	Plugins      []string
 	SkillsAdd    []string
 	SkillsRemove []string
 }
@@ -65,7 +63,6 @@ func FromUserConfig(u UserFields) (*Manifest, error) {
 		Layout:       u.Layout,
 		AgentsMd:     u.AgentsMd,
 		Skills:       u.Skills,
-		Plugins:      u.Plugins,
 		SkillsAdd:    u.SkillsAdd,
 		SkillsRemove: u.SkillsRemove,
 	}
@@ -83,13 +80,13 @@ func FromUserConfig(u UserFields) (*Manifest, error) {
 
 func (m *Manifest) validate() error {
 	hasBundle := m.Bundle != ""
-	hasCherryPick := m.AgentsMd != "" || len(m.Skills) > 0 || len(m.Plugins) > 0 || len(m.Resources) > 0
+	hasCherryPick := m.AgentsMd != "" || len(m.Skills) > 0 || len(m.Resources) > 0
 
 	if !hasBundle && !hasCherryPick {
-		return fmt.Errorf("manifest must set either 'bundle' or cherry-pick fields ('agents_md', 'skills', 'plugins', 'resources')")
+		return fmt.Errorf("manifest must set either 'bundle' or cherry-pick fields ('agents_md', 'skills', 'resources')")
 	}
 	if hasBundle && hasCherryPick {
-		return fmt.Errorf("manifest cannot set both 'bundle' and cherry-pick fields ('agents_md', 'skills', 'plugins', 'resources')")
+		return fmt.Errorf("manifest cannot set both 'bundle' and cherry-pick fields ('agents_md', 'skills', 'resources')")
 	}
 
 	if !hasBundle && (len(m.SkillsAdd) > 0 || len(m.SkillsRemove) > 0) {

@@ -271,26 +271,4 @@ func TestAddResourcePreservesStructure(t *testing.T) {
 	}
 }
 
-func TestAddPlugin(t *testing.T) {
-	s := setupStore(t)
 
-	src := filepath.Join(t.TempDir(), "my-plugin")
-	os.MkdirAll(src, 0o755)
-	os.WriteFile(filepath.Join(src, "plugin.toml"), []byte("[plugin]"), 0o644)
-
-	name, _, err := s.AddPlugin(src, false)
-	if err != nil {
-		t.Fatalf("AddPlugin: %v", err)
-	}
-	if name != "my-plugin" {
-		t.Errorf("name = %q, want %q", name, "my-plugin")
-	}
-
-	data, err := os.ReadFile(filepath.Join(s.PluginsDir(), "my-plugin", "plugin.toml"))
-	if err != nil {
-		t.Fatalf("plugin.toml missing: %v", err)
-	}
-	if string(data) != "[plugin]" {
-		t.Errorf("content = %q", data)
-	}
-}

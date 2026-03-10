@@ -112,28 +112,6 @@ func Push(stores map[string]*store.Store, defaultStore string, repoDir string, o
 		}
 	}
 
-	// Push plugins (unless filtering by skill).
-	if opts.SkillOnly == "" {
-		for name, e := range lf.Deployed.Plugins {
-			s, err := entryStore(stores, defaultStore, e)
-			if err != nil {
-				return nil, fmt.Errorf("pushing plugin %q: %w", name, err)
-			}
-			deployed := filepath.Join(repoDir, e.DeployedPath)
-			ch, err := pushDir(deployed, filepath.Join(s.Root, e.StorePath), e, name, lock.AssetPlugins, opts.DryRun)
-			if err != nil {
-				return nil, fmt.Errorf("pushing plugin %q: %w", name, err)
-			}
-			res.Checked++
-			if ch != nil {
-				res.Changes = append(res.Changes, *ch)
-				if !opts.DryRun {
-					e.Hash = ch.NewHash
-				}
-			}
-		}
-	}
-
 	// Push resources (unless filtering by skill).
 	// Resources are deployed by copying their contents into the repo root,
 	// so the deployed path records the resource name; we reconstruct the

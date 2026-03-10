@@ -16,7 +16,7 @@ var rootCmd = &cobra.Command{
 	Use:   "af",
 	Short: "agentfiles — portable context files for AI coding agents",
 	Long: `agentfiles (af) manages a central source store of AI agent config files
-(skills, agent instructions, plugins, resources) and deploys them into
+(skills, agent instructions, resources) and deploys them into
 repositories using layout presets for different tools (pi, Claude Code, Cursor).
 
 Key concepts:

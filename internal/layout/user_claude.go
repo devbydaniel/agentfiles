@@ -13,16 +13,10 @@ func (UserClaudeLayout) AgentMdPath() string {
 func (UserClaudeLayout) SkillPath(name string) string {
 	return filepath.Join(".claude", "skills", name)
 }
-func (UserClaudeLayout) PluginPath(name string) string {
-	return filepath.Join(".claude", "plugins", name)
-}
 
 func (l UserClaudeLayout) AgentMdEntries() []Entry {
 	return []Entry{{Path: l.AgentMdPath()}}
 }
 func (l UserClaudeLayout) SkillEntries(name string) []Entry {
 	return []Entry{{Path: l.SkillPath(name)}}
-}
-func (l UserClaudeLayout) PluginEntries(name string) []Entry {
-	return []Entry{{Path: l.PluginPath(name)}}
 }

@@ -8,14 +8,10 @@ type CursorLayout struct{}
 func (CursorLayout) Name() string                  { return "cursor" }
 func (CursorLayout) AgentMdPath() string           { return "AGENTS.md" }
 func (CursorLayout) SkillPath(name string) string  { return filepath.Join(".cursor", "skills", name) }
-func (CursorLayout) PluginPath(name string) string { return filepath.Join(".cursor", "plugins", name) }
 
 func (l CursorLayout) AgentMdEntries() []Entry {
 	return []Entry{{Path: l.AgentMdPath()}}
 }
 func (l CursorLayout) SkillEntries(name string) []Entry {
 	return []Entry{{Path: l.SkillPath(name)}}
-}
-func (l CursorLayout) PluginEntries(name string) []Entry {
-	return []Entry{{Path: l.PluginPath(name)}}
 }

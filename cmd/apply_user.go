@@ -21,9 +21,9 @@ bundle or cherry-picked assets, and copies them to user-level paths
 determined by the configured layout.
 
 What gets deployed (per layout):
-  pi:      ~/AGENTS.md, ~/.pi/skills/<name>/, ~/.pi/plugins/<name>/
-  claude:  ~/.claude/CLAUDE.md, ~/.claude/skills/<name>/, ~/.claude/plugins/<name>/
-  cursor:  ~/.cursor/rules/agentfiles.md, ~/.cursor/skills/<name>/, ~/.cursor/plugins/<name>/
+  pi:      ~/AGENTS.md, ~/.pi/skills/<name>/
+  claude:  ~/.claude/CLAUDE.md, ~/.claude/skills/<name>/
+  cursor:  ~/.cursor/rules/agentfiles.md, ~/.cursor/skills/<name>/
   all:     All of the above
 
 Lock file is stored at ~/.config/agentfiles/user.lock.

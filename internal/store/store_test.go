@@ -116,7 +116,6 @@ func TestDirMethods(t *testing.T) {
 	checks := map[string]string{
 		"skills":    s.SkillsDir(),
 		"agents":    s.AgentsDir(),
-		"plugins":   s.PluginsDir(),
 		"resources": s.ResourcesDir(),
 		"bundles":   s.BundlesDir(),
 	}

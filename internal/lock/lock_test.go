@@ -240,7 +240,6 @@ func TestLoadFromSaveTo(t *testing.T) {
 
 	lf := &LockFile{}
 	lf.Deployed.Skills = make(map[string]*Entry)
-	lf.Deployed.Plugins = make(map[string]*Entry)
 	lf.Deployed.Resources = make(map[string]*Entry)
 	mustRecord(t, lf, AssetAgentsMD, "", "agents/test.md", "AGENTS.md", "abc123")
 	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", ".pi/skills/browse", "def456")

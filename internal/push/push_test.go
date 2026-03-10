@@ -29,20 +29,6 @@ func addAgent(t *testing.T, s *store.Store, name, content string) {
 	}
 }
 
-func addPlugin(t *testing.T, s *store.Store, name string, files map[string]string) {
-	t.Helper()
-	dir := filepath.Join(s.PluginsDir(), name)
-	for rel, content := range files {
-		p := filepath.Join(dir, rel)
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func addResource(t *testing.T, s *store.Store, name string, files map[string]string) {
 	t.Helper()
 	dir := filepath.Join(s.ResourcesDir(), name)
@@ -242,51 +228,6 @@ func TestPushNoLockFile(t *testing.T) {
 	}
 }
 
-func TestPushModifiedPlugin(t *testing.T) {
-	s := setupStore(t)
-	addAgent(t, s, "main", "# Agent")
-	addPlugin(t, s, "myplugin", map[string]string{
-		"plugin.yaml": "name: myplugin",
-		"run.sh":      "#!/bin/bash\necho hello",
-	})
-
-	repo := t.TempDir()
-	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Plugins: []string{"myplugin"}}
-	applyToRepo(t, s, m, repo)
-
-	// Modify the deployed plugin file.
-	deployed := filepath.Join(repo, ".pi", "plugins", "myplugin", "plugin.yaml")
-	if err := os.WriteFile(deployed, []byte("name: myplugin\nversion: 2"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	res := pushFromRepo(t, s, repo, Options{})
-	if len(res.Changes) != 1 {
-		t.Fatalf("expected 1 change, got %d", len(res.Changes))
-	}
-	if res.Changes[0].Name != "myplugin" {
-		t.Errorf("change name = %q, want myplugin", res.Changes[0].Name)
-	}
-	if res.Changes[0].Type != lock.AssetPlugins {
-		t.Errorf("change type = %q, want %q", res.Changes[0].Type, lock.AssetPlugins)
-	}
-
-	// Verify store was updated.
-	data, err := os.ReadFile(filepath.Join(s.PluginsDir(), "myplugin", "plugin.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != "name: myplugin\nversion: 2" {
-		t.Errorf("store plugin = %q", data)
-	}
-
-	// Second push should find no changes.
-	res2 := pushFromRepo(t, s, repo, Options{})
-	if len(res2.Changes) != 0 {
-		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
-	}
-}
-
 func TestPushModifiedResource(t *testing.T) {
 	s := setupStore(t)
 	addAgent(t, s, "main", "# Agent")
@@ -346,21 +287,6 @@ func TestPushModifiedResource(t *testing.T) {
 	res2 := pushFromRepo(t, s, repo, Options{})
 	if len(res2.Changes) != 0 {
 		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
-	}
-}
-
-func TestPushUnmodifiedPlugin(t *testing.T) {
-	s := setupStore(t)
-	addAgent(t, s, "main", "# Agent")
-	addPlugin(t, s, "myplugin", map[string]string{"plugin.yaml": "name: myplugin"})
-
-	repo := t.TempDir()
-	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Plugins: []string{"myplugin"}}
-	applyToRepo(t, s, m, repo)
-
-	res := pushFromRepo(t, s, repo, Options{})
-	if len(res.Changes) != 0 {
-		t.Errorf("expected 0 changes, got %d", len(res.Changes))
 	}
 }
 

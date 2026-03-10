@@ -78,7 +78,7 @@ skills = ["browse"]
 func setupStore(t *testing.T) *store.Store {
 	t.Helper()
 	dir := t.TempDir()
-	for _, sub := range []string{"skills", "agents", "plugins", "resources", "bundles"} {
+	for _, sub := range []string{"skills", "agents", "resources", "bundles"} {
 		os.MkdirAll(filepath.Join(dir, sub), 0o755)
 	}
 	exec.Command("git", "init", dir).Run()
@@ -104,9 +104,6 @@ agents_md = "ayunis-core"
 
 [skills]
 include = ["nestjs-hexagonal-backend", "git-workflow", "typeorm-migrations"]
-
-[plugins]
-include = ["my-plugin"]
 
 [resources]
 include = ["cursor-config"]
@@ -160,9 +157,6 @@ skills_remove = ["typeorm-migrations"]
 		}
 	}
 
-	if len(r.Plugins) != 1 || r.Plugins[0].Name != "my-plugin" {
-		t.Errorf("Plugins = %v, want [my-plugin]", assetNames(r.Plugins))
-	}
 	if len(r.Resources) != 1 || r.Resources[0].Name != "cursor-config" {
 		t.Errorf("Resources = %v, want [cursor-config]", assetNames(r.Resources))
 	}
@@ -175,7 +169,6 @@ func TestResolveCherryPick(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
 agents_md = "ayunis-core"
 skills = ["browse", "git-workflow"]
-plugins = ["my-plugin"]
 resources = ["cursor-config"]
 `), 0o644)
 
@@ -207,37 +200,8 @@ resources = ["cursor-config"]
 		}
 	}
 
-	if len(r.Plugins) != 1 || r.Plugins[0].Name != "my-plugin" {
-		t.Errorf("Plugins = %v, want [my-plugin]", assetNames(r.Plugins))
-	}
 	if len(r.Resources) != 1 || r.Resources[0].Name != "cursor-config" {
 		t.Errorf("Resources = %v, want [cursor-config]", assetNames(r.Resources))
-	}
-}
-
-func TestLoadPluginsOnlyCherryPick(t *testing.T) {
-	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`plugins = ["x"]`), 0o644)
-
-	m, err := manifest.Load(dir)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if len(m.Plugins) != 1 || m.Plugins[0] != "x" {
-		t.Errorf("Plugins = %v, want [x]", m.Plugins)
-	}
-}
-
-func TestLoadBundleAndPluginsConflict(t *testing.T) {
-	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
-bundle = "ayunis-core"
-plugins = ["x"]
-`), 0o644)
-
-	_, err := manifest.Load(dir)
-	if err == nil {
-		t.Fatal("expected error for bundle+plugins conflict, got nil")
 	}
 }
 
@@ -430,7 +394,6 @@ func TestResolveCrossStoreCherryPick(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
 agents_md = "personal:my-agent"
 skills = ["work:backend", "personal:utils"]
-plugins = ["work:formatter"]
 `), 0o644)
 
 	m, err := manifest.Load(dir)
@@ -459,10 +422,6 @@ plugins = ["work:formatter"]
 	}
 	if r.Skills[1].Name != "utils" || r.Skills[1].Store != "personal" {
 		t.Errorf("Skills[1] = %+v, want {Name:utils Store:personal}", r.Skills[1])
-	}
-
-	if len(r.Plugins) != 1 || r.Plugins[0].Name != "formatter" || r.Plugins[0].Store != "work" {
-		t.Errorf("Plugins = %v, want [{Name:formatter Store:work}]", r.Plugins)
 	}
 }
 
@@ -510,7 +469,6 @@ func TestFromUserConfigCherryPick(t *testing.T) {
 	m, err := manifest.FromUserConfig(manifest.UserFields{
 		AgentsMd: "my-agent",
 		Skills:   []string{"browse", "git"},
-		Plugins:  []string{"fmt"},
 	})
 	if err != nil {
 		t.Fatalf("FromUserConfig: %v", err)

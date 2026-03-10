@@ -17,9 +17,9 @@ import (
 var validLayouts = []string{"pi", "claude", "cursor", "all"}
 
 var gitignoreByLayout = map[string][]string{
-	"pi":     {"AGENTS.md", ".pi/skills/", ".pi/plugins/"},
+	"pi":     {"AGENTS.md", ".pi/skills/"},
 	"claude": {"CLAUDE.md", ".claude/skills/"},
-	"cursor": {".cursorrules", ".cursor/skills/", ".cursor/plugins/"},
+	"cursor": {".cursorrules", ".cursor/skills/"},
 }
 
 var initCmd = &cobra.Command{
@@ -37,9 +37,9 @@ Interactive mode (no flags):
   Lists available bundles from the store and prompts for selection.
 
 Layouts control where deployed files are placed:
-  pi       AGENTS.md + .pi/skills/ + .pi/plugins/
-  claude   CLAUDE.md + .claude/skills/ + .claude/plugins/
-  cursor   .cursorrules + .cursor/skills/ + .cursor/plugins/
+  pi       AGENTS.md + .pi/skills/
+  claude   CLAUDE.md + .claude/skills/
+  cursor   .cursorrules + .cursor/skills/
   all      All of the above (pi primary, claude symlinks, cursor copies)
 
 Layout defaults to "pi" if not specified.
