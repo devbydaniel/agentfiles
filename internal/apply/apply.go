@@ -104,19 +104,19 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 				allSkipped = false
 			}
 		}
+		h, err := lock.Hash(src)
+		if err != nil {
+			return nil, fmt.Errorf("hashing agent md: %w", err)
+		}
+		relSource := filepath.Join("agents", resolved.AgentsMd.Name+".md")
+		deployedPath := primaryPath(entries)
+		lk := lockKey(resolved.AgentsMd.Name, resolved.AgentsMd.Store, defaultStore)
+		if err := lf.Record(lock.RecordParams{AssetType: lock.AssetAgentsMD, Name: lk, StoreName: resolved.AgentsMd.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+			return nil, err
+		}
 		if allSkipped {
 			res.Skipped++
 		} else {
-			h, err := lock.Hash(src)
-			if err != nil {
-				return nil, fmt.Errorf("hashing agent md: %w", err)
-			}
-			relSource := filepath.Join("agents", resolved.AgentsMd.Name+".md")
-			deployedPath := primaryPath(entries)
-			lk := lockKey(resolved.AgentsMd.Name, resolved.AgentsMd.Store, defaultStore)
-			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetAgentsMD, Name: lk, StoreName: resolved.AgentsMd.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
-				return nil, err
-			}
 			res.Deployed++
 		}
 	}
@@ -159,19 +159,19 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 				allSkipped = false
 			}
 		}
+		h, err := lock.HashDir(src)
+		if err != nil {
+			return nil, fmt.Errorf("hashing skill %q: %w", skill.Name, err)
+		}
+		relSource := filepath.Join("skills", skill.Name) + "/"
+		deployedPath := primaryPath(entries)
+		lk := lockKey(skill.Name, skill.Store, defaultStore)
+		if err := lf.Record(lock.RecordParams{AssetType: lock.AssetSkills, Name: lk, StoreName: skill.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+			return nil, err
+		}
 		if allSkipped {
 			res.Skipped++
 		} else {
-			h, err := lock.HashDir(src)
-			if err != nil {
-				return nil, fmt.Errorf("hashing skill %q: %w", skill.Name, err)
-			}
-			relSource := filepath.Join("skills", skill.Name) + "/"
-			deployedPath := primaryPath(entries)
-			lk := lockKey(skill.Name, skill.Store, defaultStore)
-			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetSkills, Name: lk, StoreName: skill.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
-				return nil, err
-			}
 			res.Deployed++
 		}
 	}
@@ -201,19 +201,19 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 					allSkipped = false
 				}
 			}
+			h, err := lock.HashDir(src)
+			if err != nil {
+				return nil, fmt.Errorf("hashing plugin %q: %w", plugin.Name, err)
+			}
+			relSource := filepath.Join("plugins", plugin.Name) + "/"
+			deployedPath := primaryPath(entries)
+			lk := lockKey(plugin.Name, plugin.Store, defaultStore)
+			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetPlugins, Name: lk, StoreName: plugin.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+				return nil, err
+			}
 			if allSkipped {
 				res.Skipped++
 			} else {
-				h, err := lock.HashDir(src)
-				if err != nil {
-					return nil, fmt.Errorf("hashing plugin %q: %w", plugin.Name, err)
-				}
-				relSource := filepath.Join("plugins", plugin.Name) + "/"
-				deployedPath := primaryPath(entries)
-				lk := lockKey(plugin.Name, plugin.Store, defaultStore)
-				if err := lf.Record(lock.RecordParams{AssetType: lock.AssetPlugins, Name: lk, StoreName: plugin.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
-					return nil, err
-				}
 				res.Deployed++
 			}
 		}
@@ -237,18 +237,18 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 			if warn != "" {
 				res.Warnings = append(res.Warnings, warn)
 			}
+			h, err := lock.HashDir(src)
+			if err != nil {
+				return nil, fmt.Errorf("hashing resource %q: %w", resource.Name, err)
+			}
+			relSource := filepath.Join("resources", resource.Name) + "/"
+			lk := lockKey(resource.Name, resource.Store, defaultStore)
+			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetResources, Name: lk, StoreName: resource.Store, SourcePath: relSource, DeployedPath: resource.Name, Hash: h}); err != nil {
+				return nil, err
+			}
 			if skipped {
 				res.Skipped++
 			} else {
-				h, err := lock.HashDir(src)
-				if err != nil {
-					return nil, fmt.Errorf("hashing resource %q: %w", resource.Name, err)
-				}
-				relSource := filepath.Join("resources", resource.Name) + "/"
-				lk := lockKey(resource.Name, resource.Store, defaultStore)
-				if err := lf.Record(lock.RecordParams{AssetType: lock.AssetResources, Name: lk, StoreName: resource.Store, SourcePath: relSource, DeployedPath: resource.Name, Hash: h}); err != nil {
-					return nil, err
-				}
 				res.Deployed++
 			}
 		}

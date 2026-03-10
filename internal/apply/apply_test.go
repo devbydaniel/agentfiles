@@ -488,13 +488,13 @@ func TestApplyNoForceSkipsExisting(t *testing.T) {
 		t.Errorf("file was overwritten: %q", data)
 	}
 
-	// Lock should NOT record the skipped agent.
+	// Lock should still record the skipped agent (to prevent stale pruning).
 	lf, err := lock.Load(repo)
 	if err != nil {
 		t.Fatalf("loading lock: %v", err)
 	}
-	if lf.Deployed.AgentsMD != nil {
-		t.Error("lock file should not record skipped agent")
+	if lf.Deployed.AgentsMD == nil {
+		t.Error("lock file should record skipped agent to prevent stale pruning")
 	}
 
 	if res.Skipped != 1 {
