@@ -8,8 +8,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/devbydaniel/agentfiles/internal/apply"
+	"github.com/devbydaniel/agentfiles/internal/config"
+	"github.com/devbydaniel/agentfiles/internal/layout"
 	"github.com/devbydaniel/agentfiles/internal/manifest"
 	"github.com/devbydaniel/agentfiles/internal/registry"
+	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
 var applyAllCmd = &cobra.Command{
@@ -63,14 +66,28 @@ Examples:
 			return err
 		}
 
-		if len(reg.Repos) == 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), "No repos in registry")
-			return nil
-		}
-
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 		var failed []string
+
+		// Deploy user-level files if [user] is configured.
+		if cfg.User != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "\n→ user (layout=%s)\n", cfg.User.Layout)
+
+			if dryRun {
+				fmt.Fprintln(cmd.OutOrStdout(), "  (dry-run) would deploy user-level files")
+			} else {
+				if err := applyUser(cfg, stores, defaultStore); err != nil {
+					fmt.Fprintf(os.Stderr, "  error: %v\n", err)
+					failed = append(failed, "user")
+				}
+			}
+		}
+
+		if cfg.User == nil && len(reg.Repos) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "Nothing to deploy (no [user] section and no repos in config)")
+			return nil
+		}
 
 		for _, repo := range reg.Repos {
 			fmt.Fprintf(cmd.OutOrStdout(), "\n→ %s (bundle=%s, layout=%s)\n", repo.Path, repo.Bundle, repo.Layout)
@@ -173,6 +190,57 @@ func tomlStringArray(ss []string) string {
 	}
 	out += "]"
 	return out
+}
+
+// userFields converts a UserConfig to manifest.UserFields.
+func userFields(u *config.UserConfig) manifest.UserFields {
+	return manifest.UserFields{
+		Bundle:       u.Bundle,
+		Layout:       u.Layout,
+		AgentsMd:     u.AgentsMd,
+		Skills:       u.Skills,
+		Plugins:      u.Plugins,
+		SkillsAdd:    u.SkillsAdd,
+		SkillsRemove: u.SkillsRemove,
+	}
+}
+
+// applyUser deploys user-level agent files from the [user] config section.
+func applyUser(cfg *config.Config, stores map[string]*store.Store, defaultStore string) error {
+	m, err := manifest.FromUserConfig(userFields(cfg.User))
+	if err != nil {
+		return fmt.Errorf("building user manifest: %w", err)
+	}
+
+	lay, err := layout.GetUser(m.Layout)
+	if err != nil {
+		return err
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("determining home directory: %w", err)
+	}
+
+	userStore := cfg.User.Store
+	if userStore == "" {
+		userStore = defaultStore
+	}
+
+	res, err := apply.Apply(stores, userStore, m, home, apply.Options{
+		Force:        true,
+		LockFilePath: cfg.UserLockPath(),
+		Layout:       lay,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, w := range res.Warnings {
+		fmt.Fprintf(os.Stderr, "  %s\n", w)
+	}
+	fmt.Printf("  deployed %d user-level asset(s)\n", res.Deployed)
+	return nil
 }
 
 func init() {

@@ -15,8 +15,10 @@ import (
 
 // Options controls apply behaviour.
 type Options struct {
-	Force     bool   // Overwrite existing files without prompting.
-	SkillOnly string // If non-empty, deploy only this skill.
+	Force        bool          // Overwrite existing files without prompting.
+	SkillOnly    string        // If non-empty, deploy only this skill.
+	LockFilePath string        // If non-empty, use this path for the lock file instead of <repoDir>/.agentfiles.lock.
+	Layout       layout.Layout // If non-nil, use this layout instead of looking up by name.
 }
 
 // ApplyResult summarises what Apply did.
@@ -49,12 +51,22 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		return nil, fmt.Errorf("resolving manifest: %w", err)
 	}
 
-	lay, err := layout.Get(resolved.Layout)
-	if err != nil {
-		return nil, err
+	var lay layout.Layout
+	if opts.Layout != nil {
+		lay = opts.Layout
+	} else {
+		lay, err = layout.Get(resolved.Layout)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	lf, err := lock.Load(repoDir)
+	var lf *lock.LockFile
+	if opts.LockFilePath != "" {
+		lf, err = lock.LoadFrom(opts.LockFilePath)
+	} else {
+		lf, err = lock.Load(repoDir)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("loading lock file: %w", err)
 	}
@@ -235,7 +247,12 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		}
 	}
 
-	if err := lock.Save(repoDir, lf); err != nil {
+	if opts.LockFilePath != "" {
+		err = lock.SaveTo(opts.LockFilePath, lf)
+	} else {
+		err = lock.Save(repoDir, lf)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("saving lock file: %w", err)
 	}
 

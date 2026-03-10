@@ -40,8 +40,13 @@ type LockFile struct {
 	Deployed DeployedMap `toml:"deployed"`
 }
 
+// Load reads a lock file from the given directory using the standard file name.
 func Load(dir string) (*LockFile, error) {
-	path := filepath.Join(dir, FileName)
+	return LoadFrom(filepath.Join(dir, FileName))
+}
+
+// LoadFrom reads a lock file from an explicit path.
+func LoadFrom(path string) (*LockFile, error) {
 	lf := &LockFile{}
 	lf.Deployed.Skills = make(map[string]*Entry)
 	lf.Deployed.Plugins = make(map[string]*Entry)
@@ -70,8 +75,17 @@ func Load(dir string) (*LockFile, error) {
 	return lf, nil
 }
 
+// Save writes a lock file to the given directory using the standard file name.
 func Save(dir string, lf *LockFile) error {
-	path := filepath.Join(dir, FileName)
+	return SaveTo(filepath.Join(dir, FileName), lf)
+}
+
+// SaveTo writes a lock file to an explicit path.
+func SaveTo(path string, lf *LockFile) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
 	tmp, err := os.CreateTemp(dir, ".agentfiles.lock.tmp.*")
 	if err != nil {
 		return err

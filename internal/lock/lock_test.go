@@ -233,3 +233,59 @@ hash = "def456"
 		t.Errorf("StorePath = %q, want %q", e.StorePath, "skills/browse/")
 	}
 }
+
+func TestLoadFromSaveTo(t *testing.T) {
+	dir := t.TempDir()
+	lockPath := filepath.Join(dir, "custom", "my.lock")
+
+	lf := &LockFile{}
+	lf.Deployed.Skills = make(map[string]*Entry)
+	lf.Deployed.Plugins = make(map[string]*Entry)
+	lf.Deployed.Resources = make(map[string]*Entry)
+	mustRecord(t, lf, AssetAgentsMD, "", "agents/test.md", "AGENTS.md", "abc123")
+	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", ".pi/skills/browse", "def456")
+
+	// SaveTo should create parent dirs.
+	if err := SaveTo(lockPath, lf); err != nil {
+		t.Fatalf("SaveTo: %v", err)
+	}
+
+	// Verify file exists.
+	if _, err := os.Stat(lockPath); err != nil {
+		t.Fatalf("lock file not created: %v", err)
+	}
+
+	// LoadFrom should read it back.
+	got, err := LoadFrom(lockPath)
+	if err != nil {
+		t.Fatalf("LoadFrom: %v", err)
+	}
+
+	if got.Deployed.AgentsMD == nil {
+		t.Fatal("agents_md entry missing")
+	}
+	if got.Deployed.AgentsMD.Hash != "abc123" {
+		t.Errorf("agents_md hash = %q, want abc123", got.Deployed.AgentsMD.Hash)
+	}
+
+	e := got.Deployed.Skills["browse"]
+	if e == nil {
+		t.Fatal("browse skill missing")
+	}
+	if e.Hash != "def456" {
+		t.Errorf("browse hash = %q, want def456", e.Hash)
+	}
+}
+
+func TestLoadFromNonexistent(t *testing.T) {
+	lf, err := LoadFrom("/nonexistent/path/lock.toml")
+	if err != nil {
+		t.Fatalf("LoadFrom should return empty lock for missing file, got: %v", err)
+	}
+	if lf.Deployed.AgentsMD != nil {
+		t.Error("expected nil agents_md")
+	}
+	if len(lf.Deployed.Skills) != 0 {
+		t.Error("expected empty skills map")
+	}
+}

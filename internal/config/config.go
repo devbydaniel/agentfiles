@@ -14,7 +14,26 @@ import (
 type Config struct {
 	DefaultStore string            `toml:"default_store"`
 	Stores       map[string]string `toml:"stores"`
+	User         *UserConfig       `toml:"user,omitempty"`
 	Repos        []Repo            `toml:"repos"`
+
+	// loadedFrom records the path the config was loaded from, used to
+	// compute sibling paths like user.lock.
+	loadedFrom string
+}
+
+// UserConfig describes user-level agent file deployment.
+// It mirrors the manifest fields but lives in the central config
+// (no .agentfiles file in $HOME).
+type UserConfig struct {
+	Store        string   `toml:"store"`
+	Bundle       string   `toml:"bundle"`
+	Layout       string   `toml:"layout"`
+	AgentsMd     string   `toml:"agents_md"`
+	Skills       []string `toml:"skills"`
+	Plugins      []string `toml:"plugins"`
+	SkillsAdd    []string `toml:"skills_add"`
+	SkillsRemove []string `toml:"skills_remove"`
 }
 
 // Repo is a single repo entry in the config.
@@ -44,6 +63,8 @@ func Load(path string) (*Config, error) {
 	cfg := &Config{
 		Stores: make(map[string]string),
 	}
+
+	cfg.loadedFrom = path
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -83,6 +104,24 @@ func Load(path string) (*Config, error) {
 		}
 	}
 
+	// Validate [user] section if present.
+	if cfg.User != nil {
+		if err := cfg.User.validate(); err != nil {
+			return nil, fmt.Errorf("config %q: [user] %w", path, err)
+		}
+		if cfg.User.Store == "" {
+			cfg.User.Store = cfg.DefaultStore
+		}
+		if cfg.User.Layout == "" {
+			cfg.User.Layout = "all"
+		}
+		if cfg.User.Store != "" {
+			if _, ok := cfg.Stores[cfg.User.Store]; !ok {
+				return nil, fmt.Errorf("config %q: [user] references unknown store %q", path, cfg.User.Store)
+			}
+		}
+	}
+
 	// Validate repos.
 	for i, repo := range cfg.Repos {
 		if repo.Path == "" || repo.Path == "." {
@@ -104,6 +143,36 @@ func Load(path string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// validate checks that the user config has valid manifest-style fields.
+func (u *UserConfig) validate() error {
+	hasBundle := u.Bundle != ""
+	hasCherryPick := u.AgentsMd != "" || len(u.Skills) > 0 || len(u.Plugins) > 0
+
+	if !hasBundle && !hasCherryPick {
+		return fmt.Errorf("must set either 'bundle' or cherry-pick fields ('agents_md', 'skills', 'plugins')")
+	}
+	if hasBundle && hasCherryPick {
+		return fmt.Errorf("cannot set both 'bundle' and cherry-pick fields ('agents_md', 'skills', 'plugins')")
+	}
+	if !hasBundle && (len(u.SkillsAdd) > 0 || len(u.SkillsRemove) > 0) {
+		return fmt.Errorf("'skills_add' and 'skills_remove' require 'bundle' to be set")
+	}
+	return nil
+}
+
+// UserLockPath returns the path for the user-level lock file.
+// It is placed as a sibling to the config file: ~/.config/agentfiles/user.lock.
+func (c *Config) UserLockPath() string {
+	if c.loadedFrom != "" {
+		return filepath.Join(filepath.Dir(c.loadedFrom), "user.lock")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".", ".config", "agentfiles", "user.lock")
+	}
+	return filepath.Join(home, ".config", "agentfiles", "user.lock")
 }
 
 // expandRepoPath resolves ~ to home directory and cleans the path.

@@ -486,6 +486,86 @@ skills = ["unknown:some-skill"]
 	}
 }
 
+func TestFromUserConfigBundle(t *testing.T) {
+	m, err := manifest.FromUserConfig(manifest.UserFields{
+		Bundle:    "my-bundle",
+		Layout:    "claude",
+		SkillsAdd: []string{"extra"},
+	})
+	if err != nil {
+		t.Fatalf("FromUserConfig: %v", err)
+	}
+	if m.Bundle != "my-bundle" {
+		t.Errorf("Bundle = %q, want %q", m.Bundle, "my-bundle")
+	}
+	if m.Layout != "claude" {
+		t.Errorf("Layout = %q, want %q", m.Layout, "claude")
+	}
+	if len(m.SkillsAdd) != 1 || m.SkillsAdd[0] != "extra" {
+		t.Errorf("SkillsAdd = %v, want [extra]", m.SkillsAdd)
+	}
+}
+
+func TestFromUserConfigCherryPick(t *testing.T) {
+	m, err := manifest.FromUserConfig(manifest.UserFields{
+		AgentsMd: "my-agent",
+		Skills:   []string{"browse", "git"},
+		Plugins:  []string{"fmt"},
+	})
+	if err != nil {
+		t.Fatalf("FromUserConfig: %v", err)
+	}
+	if m.AgentsMd != "my-agent" {
+		t.Errorf("AgentsMd = %q, want %q", m.AgentsMd, "my-agent")
+	}
+	if len(m.Skills) != 2 {
+		t.Errorf("Skills len = %d, want 2", len(m.Skills))
+	}
+	// Default layout for user is "all"
+	if m.Layout != "all" {
+		t.Errorf("Layout = %q, want %q", m.Layout, "all")
+	}
+}
+
+func TestFromUserConfigDefaultLayout(t *testing.T) {
+	m, err := manifest.FromUserConfig(manifest.UserFields{
+		AgentsMd: "core",
+	})
+	if err != nil {
+		t.Fatalf("FromUserConfig: %v", err)
+	}
+	if m.Layout != "all" {
+		t.Errorf("Layout = %q, want %q (default for user)", m.Layout, "all")
+	}
+}
+
+func TestFromUserConfigMixedError(t *testing.T) {
+	_, err := manifest.FromUserConfig(manifest.UserFields{
+		Bundle: "my-bundle",
+		Skills: []string{"browse"},
+	})
+	if err == nil {
+		t.Fatal("expected error for bundle+cherry-pick, got nil")
+	}
+}
+
+func TestFromUserConfigEmptyError(t *testing.T) {
+	_, err := manifest.FromUserConfig(manifest.UserFields{})
+	if err == nil {
+		t.Fatal("expected error for empty fields, got nil")
+	}
+}
+
+func TestFromUserConfigSkillsAddWithoutBundleError(t *testing.T) {
+	_, err := manifest.FromUserConfig(manifest.UserFields{
+		AgentsMd:  "core",
+		SkillsAdd: []string{"extra"},
+	})
+	if err == nil {
+		t.Fatal("expected error for skills_add without bundle, got nil")
+	}
+}
+
 // assetNames extracts names from a slice of ResolvedAssets for test output.
 func assetNames(assets []manifest.ResolvedAsset) []string {
 	names := make([]string, len(assets))

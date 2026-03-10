@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/devbydaniel/agentfiles/internal/apply"
+	"github.com/devbydaniel/agentfiles/internal/layout"
 	"github.com/devbydaniel/agentfiles/internal/lock"
 	"github.com/devbydaniel/agentfiles/internal/manifest"
 	"github.com/devbydaniel/agentfiles/internal/push"
@@ -722,6 +723,500 @@ skills_add = ["personal:my-personal-skill"]
 	}
 	if len(pushRes2.Changes) != 0 {
 		t.Fatalf("expected no changes on push from fresh repo2, got %d", len(pushRes2.Changes))
+	}
+}
+
+// TestIntegrationUserLevelDeploy exercises user-level apply and push:
+//  1. Create a store with agent, skill, plugin.
+//  2. Create a bundle.
+//  3. Apply with user layout + home dir + user lock path.
+//  4. Verify files land at correct user-level paths.
+//  5. Modify a deployed file, push, verify store is updated.
+func TestIntegrationUserLevelDeploy(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	mustMkdir(t, home)
+
+	// ── 1. Create store with assets ────────────────────────────────
+	storePath := filepath.Join(tmp, "store")
+	s, err := store.Init(storePath)
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	// Agent
+	agentSrc := filepath.Join(tmp, "src-agent.md")
+	mustWrite(t, agentSrc, "# User Agent\nGlobal instructions.\n")
+	if _, err := s.AddAgent(agentSrc, "global", false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+
+	// Skill
+	skillSrc := filepath.Join(tmp, "src-skill", "browse")
+	mustMkdir(t, skillSrc)
+	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# Browse\nOriginal content\n")
+	if _, _, err := s.AddSkill(skillSrc, false); err != nil {
+		t.Fatalf("add skill: %v", err)
+	}
+
+	// Plugin
+	pluginSrc := filepath.Join(tmp, "src-plugin", "formatter")
+	mustMkdir(t, pluginSrc)
+	mustWrite(t, filepath.Join(pluginSrc, "plugin.lua"), "-- formatter\n")
+	if _, _, err := s.AddPlugin(pluginSrc, false); err != nil {
+		t.Fatalf("add plugin: %v", err)
+	}
+
+	// ── 2. Create bundle ───────────────────────────────────────────
+	bundleTOML := `[bundle]
+name = "user-bundle"
+agents_md = "global"
+
+[skills]
+include = ["browse"]
+
+[plugins]
+include = ["formatter"]
+`
+	mustWrite(t, filepath.Join(s.BundlesDir(), "user-bundle.toml"), bundleTOML)
+
+	// ── 3. Build manifest and apply with user layout ───────────────
+	m, err := manifest.FromUserConfig(manifest.UserFields{
+		Bundle: "user-bundle",
+		Layout: "all",
+	})
+	if err != nil {
+		t.Fatalf("FromUserConfig: %v", err)
+	}
+
+	lay, err := layout.GetUser(m.Layout)
+	if err != nil {
+		t.Fatalf("GetUser: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	userLockPath := filepath.Join(tmp, "user.lock")
+
+	res, err := apply.Apply(stores, "default", m, home, apply.Options{
+		Force:        true,
+		LockFilePath: userLockPath,
+		Layout:       lay,
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 3 { // agent + skill + plugin
+		t.Fatalf("expected 3 deployed, got %d", res.Deployed)
+	}
+
+	// ── 4. Verify files at user-level paths ────────────────────────
+	// Pi layout paths
+	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "User Agent")
+	assertFileContains(t, filepath.Join(home, ".pi", "skills", "browse", "SKILL.md"), "# Browse")
+	assertFileContains(t, filepath.Join(home, ".pi", "plugins", "formatter", "plugin.lua"), "-- formatter")
+
+	// Claude layout paths (user-all deploys to all)
+	assertFileContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "User Agent")
+	assertFileExists(t, filepath.Join(home, ".claude", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(home, ".claude", "plugins", "formatter", "plugin.lua"))
+
+	// Cursor layout paths
+	assertFileContains(t, filepath.Join(home, ".cursor", "rules", "agentfiles.md"), "User Agent")
+	assertFileExists(t, filepath.Join(home, ".cursor", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(home, ".cursor", "plugins", "formatter", "plugin.lua"))
+
+	// ── 4b. Verify user lock file ──────────────────────────────────
+	lf, err := lock.LoadFrom(userLockPath)
+	if err != nil {
+		t.Fatalf("load user lock: %v", err)
+	}
+	if lf.Deployed.AgentsMD == nil {
+		t.Fatal("user lock missing agents_md entry")
+	}
+	if _, ok := lf.Deployed.Skills["browse"]; !ok {
+		t.Fatal("user lock missing skill 'browse'")
+	}
+	if _, ok := lf.Deployed.Plugins["formatter"]; !ok {
+		t.Fatal("user lock missing plugin 'formatter'")
+	}
+
+	skillHashBefore := lf.Deployed.Skills["browse"].Hash
+
+	// ── 5. Modify deployed file, push, verify store updated ────────
+	// Modify the pi-layout copy (primary for "all" layout).
+	mustWrite(t, filepath.Join(home, ".pi", "skills", "browse", "SKILL.md"), "# Browse\nModified by user\n")
+
+	pushRes, err := push.Push(stores, "default", home, push.Options{
+		LockFilePath: userLockPath,
+	})
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if len(pushRes.Changes) == 0 {
+		t.Fatal("push reported no changes after modifying skill")
+	}
+
+	// Store should have the updated content.
+	assertFileContains(t, filepath.Join(s.SkillsDir(), "browse", "SKILL.md"), "Modified by user")
+
+	// Lock should be updated.
+	lfAfter, err := lock.LoadFrom(userLockPath)
+	if err != nil {
+		t.Fatalf("load lock after push: %v", err)
+	}
+	if lfAfter.Deployed.Skills["browse"].Hash == skillHashBefore {
+		t.Fatal("skill hash not updated after push")
+	}
+}
+
+// TestIntegrationUserLevelCherryPick exercises user-level cherry-pick mode.
+func TestIntegrationUserLevelCherryPick(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	mustMkdir(t, home)
+
+	storePath := filepath.Join(tmp, "store")
+	s, err := store.Init(storePath)
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	// Add agent and skill.
+	agentSrc := filepath.Join(tmp, "src-agent.md")
+	mustWrite(t, agentSrc, "# Cherry Agent\n")
+	if _, err := s.AddAgent(agentSrc, "cherry", false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+
+	skillSrc := filepath.Join(tmp, "src-skill", "git")
+	mustMkdir(t, skillSrc)
+	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# Git\n")
+	if _, _, err := s.AddSkill(skillSrc, false); err != nil {
+		t.Fatalf("add skill: %v", err)
+	}
+
+	// Cherry-pick manifest with claude layout.
+	m, err := manifest.FromUserConfig(manifest.UserFields{
+		AgentsMd: "cherry",
+		Skills:   []string{"git"},
+		Layout:   "claude",
+	})
+	if err != nil {
+		t.Fatalf("FromUserConfig: %v", err)
+	}
+
+	lay, err := layout.GetUser(m.Layout)
+	if err != nil {
+		t.Fatalf("GetUser: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	userLockPath := filepath.Join(tmp, "user.lock")
+
+	res, err := apply.Apply(stores, "default", m, home, apply.Options{
+		Force:        true,
+		LockFilePath: userLockPath,
+		Layout:       lay,
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 2 {
+		t.Fatalf("expected 2 deployed, got %d", res.Deployed)
+	}
+
+	// Verify claude user paths.
+	assertFileContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Cherry Agent")
+	assertFileContains(t, filepath.Join(home, ".claude", "skills", "git", "SKILL.md"), "# Git")
+}
+
+// TestIntegrationUserLevelMultiStore exercises user-level with cross-store references.
+func TestIntegrationUserLevelMultiStore(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	mustMkdir(t, home)
+
+	// Two stores.
+	personalPath := filepath.Join(tmp, "store-personal")
+	personal, err := store.Init(personalPath)
+	if err != nil {
+		t.Fatalf("init personal store: %v", err)
+	}
+
+	workPath := filepath.Join(tmp, "store-work")
+	work, err := store.Init(workPath)
+	if err != nil {
+		t.Fatalf("init work store: %v", err)
+	}
+
+	// Personal store: one skill.
+	pSkillSrc := filepath.Join(tmp, "src-pskill", "personal-skill")
+	mustMkdir(t, pSkillSrc)
+	mustWrite(t, filepath.Join(pSkillSrc, "SKILL.md"), "# Personal Skill\nOriginal\n")
+	if _, _, err := personal.AddSkill(pSkillSrc, false); err != nil {
+		t.Fatalf("add personal skill: %v", err)
+	}
+
+	// Work store: agent, skill, bundle.
+	agentSrc := filepath.Join(tmp, "src-agent.md")
+	mustWrite(t, agentSrc, "# Work Agent\n")
+	if _, err := work.AddAgent(agentSrc, "default", false); err != nil {
+		t.Fatalf("add work agent: %v", err)
+	}
+
+	wSkillSrc := filepath.Join(tmp, "src-wskill", "work-skill")
+	mustMkdir(t, wSkillSrc)
+	mustWrite(t, filepath.Join(wSkillSrc, "SKILL.md"), "# Work Skill\n")
+	if _, _, err := work.AddSkill(wSkillSrc, false); err != nil {
+		t.Fatalf("add work skill: %v", err)
+	}
+
+	bundleTOML := `[bundle]
+name = "user-multi"
+agents_md = "default"
+
+[skills]
+include = ["work-skill"]
+`
+	mustWrite(t, filepath.Join(work.BundlesDir(), "user-multi.toml"), bundleTOML)
+
+	// Build manifest with cross-store skills_add.
+	m, err := manifest.FromUserConfig(manifest.UserFields{
+		Bundle:    "user-multi",
+		Layout:    "pi",
+		SkillsAdd: []string{"personal:personal-skill"},
+	})
+	if err != nil {
+		t.Fatalf("FromUserConfig: %v", err)
+	}
+
+	lay, err := layout.GetUser(m.Layout)
+	if err != nil {
+		t.Fatalf("GetUser: %v", err)
+	}
+
+	storesMap := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	userLockPath := filepath.Join(tmp, "user.lock")
+
+	res, err := apply.Apply(storesMap, "work", m, home, apply.Options{
+		Force:        true,
+		LockFilePath: userLockPath,
+		Layout:       lay,
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 3 { // agent + work-skill + personal-skill
+		t.Fatalf("expected 3 deployed, got %d", res.Deployed)
+	}
+
+	// Verify both skills deployed.
+	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "Work Agent")
+	assertFileContains(t, filepath.Join(home, ".pi", "skills", "work-skill", "SKILL.md"), "# Work Skill")
+	assertFileContains(t, filepath.Join(home, ".pi", "skills", "personal-skill", "SKILL.md"), "# Personal Skill")
+
+	// Verify lock entries have correct store provenance.
+	lf, err := lock.LoadFrom(userLockPath)
+	if err != nil {
+		t.Fatalf("load lock: %v", err)
+	}
+
+	workEntry, ok := lf.Deployed.Skills["work-skill"]
+	if !ok {
+		t.Fatal("lock missing work-skill")
+	}
+	if workEntry.Store != "work" {
+		t.Fatalf("work-skill store = %q, want 'work'", workEntry.Store)
+	}
+
+	personalEntry, ok := lf.Deployed.Skills["personal:personal-skill"]
+	if !ok {
+		var keys []string
+		for k := range lf.Deployed.Skills {
+			keys = append(keys, k)
+		}
+		t.Fatalf("lock missing 'personal:personal-skill'; keys: %v", keys)
+	}
+	if personalEntry.Store != "personal" {
+		t.Fatalf("personal-skill store = %q, want 'personal'", personalEntry.Store)
+	}
+
+	// Modify the personal skill, push, verify it goes to personal store.
+	mustWrite(t, filepath.Join(home, ".pi", "skills", "personal-skill", "SKILL.md"), "# Personal Skill\nModified\n")
+
+	pushRes, err := push.Push(storesMap, "work", home, push.Options{
+		LockFilePath: userLockPath,
+	})
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if len(pushRes.Changes) == 0 {
+		t.Fatal("push reported no changes")
+	}
+
+	assertFileContains(t, filepath.Join(personal.SkillsDir(), "personal-skill", "SKILL.md"), "Modified")
+	// Work store skill should be unchanged.
+	assertFileContains(t, filepath.Join(work.SkillsDir(), "work-skill", "SKILL.md"), "# Work Skill")
+}
+
+// TestIntegrationApplyAllWithUser simulates what apply-all does:
+// deploy user-level files AND repo-level files in sequence from the
+// same store, verifying both succeed with independent lock files.
+func TestIntegrationApplyAllWithUser(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	mustMkdir(t, home)
+
+	// Create store with assets.
+	storePath := filepath.Join(tmp, "store")
+	s, err := store.Init(storePath)
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	agentSrc := filepath.Join(tmp, "src-agent.md")
+	mustWrite(t, agentSrc, "# Shared Agent\n")
+	if _, err := s.AddAgent(agentSrc, "shared", false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+
+	skillSrc := filepath.Join(tmp, "src-skill", "browse")
+	mustMkdir(t, skillSrc)
+	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# Browse\n")
+	if _, _, err := s.AddSkill(skillSrc, false); err != nil {
+		t.Fatalf("add skill: %v", err)
+	}
+
+	bundleTOML := `[bundle]
+name = "shared-bundle"
+agents_md = "shared"
+
+[skills]
+include = ["browse"]
+`
+	mustWrite(t, filepath.Join(s.BundlesDir(), "shared-bundle.toml"), bundleTOML)
+
+	stores := map[string]*store.Store{"default": s}
+
+	// ── User-level deploy (what apply-all does first) ──────────────
+	userManifest, err := manifest.FromUserConfig(manifest.UserFields{
+		Bundle: "shared-bundle",
+		Layout: "all",
+	})
+	if err != nil {
+		t.Fatalf("FromUserConfig: %v", err)
+	}
+
+	userLay, err := layout.GetUser(userManifest.Layout)
+	if err != nil {
+		t.Fatalf("GetUser: %v", err)
+	}
+
+	userLockPath := filepath.Join(tmp, "user.lock")
+
+	userRes, err := apply.Apply(stores, "default", userManifest, home, apply.Options{
+		Force:        true,
+		LockFilePath: userLockPath,
+		Layout:       userLay,
+	})
+	if err != nil {
+		t.Fatalf("user apply: %v", err)
+	}
+	if userRes.Deployed != 2 { // agent + skill
+		t.Fatalf("user: expected 2 deployed, got %d", userRes.Deployed)
+	}
+
+	// ── Repo-level deploy (what apply-all does for each repo) ──────
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), "bundle = \"shared-bundle\"\nlayout = \"pi\"\n")
+
+	repoManifest, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatalf("load repo manifest: %v", err)
+	}
+
+	repoRes, err := apply.Apply(stores, "default", repoManifest, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("repo apply: %v", err)
+	}
+	if repoRes.Deployed != 2 {
+		t.Fatalf("repo: expected 2 deployed, got %d", repoRes.Deployed)
+	}
+
+	// ── Verify both deployed independently ─────────────────────────
+
+	// User-level paths (all layout).
+	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "Shared Agent")
+	assertFileContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Shared Agent")
+	assertFileContains(t, filepath.Join(home, ".cursor", "rules", "agentfiles.md"), "Shared Agent")
+	assertFileExists(t, filepath.Join(home, ".pi", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(home, ".claude", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(home, ".cursor", "skills", "browse", "SKILL.md"))
+
+	// Repo-level paths (pi layout).
+	assertFileContains(t, filepath.Join(repo, "AGENTS.md"), "Shared Agent")
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
+
+	// Lock files are independent.
+	userLF, err := lock.LoadFrom(userLockPath)
+	if err != nil {
+		t.Fatalf("load user lock: %v", err)
+	}
+	repoLF, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("load repo lock: %v", err)
+	}
+
+	// Both should track the same assets but in separate lock files.
+	if userLF.Deployed.AgentsMD == nil {
+		t.Fatal("user lock missing agents_md")
+	}
+	if repoLF.Deployed.AgentsMD == nil {
+		t.Fatal("repo lock missing agents_md")
+	}
+	if _, ok := userLF.Deployed.Skills["browse"]; !ok {
+		t.Fatal("user lock missing skill 'browse'")
+	}
+	if _, ok := repoLF.Deployed.Skills["browse"]; !ok {
+		t.Fatal("repo lock missing skill 'browse'")
+	}
+
+	// Hashes should match (same source).
+	if userLF.Deployed.AgentsMD.Hash != repoLF.Deployed.AgentsMD.Hash {
+		t.Fatal("agent hash differs between user and repo locks")
+	}
+	if userLF.Deployed.Skills["browse"].Hash != repoLF.Deployed.Skills["browse"].Hash {
+		t.Fatal("skill hash differs between user and repo locks")
+	}
+
+	// Modifying repo skill and pushing should NOT affect user deployment.
+	mustWrite(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), "# Browse\nRepo change\n")
+	pushRes, err := push.Push(stores, "default", repo, push.Options{})
+	if err != nil {
+		t.Fatalf("repo push: %v", err)
+	}
+	if len(pushRes.Changes) == 0 {
+		t.Fatal("repo push reported no changes")
+	}
+
+	// User-level file should still have original content (not synced by push).
+	assertFileContains(t, filepath.Join(home, ".pi", "skills", "browse", "SKILL.md"), "# Browse\n")
+
+	// But user push should now detect that the store changed and user is stale...
+	// Actually, user push compares deployed vs lock hash, not store. So user push
+	// should report no changes (user files weren't modified).
+	userPushRes, err := push.Push(stores, "default", home, push.Options{
+		LockFilePath: userLockPath,
+	})
+	if err != nil {
+		t.Fatalf("user push: %v", err)
+	}
+	if len(userPushRes.Changes) != 0 {
+		t.Fatalf("user push should report 0 changes, got %d", len(userPushRes.Changes))
 	}
 }
 

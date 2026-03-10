@@ -45,6 +45,42 @@ func Load(dir string) (*Manifest, error) {
 	return &m, nil
 }
 
+// UserFields holds the manifest-equivalent fields from a user-level config.
+// This avoids importing the config package (which would be circular).
+type UserFields struct {
+	Bundle       string
+	Layout       string
+	AgentsMd     string
+	Skills       []string
+	Plugins      []string
+	SkillsAdd    []string
+	SkillsRemove []string
+}
+
+// FromUserConfig constructs a Manifest from user config fields.
+// It applies defaults (layout defaults to "all" for user-level) and validates.
+func FromUserConfig(u UserFields) (*Manifest, error) {
+	m := &Manifest{
+		Bundle:       u.Bundle,
+		Layout:       u.Layout,
+		AgentsMd:     u.AgentsMd,
+		Skills:       u.Skills,
+		Plugins:      u.Plugins,
+		SkillsAdd:    u.SkillsAdd,
+		SkillsRemove: u.SkillsRemove,
+	}
+
+	if m.Layout == "" {
+		m.Layout = "all"
+	}
+
+	if err := m.validate(); err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
 func (m *Manifest) validate() error {
 	hasBundle := m.Bundle != ""
 	hasCherryPick := m.AgentsMd != "" || len(m.Skills) > 0 || len(m.Plugins) > 0 || len(m.Resources) > 0

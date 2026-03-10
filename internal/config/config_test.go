@@ -327,6 +327,206 @@ store = "typo"
 	}
 }
 
+func TestLoadUserSection(t *testing.T) {
+	dir := t.TempDir()
+	storeDir := filepath.Join(dir, "store")
+	os.MkdirAll(storeDir, 0755)
+
+	cfgPath := filepath.Join(dir, "config.toml")
+	content := `
+default_store = "personal"
+
+[stores]
+personal = "` + storeDir + `"
+
+[user]
+bundle = "my-tools"
+layout = "all"
+skills_add = ["browse"]
+`
+	os.WriteFile(cfgPath, []byte(content), 0644)
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.User == nil {
+		t.Fatal("expected User to be set")
+	}
+	if cfg.User.Bundle != "my-tools" {
+		t.Errorf("User.Bundle = %q, want my-tools", cfg.User.Bundle)
+	}
+	if cfg.User.Layout != "all" {
+		t.Errorf("User.Layout = %q, want all", cfg.User.Layout)
+	}
+	if cfg.User.Store != "personal" {
+		t.Errorf("User.Store = %q, want personal (default)", cfg.User.Store)
+	}
+	if len(cfg.User.SkillsAdd) != 1 || cfg.User.SkillsAdd[0] != "browse" {
+		t.Errorf("User.SkillsAdd = %v, want [browse]", cfg.User.SkillsAdd)
+	}
+}
+
+func TestLoadUserCherryPick(t *testing.T) {
+	dir := t.TempDir()
+	storeDir := filepath.Join(dir, "store")
+	os.MkdirAll(storeDir, 0755)
+
+	cfgPath := filepath.Join(dir, "config.toml")
+	content := `
+default_store = "personal"
+
+[stores]
+personal = "` + storeDir + `"
+
+[user]
+agents_md = "my-agent"
+skills = ["browse", "plan"]
+`
+	os.WriteFile(cfgPath, []byte(content), 0644)
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.User == nil {
+		t.Fatal("expected User to be set")
+	}
+	if cfg.User.AgentsMd != "my-agent" {
+		t.Errorf("User.AgentsMd = %q, want my-agent", cfg.User.AgentsMd)
+	}
+	if len(cfg.User.Skills) != 2 {
+		t.Errorf("User.Skills = %v, want [browse plan]", cfg.User.Skills)
+	}
+}
+
+func TestLoadNoUserSection(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+	os.WriteFile(cfgPath, []byte(""), 0644)
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.User != nil {
+		t.Errorf("expected User to be nil, got %+v", cfg.User)
+	}
+}
+
+func TestLoadUserNeitherBundleNorCherryPick(t *testing.T) {
+	dir := t.TempDir()
+	storeDir := filepath.Join(dir, "store")
+	os.MkdirAll(storeDir, 0755)
+
+	cfgPath := filepath.Join(dir, "config.toml")
+	content := `
+default_store = "personal"
+
+[stores]
+personal = "` + storeDir + `"
+
+[user]
+layout = "all"
+`
+	os.WriteFile(cfgPath, []byte(content), 0644)
+
+	_, err := Load(cfgPath)
+	if err == nil {
+		t.Fatal("expected error for [user] with neither bundle nor cherry-pick")
+	}
+}
+
+func TestLoadUserBothBundleAndCherryPick(t *testing.T) {
+	dir := t.TempDir()
+	storeDir := filepath.Join(dir, "store")
+	os.MkdirAll(storeDir, 0755)
+
+	cfgPath := filepath.Join(dir, "config.toml")
+	content := `
+default_store = "personal"
+
+[stores]
+personal = "` + storeDir + `"
+
+[user]
+bundle = "my-tools"
+skills = ["browse"]
+`
+	os.WriteFile(cfgPath, []byte(content), 0644)
+
+	_, err := Load(cfgPath)
+	if err == nil {
+		t.Fatal("expected error for [user] with both bundle and cherry-pick")
+	}
+}
+
+func TestLoadUserUnknownStore(t *testing.T) {
+	dir := t.TempDir()
+	storeDir := filepath.Join(dir, "store")
+	os.MkdirAll(storeDir, 0755)
+
+	cfgPath := filepath.Join(dir, "config.toml")
+	content := `
+default_store = "personal"
+
+[stores]
+personal = "` + storeDir + `"
+
+[user]
+bundle = "tools"
+store = "nonexistent"
+`
+	os.WriteFile(cfgPath, []byte(content), 0644)
+
+	_, err := Load(cfgPath)
+	if err == nil {
+		t.Fatal("expected error for [user] referencing unknown store")
+	}
+}
+
+func TestUserLockPath(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+	os.WriteFile(cfgPath, []byte(""), 0644)
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	want := filepath.Join(dir, "user.lock")
+	got := cfg.UserLockPath()
+	if got != want {
+		t.Errorf("UserLockPath() = %q, want %q", got, want)
+	}
+}
+
+func TestUserDefaultLayout(t *testing.T) {
+	dir := t.TempDir()
+	storeDir := filepath.Join(dir, "store")
+	os.MkdirAll(storeDir, 0755)
+
+	cfgPath := filepath.Join(dir, "config.toml")
+	content := `
+default_store = "personal"
+
+[stores]
+personal = "` + storeDir + `"
+
+[user]
+bundle = "tools"
+`
+	os.WriteFile(cfgPath, []byte(content), 0644)
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.User.Layout != "all" {
+		t.Errorf("User.Layout = %q, want all (default)", cfg.User.Layout)
+	}
+}
+
 func TestTildeExpansion(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {

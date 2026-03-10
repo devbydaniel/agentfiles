@@ -27,8 +27,9 @@ type Result struct {
 
 // Options controls push behaviour.
 type Options struct {
-	DryRun    bool
-	SkillOnly string
+	DryRun       bool
+	SkillOnly    string
+	LockFilePath string // If non-empty, use this path for the lock file instead of <repoDir>/.agentfiles.lock.
 }
 
 // entryStore returns the store for the given lock entry. If the entry has no
@@ -44,12 +45,23 @@ func entryStore(stores map[string]*store.Store, defaultStore string, e *lock.Ent
 // Push compares deployed files to their lock hashes and copies changed files
 // back to the store. Returns a result describing what changed.
 func Push(stores map[string]*store.Store, defaultStore string, repoDir string, opts Options) (*Result, error) {
-	lockPath := filepath.Join(repoDir, lock.FileName)
+	lockPath := opts.LockFilePath
+	if lockPath == "" {
+		lockPath = filepath.Join(repoDir, lock.FileName)
+	}
 	if _, err := os.Stat(lockPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("no lock file found — run af apply first")
 	}
 
-	lf, err := lock.Load(repoDir)
+	var (
+		lf  *lock.LockFile
+		err error
+	)
+	if opts.LockFilePath != "" {
+		lf, err = lock.LoadFrom(opts.LockFilePath)
+	} else {
+		lf, err = lock.Load(repoDir)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("loading lock file: %w", err)
 	}
@@ -149,8 +161,14 @@ func Push(stores map[string]*store.Store, defaultStore string, repoDir string, o
 
 	// Save updated lock file (only if not dry-run and there were changes).
 	if !opts.DryRun && len(res.Changes) > 0 {
-		if err := lock.Save(repoDir, lf); err != nil {
-			return nil, fmt.Errorf("saving lock file: %w", err)
+		var saveErr error
+		if opts.LockFilePath != "" {
+			saveErr = lock.SaveTo(opts.LockFilePath, lf)
+		} else {
+			saveErr = lock.Save(repoDir, lf)
+		}
+		if saveErr != nil {
+			return nil, fmt.Errorf("saving lock file: %w", saveErr)
 		}
 	}
 

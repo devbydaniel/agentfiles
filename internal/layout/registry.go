@@ -18,3 +18,21 @@ func Get(name string) (Layout, error) {
 		return nil, fmt.Errorf("unknown layout: %q", name)
 	}
 }
+
+// GetUser returns the user-level Layout for the given name.
+// User layouts deploy to $HOME-relative paths (e.g. ~/.claude/CLAUDE.md).
+// Supported names: "pi", "claude", "cursor", "all".
+func GetUser(name string) (Layout, error) {
+	switch name {
+	case "pi":
+		return UserPiLayout{}, nil
+	case "claude":
+		return UserClaudeLayout{}, nil
+	case "cursor":
+		return UserCursorLayout{}, nil
+	case "all":
+		return UserAllLayout{}, nil
+	default:
+		return nil, fmt.Errorf("unknown user layout: %q", name)
+	}
+}
