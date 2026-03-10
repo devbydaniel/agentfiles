@@ -335,7 +335,7 @@ include = ["my-plugin"]
 	assertFileExists(t, filepath.Join(repo, ".claude", "plugins", "my-plugin", "plugin.lua"))
 
 	// Cursor layout files should exist as regular files.
-	assertFileExists(t, filepath.Join(repo, ".cursorrules"))
+	// Cursor now uses AGENTS.md (same as pi), so no separate .cursorrules.
 	assertFileExists(t, filepath.Join(repo, ".cursor", "skills", "my-skill", "SKILL.md"))
 	assertFileExists(t, filepath.Join(repo, ".cursor", "plugins", "my-plugin", "plugin.lua"))
 }

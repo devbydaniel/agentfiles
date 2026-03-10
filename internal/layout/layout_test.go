@@ -20,7 +20,7 @@ func TestClaudeLayout(t *testing.T) {
 
 func TestCursorLayout(t *testing.T) {
 	l := CursorLayout{}
-	assertEqual(t, ".cursorrules", l.AgentMdPath())
+	assertEqual(t, "AGENTS.md", l.AgentMdPath())
 	assertEqual(t, ".cursor/skills/browse", l.SkillPath("browse"))
 	assertEqual(t, ".cursor/plugins/myplugin", l.PluginPath("myplugin"))
 }
@@ -55,13 +55,12 @@ func TestAllLayoutAgentMdEntries(t *testing.T) {
 	l := AllLayout{}
 	entries := l.AgentMdEntries()
 
-	if len(entries) != 3 {
-		t.Fatalf("expected 3 entries, got %d", len(entries))
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries (AGENTS.md deduplicated), got %d", len(entries))
 	}
 
 	assertEntryPath(t, entries[0], "AGENTS.md")
 	assertEntryPath(t, entries[1], "CLAUDE.md")
-	assertEntryPath(t, entries[2], ".cursorrules")
 }
 
 func TestAllLayoutSkillEntries(t *testing.T) {

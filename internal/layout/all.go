@@ -20,12 +20,26 @@ func (a AllLayout) SkillPath(name string) string { return a.pi.SkillPath(name) }
 func (a AllLayout) PluginPath(name string) string { return a.pi.PluginPath(name) }
 
 // AgentMdEntries returns entries for the agent file across all layouts.
+// Duplicate paths (e.g. pi and cursor both use AGENTS.md) are deduplicated.
 func (a AllLayout) AgentMdEntries() []Entry {
-	return []Entry{
+	return dedup([]Entry{
 		{Path: a.pi.AgentMdPath()},
 		{Path: a.claude.AgentMdPath()},
 		{Path: a.cursor.AgentMdPath()},
+	})
+}
+
+// dedup removes entries with duplicate paths, keeping the first occurrence.
+func dedup(entries []Entry) []Entry {
+	seen := make(map[string]bool)
+	out := make([]Entry, 0, len(entries))
+	for _, e := range entries {
+		if !seen[e.Path] {
+			seen[e.Path] = true
+			out = append(out, e)
+		}
 	}
+	return out
 }
 
 // SkillEntries returns entries for a skill across all layouts.

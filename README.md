@@ -163,7 +163,7 @@ Layouts control where files land in the repo. Different AI tools expect differen
 |--------|-----------|--------|---------|
 | `pi` | `AGENTS.md` | `.pi/skills/<name>/` | `.pi/plugins/<name>/` |
 | `claude` | `CLAUDE.md` | `.claude/skills/<name>/` | `.claude/plugins/<name>/` |
-| `cursor` | `.cursorrules` | `.cursor/skills/<name>/` | `.cursor/plugins/<name>/` |
+| `cursor` | `AGENTS.md` | `.cursor/skills/<name>/` | `.cursor/plugins/<name>/` |
 | `all` | All of the above | All of the above | All of the above |
 
 **Resources** are layout-independent — always copied to repo root regardless of layout.
@@ -588,9 +588,8 @@ af apply
 
 This creates:
 ```
-AGENTS.md                           ← full copy
+AGENTS.md                           ← full copy (pi + cursor share this)
 CLAUDE.md                           ← full copy
-.cursorrules                        ← full copy
 .pi/skills/browse/SKILL.md          ← full copy
 .claude/skills/browse/SKILL.md      ← full copy
 .cursor/skills/browse/SKILL.md      ← full copy
@@ -620,7 +619,7 @@ CLAUDE.md
 
 ### Cursor layout
 ```gitignore
-.cursorrules
+AGENTS.md
 .cursor/skills/
 .cursor/plugins/
 .agentfiles.lock
@@ -630,7 +629,6 @@ CLAUDE.md
 ```gitignore
 AGENTS.md
 CLAUDE.md
-.cursorrules
 .pi/skills/
 .pi/plugins/
 .claude/skills/

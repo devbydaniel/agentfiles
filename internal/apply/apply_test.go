@@ -169,13 +169,13 @@ func TestApplyCursorLayout(t *testing.T) {
 		t.Errorf("deployed = %d, want 2", res.Deployed)
 	}
 
-	// .cursorrules
-	data, err := os.ReadFile(filepath.Join(repo, ".cursorrules"))
+	// AGENTS.md (cursor layout now uses AGENTS.md)
+	data, err := os.ReadFile(filepath.Join(repo, "AGENTS.md"))
 	if err != nil {
-		t.Fatalf(".cursorrules not found: %v", err)
+		t.Fatalf("AGENTS.md not found: %v", err)
 	}
 	if string(data) != "# Cursor instructions" {
-		t.Errorf(".cursorrules content = %q", data)
+		t.Errorf("AGENTS.md content = %q", data)
 	}
 
 	// .cursor/skills/refactor/SKILL.md
