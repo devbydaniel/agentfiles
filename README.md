@@ -2,7 +2,7 @@
 
 Portable config management for AI coding agents. Multiple named stores, many repos, any tool.
 
-`af` keeps skills, agent instructions, plugins, and resources in git-managed stores and deploys them into repositories using **layouts** that match each tool's expected file structure. Multiple named stores let you separate personal and work assets while composing them freely across repos. Edit files in any repo, push changes back, and every other repo picks them up on the next `af apply`.
+`af` keeps skills, agent instructions, and resources in git-managed stores and deploys them into repositories using **layouts** that match each tool's expected file structure. Multiple named stores let you separate personal and work assets while composing them freely across repos. Edit files in any repo, push changes back, and every other repo picks them up on the next `af apply`.
 
 Think **chezmoi, but for AI agent context files**.
 
@@ -23,7 +23,6 @@ Each store is a git repository containing agent assets. You can have multiple na
 │       └── SKILL.md
 ├── agents/
 │   └── assistant.md
-├── plugins/
 ├── resources/
 │   └── editorconfig/
 │       └── .editorconfig
@@ -37,8 +36,6 @@ Each store is a git repository containing agent assets. You can have multiple na
 │       └── examples/
 ├── agents/
 │   └── backend.md
-├── plugins/
-│   └── formatter/
 ├── resources/
 │   └── cursor-config/
 │       └── .cursor/
@@ -66,7 +63,6 @@ Each store is just a git repo. You manage them with normal git operations (commi
 |-------|-----------|----------------|---------|
 | **Skill** | A directory with a `SKILL.md` and optional supporting files | `skills/<name>/` | `skills/browse/SKILL.md` |
 | **Agent** | A markdown file with agent instructions | `agents/<name>.md` | `agents/assistant.md` |
-| **Plugin** | A directory with plugin code/config | `plugins/<name>/` | `plugins/formatter/` |
 | **Resource** | An arbitrary file tree copied to repo root | `resources/<name>/` | `resources/cursor-config/.cursor/rules.json` |
 
 **Resources** are special: their contents are copied directly into the repo root, preserving internal directory structure. For example, `resources/cursor-config/.cursor/rules.json` deploys to `.cursor/rules.json` in the repo. This makes resources useful for tool configs, shared scripts, or any files that need specific paths.
@@ -84,10 +80,6 @@ agents_md = "backend"           # → agents/backend.md
 [skills]
 include = ["git-workflow", "nestjs-hexagonal-backend", "typeorm-migrations"]
 exclude = []                    # optional: remove specific items from include
-
-[plugins]
-include = ["formatter"]
-exclude = []
 
 [resources]
 include = ["cursor-config", "editorconfig"]
@@ -146,7 +138,6 @@ skills_remove = ["typeorm-migrations"]         # remove from bundle's list
 ```toml
 agents_md = "assistant"
 skills = ["browse", "web-search", "personal:git-workflow"]  # storename: prefix for cross-store
-plugins = ["formatter"]
 resources = ["editorconfig"]
 layout = "pi"
 ```
@@ -159,12 +150,12 @@ Bundle mode and cherry-pick mode are **mutually exclusive**. The `layout` field 
 
 Layouts control where files land in the repo. Different AI tools expect different directory structures:
 
-| Layout | Agent file | Skills | Plugins |
-|--------|-----------|--------|---------|
-| `pi` | `AGENTS.md` | `.pi/skills/<name>/` | `.pi/plugins/<name>/` |
-| `claude` | `CLAUDE.md` | `.claude/skills/<name>/` | `.claude/plugins/<name>/` |
-| `cursor` | `AGENTS.md` | `.cursor/skills/<name>/` | `.cursor/plugins/<name>/` |
-| `all` | All of the above | All of the above | All of the above |
+| Layout | Agent file | Skills |
+|--------|-----------|--------|
+| `pi` | `AGENTS.md` | `.pi/skills/<name>/` |
+| `claude` | `CLAUDE.md` | `.claude/skills/<name>/` |
+| `cursor` | `AGENTS.md` | `.cursor/skills/<name>/` |
+| `all` | All of the above | All of the above |
 
 **Resources** are layout-independent — always copied to repo root regardless of layout.
 
@@ -174,12 +165,12 @@ The **`all` layout** deploys for every tool simultaneously — all entries are f
 
 When deploying to user-level paths (via `[user]` config or `af apply-user`), layouts produce home-relative paths:
 
-| Layout | Agent file | Skills | Plugins |
-|--------|-----------|--------|---------|
-| `pi` | `~/AGENTS.md` | `~/.pi/skills/<name>/` | `~/.pi/plugins/<name>/` |
-| `claude` | `~/.claude/CLAUDE.md` | `~/.claude/skills/<name>/` | `~/.claude/plugins/<name>/` |
-| `cursor` | `~/.cursor/rules/agentfiles.md` | `~/.cursor/skills/<name>/` | `~/.cursor/plugins/<name>/` |
-| `all` | All of the above | All of the above | All of the above |
+| Layout | Agent file | Skills |
+|--------|-----------|--------|
+| `pi` | `~/AGENTS.md` | `~/.pi/skills/<name>/` |
+| `claude` | `~/.claude/CLAUDE.md` | `~/.claude/skills/<name>/` |
+| `cursor` | `~/.cursor/rules/agentfiles.md` | `~/.cursor/skills/<name>/` |
+| `all` | All of the above | All of the above |
 
 The lock file for user-level deployments lives at `~/.config/agentfiles/user.lock`.
 
@@ -275,7 +266,7 @@ AGENTS.md                      ← from agents/backend.md
 
 ### `af init-store [path]`
 
-Create a new source store. Creates `skills/`, `agents/`, `plugins/`, `resources/`, `bundles/` subdirectories and runs `git init`.
+Create a new source store. Creates `skills/`, `agents/`, `resources/`, `bundles/` subdirectories and runs `git init`.
 
 ```bash
 af init-store                                    # default: ~/.agentfiles
@@ -292,7 +283,6 @@ Copy assets from the filesystem into the source store.
 ```bash
 af add skill <dir>                  # copies dir → store/skills/<dirname>/
 af add agent <file> --name <name>   # copies file → store/agents/<name>.md
-af add plugin <dir>                 # copies dir → store/plugins/<dirname>/
 af add resource <dir>               # copies dir → store/resources/<dirname>/
 ```
 
@@ -366,7 +356,7 @@ bundle = "personal-base"
 layout = "all"
 ```
 
-The `[user]` section supports the same fields as a manifest: `bundle`, `layout`, `agents_md`, `skills`, `plugins`, `skills_add`, `skills_remove`. Resources are not supported at user level.
+The `[user]` section supports the same fields as a manifest: `bundle`, `layout`, `agents_md`, `skills`, `skills_add`, `skills_remove`. Resources are not supported at user level.
 
 ### `af push-user`
 
@@ -425,7 +415,6 @@ List assets in the source store.
 af list skills              # list all skill directories
 af list agents              # list all agent files (without .md extension)
 af list bundles             # list all bundle files (without .toml extension)
-af list plugins             # list all plugin directories
 af list resources           # list all resource directories
 ```
 
@@ -605,7 +594,6 @@ Deployed files are derived content — regenerated by `af apply`. Gitignore them
 ```gitignore
 AGENTS.md
 .pi/skills/
-.pi/plugins/
 .agentfiles.lock
 ```
 
@@ -613,7 +601,6 @@ AGENTS.md
 ```gitignore
 CLAUDE.md
 .claude/skills/
-.claude/plugins/
 .agentfiles.lock
 ```
 
@@ -621,7 +608,6 @@ CLAUDE.md
 ```gitignore
 AGENTS.md
 .cursor/skills/
-.cursor/plugins/
 .agentfiles.lock
 ```
 
@@ -630,11 +616,8 @@ AGENTS.md
 AGENTS.md
 CLAUDE.md
 .pi/skills/
-.pi/plugins/
 .claude/skills/
-.claude/plugins/
 .cursor/skills/
-.cursor/plugins/
 .agentfiles.lock
 ```
 
@@ -675,7 +658,6 @@ skills_remove = ["unwanted"]      # optional: remove skills from bundle
 # OR cherry-pick mode:
 agents_md = "assistant"           # references agents/<name>.md in the store
 skills = ["browse", "web-search"] # skill directory names in the store
-plugins = ["formatter"]           # plugin directory names in the store
 resources = ["cursor-config"]     # resource directory names in the store
 layout = "pi"                     # pi | claude | cursor | all (default: pi)
 ```
@@ -690,10 +672,6 @@ agents_md = "backend"             # references agents/<name>.md
 [skills]
 include = ["browse", "git-workflow"]
 exclude = []                      # removed from include before deployment
-
-[plugins]
-include = ["formatter"]
-exclude = []
 
 [resources]
 include = ["cursor-config"]
@@ -722,12 +700,6 @@ hash = "sha256hex..."
 store = "personal"
 source = "skills/my-skill/"
 path = ".pi/skills/my-skill"
-hash = "sha256hex..."
-
-[deployed.plugins.formatter]
-store = "work"
-source = "plugins/formatter/"
-path = ".pi/plugins/formatter"
 hash = "sha256hex..."
 
 [deployed.resources.cursor-config]
