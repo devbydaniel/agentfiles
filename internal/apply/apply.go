@@ -25,6 +25,7 @@ type Options struct {
 type ApplyResult struct {
 	Deployed int
 	Skipped  int
+	Removed  int
 	Warnings []string
 }
 
@@ -61,15 +62,21 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		}
 	}
 
-	var lf *lock.LockFile
+	var oldLF *lock.LockFile
 	if opts.LockFilePath != "" {
-		lf, err = lock.LoadFrom(opts.LockFilePath)
+		oldLF, err = lock.LoadFrom(opts.LockFilePath)
 	} else {
-		lf, err = lock.Load(repoDir)
+		oldLF, err = lock.Load(repoDir)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("loading lock file: %w", err)
 	}
+
+	// Start a fresh lock file so only currently-deployed assets are tracked.
+	lf := &lock.LockFile{}
+	lf.Deployed.Skills = make(map[string]*lock.Entry)
+	lf.Deployed.Plugins = make(map[string]*lock.Entry)
+	lf.Deployed.Resources = make(map[string]*lock.Entry)
 
 	res := &ApplyResult{}
 
@@ -247,6 +254,13 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		}
 	}
 
+	// Clean up assets that were in the old lock but not in the new one.
+	// Skip cleanup when deploying a single skill (partial deploy).
+	if opts.SkillOnly == "" {
+		removed := pruneStale(repoDir, oldLF, lf)
+		res.Removed = removed
+	}
+
 	if opts.LockFilePath != "" {
 		err = lock.SaveTo(opts.LockFilePath, lf)
 	} else {
@@ -257,6 +271,73 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 	}
 
 	return res, nil
+}
+
+// pruneStale removes deployed files/directories that are tracked in oldLF but
+// absent from newLF. Returns the number of assets removed.
+func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
+	removed := 0
+
+	// Collect all deployed paths from the new lock.
+	newPaths := make(map[string]bool)
+	if newLF.Deployed.AgentsMD != nil {
+		newPaths[newLF.Deployed.AgentsMD.DeployedPath] = true
+	}
+	for _, e := range newLF.Deployed.Skills {
+		newPaths[e.DeployedPath] = true
+	}
+	for _, e := range newLF.Deployed.Plugins {
+		newPaths[e.DeployedPath] = true
+	}
+	for _, e := range newLF.Deployed.Resources {
+		newPaths[e.DeployedPath] = true
+	}
+
+	// Remove old agents_md if no longer present.
+	if oldLF.Deployed.AgentsMD != nil && !newPaths[oldLF.Deployed.AgentsMD.DeployedPath] {
+		if removeDeployed(repoDir, oldLF.Deployed.AgentsMD.DeployedPath) {
+			removed++
+		}
+	}
+
+	// Remove old skills.
+	for _, e := range oldLF.Deployed.Skills {
+		if !newPaths[e.DeployedPath] {
+			if removeDeployed(repoDir, e.DeployedPath) {
+				removed++
+			}
+		}
+	}
+
+	// Remove old plugins.
+	for _, e := range oldLF.Deployed.Plugins {
+		if !newPaths[e.DeployedPath] {
+			if removeDeployed(repoDir, e.DeployedPath) {
+				removed++
+			}
+		}
+	}
+
+	// Remove old resources.
+	for _, e := range oldLF.Deployed.Resources {
+		if !newPaths[e.DeployedPath] {
+			if removeDeployed(repoDir, e.DeployedPath) {
+				removed++
+			}
+		}
+	}
+
+	return removed
+}
+
+// removeDeployed removes a deployed file or directory. Returns true if something was removed.
+func removeDeployed(repoDir, deployedPath string) bool {
+	full := filepath.Join(repoDir, deployedPath)
+	if _, err := os.Lstat(full); err != nil {
+		return false
+	}
+	os.RemoveAll(full)
+	return true
 }
 
 // deployEntry handles a single layout entry, writing content from src.

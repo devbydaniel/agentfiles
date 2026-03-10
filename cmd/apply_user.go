@@ -86,7 +86,11 @@ Examples:
 		for _, w := range res.Warnings {
 			fmt.Fprintln(os.Stderr, w)
 		}
-		fmt.Printf("Deployed %d user-level asset(s)\n", res.Deployed)
+		msg := fmt.Sprintf("Deployed %d user-level asset(s)", res.Deployed)
+		if res.Removed > 0 {
+			msg += fmt.Sprintf(", removed %d stale", res.Removed)
+		}
+		fmt.Println(msg)
 		return nil
 	},
 }

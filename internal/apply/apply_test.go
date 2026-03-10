@@ -577,3 +577,70 @@ func TestApplyMultiStore(t *testing.T) {
 		t.Errorf("agents_md store = %q, want %q", lf.Deployed.AgentsMD.Store, "work")
 	}
 }
+
+func TestApplyPrunesStaleAssets(t *testing.T) {
+	s := setupStore(t)
+	stores, defaultStore := singleStoreMap(s)
+	repo := t.TempDir()
+
+	// Deploy with two skills.
+	addSkillToStore(t, s, "alpha", "# Alpha")
+	addSkillToStore(t, s, "beta", "# Beta")
+	m := &manifest.Manifest{
+		Layout: "pi",
+		Skills: []string{"alpha", "beta"},
+	}
+
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+	if res.Deployed != 2 {
+		t.Fatalf("deployed = %d, want 2", res.Deployed)
+	}
+
+	// Verify both exist.
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "alpha", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "beta", "SKILL.md"))
+
+	// Re-deploy with only alpha (beta removed from manifest).
+	m2 := &manifest.Manifest{
+		Layout: "pi",
+		Skills: []string{"alpha"},
+	}
+	res2, err := Apply(stores, defaultStore, m2, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if res2.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res2.Deployed)
+	}
+	if res2.Removed != 1 {
+		t.Errorf("removed = %d, want 1", res2.Removed)
+	}
+
+	// Alpha still exists, beta is gone.
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "alpha", "SKILL.md"))
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "beta")); err == nil {
+		t.Error("beta skill should have been pruned")
+	}
+
+	// Lock should only have alpha.
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("load lock: %v", err)
+	}
+	if _, ok := lf.Deployed.Skills["alpha"]; !ok {
+		t.Error("lock missing alpha")
+	}
+	if _, ok := lf.Deployed.Skills["beta"]; ok {
+		t.Error("lock should not contain beta")
+	}
+}
+
+func assertFileExists(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("expected file %s to exist: %v", path, err)
+	}
+}

@@ -28,6 +28,7 @@ Config (~/.config/agentfiles/config.toml)
 - **Layout "all"**: all three tool paths get full copies. See `internal/layout/all.go`.
 - **Entry**: Just a `Path` string. All entries are full copies. Apply's `deployEntry` calls `deployCopy` directly.
 - **Lock hashing**: Directories use sorted `file:<rel>\nhash:<sha256>\n` pairs fed into sha256. This means file renames change the hash. See `lock.HashDir`.
+- **Stale asset pruning**: Apply compares old lock → new lock and removes deployed files/directories no longer in the manifest. Skipped during `--skill` (single-skill) deploys. `ApplyResult.Removed` tracks count.
 - **Lock HashDirMapped**: Used by push to hash using store directory structure but reading from deployed paths (which may differ per layout).
 - **Config repo merge**: Named repos in config.toml are skipped if no matching config.local.toml entry exists. Path-only repos work standalone. Local entries can override layout/skills or skip entirely. See `internal/config/config.go` mergeRepos().
 - **apply-all always force-writes the manifest**: It overwrites `.agentfiles` in each repo to keep it in sync with the config. Then runs apply with Force=true.

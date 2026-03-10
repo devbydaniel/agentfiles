@@ -137,7 +137,11 @@ Examples:
 			for _, w := range res.Warnings {
 				fmt.Fprintf(os.Stderr, "  %s\n", w)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "  deployed %d asset(s)\n", res.Deployed)
+			msg := fmt.Sprintf("  deployed %d asset(s)", res.Deployed)
+			if res.Removed > 0 {
+				msg += fmt.Sprintf(", removed %d stale", res.Removed)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), msg)
 		}
 
 		fmt.Fprintln(cmd.OutOrStdout())
@@ -242,7 +246,11 @@ func applyUser(cfg *config.Config, stores map[string]*store.Store, defaultStore 
 	for _, w := range res.Warnings {
 		fmt.Fprintf(os.Stderr, "  %s\n", w)
 	}
-	fmt.Printf("  deployed %d user-level asset(s)\n", res.Deployed)
+	msg := fmt.Sprintf("  deployed %d user-level asset(s)", res.Deployed)
+	if res.Removed > 0 {
+		msg += fmt.Sprintf(", removed %d stale", res.Removed)
+	}
+	fmt.Println(msg)
 	return nil
 }
 
