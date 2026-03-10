@@ -62,7 +62,7 @@ Examples:
 		for _, w := range res.Warnings {
 			fmt.Fprintln(os.Stderr, w)
 		}
-		msg := fmt.Sprintf("Deployed %d asset(s)", res.Deployed)
+		msg := fmt.Sprintf("Applied %d asset(s)", res.Deployed)
 		if res.Removed > 0 {
 			msg += fmt.Sprintf(", removed %d stale", res.Removed)
 		}
