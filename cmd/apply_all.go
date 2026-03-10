@@ -47,8 +47,11 @@ Config (~/.config/agentfiles/config.toml):
   layout = "all"
   skills_add = ["personal:browse"]
 
+If a [user] section is present in the config, user-level files are deployed
+first (to ~/.claude/, ~/.pi/, etc.) before processing repos.
+
 Examples:
-  af apply-all              # deploy to all registered repos
+  af apply-all              # deploy to all registered repos (+ user if configured)
   af apply-all --dry-run    # show what would be done, don't deploy`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := loadConfig()

@@ -10,11 +10,12 @@ Go CLI (`af`) using cobra. Entry: `main.go` → `cmd/root.go`. All commands in `
 Config (~/.config/agentfiles/config.toml)
   → Named stores (personal = "~/.agentfiles", work = "~/.agentfiles-work")
   → Manifest (.agentfiles per repo) or Config repos ([[repos]] entries)
+    OR [user] section for user-level deployment
   → manifest.Resolve(m, stores, defaultStore) expands bundle refs + skill overrides
     into flat ResolvedAsset lists (each carries Name + Store provenance)
-  → layout.Get() determines file paths per tool (pi/claude/cursor/all)
+  → layout.Get() or layout.GetUser() determines file paths per tool
   → apply.Apply(stores, defaultStore, ...) copies files from correct stores
-    + writes .agentfiles.lock with content hashes and store provenance
+    + writes .agentfiles.lock (repo) or user.lock (user-level)
   → push.Push(stores, defaultStore, ...) diffs deployed files against lock hashes,
     routes changes back to the correct store per lock entry
 ```
@@ -35,6 +36,8 @@ Config (~/.config/agentfiles/config.toml)
 - **Bundle vs cherry-pick modes are mutually exclusive** in manifest validation. `skills_add`/`skills_remove` only work with bundle mode.
 - **Resources are layout-independent**: copied to repo root preserving internal structure, not placed in `.pi/` etc.
 - **Backward compat**: Single-store setups work with `--store <path>` flag. Lock files without store fields default to the default store. The `storename:` prefix is optional — unprefixed assets use the default store.
+- **User-level deployment**: `[user]` section in config acts as the manifest (no `.agentfiles` in `$HOME`). Lock file at `~/.config/agentfiles/user.lock`. User layouts produce home-relative paths (`~/.claude/CLAUDE.md`, `~/AGENTS.md`, `~/.pi/skills/`). Resources not supported at user level. `apply-all` includes user deployment. Parameterized via `Options.LockFilePath` in apply/push.
+- **User layout variants**: `layout.GetUser()` returns user-level layouts (`internal/layout/user_*.go`). Same tool names (pi/claude/cursor/all) but different paths (home-relative instead of repo-relative).
 
 ## Config resolution
 

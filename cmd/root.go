@@ -34,6 +34,10 @@ Typical workflow:
   af push                             # send edits back to the store
   af apply --force                    # update other repos
 
+User-level deployment (global agent files):
+  af apply-user                       # deploy to ~/.claude/, ~/.pi/, etc.
+  af push-user                        # push user-level edits back
+
 Use "af <command> --help" for detailed usage of each command.`,
 }
 

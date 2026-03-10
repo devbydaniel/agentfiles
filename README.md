@@ -189,6 +189,19 @@ Layouts control where files land in the repo. Different AI tools expect differen
 
 The **`all` layout** deploys for every tool simultaneously — all entries are full copies.
 
+#### User-Level Layouts
+
+When deploying to user-level paths (via `[user]` config or `af apply-user`), layouts produce home-relative paths:
+
+| Layout | Agent file | Skills | Plugins |
+|--------|-----------|--------|---------|
+| `pi` | `~/AGENTS.md` | `~/.pi/skills/<name>/` | `~/.pi/plugins/<name>/` |
+| `claude` | `~/.claude/CLAUDE.md` | `~/.claude/skills/<name>/` | `~/.claude/plugins/<name>/` |
+| `cursor` | `~/.cursor/rules/agentfiles.md` | `~/.cursor/skills/<name>/` | `~/.cursor/plugins/<name>/` |
+| `all` | All of the above | All of the above | All of the above |
+
+The lock file for user-level deployments lives at `~/.config/agentfiles/user.lock`.
+
 ### Lock File (`.agentfiles.lock`)
 
 Created/updated by `af apply`. Tracks what was deployed, where, and its content hash. Used by `af push`, `af diff`, and `af status` to detect changes. Auto-generated — gitignore it.
@@ -350,7 +363,40 @@ af apply-all              # deploy to all registered repos
 af apply-all --dry-run    # show what would be done, don't deploy
 ```
 
+If a `[user]` section is present in the config, user-level files are also deployed before processing repos.
+
 This is the fastest way to propagate store changes (new skills, updated agent instructions) to all your projects at once. Repos that aren't in the config are unaffected.
+
+### `af apply-user`
+
+Deploy agent files to user-level paths (e.g. `~/.claude/`, `~/.pi/`). Reads the `[user]` section from the config file.
+
+```bash
+af apply-user               # deploy user-level files
+af apply-user --force       # overwrite existing files
+af apply-user --dry-run     # show what would be done
+```
+
+Requires a `[user]` section in `~/.config/agentfiles/config.toml`:
+
+```toml
+[user]
+bundle = "personal-base"
+layout = "all"
+```
+
+The `[user]` section supports the same fields as a manifest: `bundle`, `layout`, `agents_md`, `skills`, `plugins`, `skills_add`, `skills_remove`. Resources are not supported at user level.
+
+### `af push-user`
+
+Push locally modified user-level agent files back to the source store.
+
+```bash
+af push-user               # push all user-level changes
+af push-user --dry-run     # show what would be pushed
+```
+
+Requires a prior `af apply-user` (the user lock file must exist).
 
 ### `af exec <repo-name>`
 
@@ -519,6 +565,29 @@ af apply   # deploys from both stores
 
 # Push routes changes to the correct store automatically
 af push    # modified personal skills go to personal store
+```
+
+### Deploying global/user-level agent files
+
+```bash
+# Add a [user] section to your config
+cat >> ~/.config/agentfiles/config.toml << 'EOF'
+
+[user]
+bundle = "personal-base"
+layout = "all"
+skills_add = ["work:git-workflow"]
+EOF
+
+# Deploy to ~/.claude/, ~/.pi/, ~/AGENTS.md, etc.
+af apply-user
+
+# Or include it in apply-all (automatic if [user] is configured)
+af apply-all
+
+# Edit a global skill and push back
+vim ~/.pi/skills/browse/SKILL.md
+af push-user
 ```
 
 ### Checking for drift across repos
@@ -713,6 +782,12 @@ default_store = "work"
 [stores]
 personal = "~/.agentfiles"
 work = "~/.agentfiles-work"
+
+# Optional: user-level deployment (global agent files)
+[user]
+bundle = "personal-base"
+layout = "all"
+skills_add = ["work:git-workflow"]
 
 # Optional: repo registry for af apply-all
 [[repos]]
