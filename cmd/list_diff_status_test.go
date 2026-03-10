@@ -82,6 +82,7 @@ func TestDiffClean(t *testing.T) {
 	orig, _ := os.Getwd()
 	defer os.Chdir(orig)
 	os.Chdir(projDir)
+	emptyConfig := filepath.Join(t.TempDir(), "config.toml")
 
 	// Write the source file into the store
 	os.MkdirAll(filepath.Join(storeDir, "agents"), 0o755)
@@ -107,7 +108,7 @@ func TestDiffClean(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(new(bytes.Buffer))
-	rootCmd.SetArgs([]string{"diff", "--store", storeDir})
+	rootCmd.SetArgs([]string{"diff", "--store", storeDir, "--config", emptyConfig})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -125,6 +126,7 @@ func TestDiffWithLocalEdit(t *testing.T) {
 	orig, _ := os.Getwd()
 	defer os.Chdir(orig)
 	os.Chdir(projDir)
+	emptyConfig := filepath.Join(t.TempDir(), "config.toml")
 
 	os.MkdirAll(filepath.Join(storeDir, "agents"), 0o755)
 	srcFile := filepath.Join(storeDir, "agents", "default.md")
@@ -149,7 +151,7 @@ func TestDiffWithLocalEdit(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(new(bytes.Buffer))
-	rootCmd.SetArgs([]string{"diff", "--store", storeDir})
+	rootCmd.SetArgs([]string{"diff", "--store", storeDir, "--config", emptyConfig})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -170,6 +172,7 @@ func TestStatusShowsCorrectStates(t *testing.T) {
 	orig, _ := os.Getwd()
 	defer os.Chdir(orig)
 	os.Chdir(projDir)
+	emptyConfig := filepath.Join(t.TempDir(), "config.toml")
 
 	// Create resource files inside the store's resources directory
 	storeResDir := filepath.Join(storeDir, "resources", "myres")
@@ -220,7 +223,7 @@ func TestStatusShowsCorrectStates(t *testing.T) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(new(bytes.Buffer))
-	rootCmd.SetArgs([]string{"status", "--store", storeDir})
+	rootCmd.SetArgs([]string{"status", "--store", storeDir, "--config", emptyConfig})
 
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)

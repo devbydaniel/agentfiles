@@ -151,8 +151,6 @@ personal = "/tmp/personal"
 	}
 }
 
-// --- Repo loading + merge tests ---
-
 func TestLoadRepos(t *testing.T) {
 	dir := t.TempDir()
 	storeDir := filepath.Join(dir, "store")
@@ -182,68 +180,20 @@ bundle = "frontend"
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	// Named repos without local entries are skipped
-	if len(cfg.Repos) != 0 {
-		t.Fatalf("expected 0 repos (no local entries), got %d", len(cfg.Repos))
-	}
-}
-
-func TestLoadReposWithLocal(t *testing.T) {
-	dir := t.TempDir()
-	storeDir := filepath.Join(dir, "store")
-	os.MkdirAll(storeDir, 0755)
-
-	cfgPath := filepath.Join(dir, "config.toml")
-	content := `
-default_store = "work"
-
-[stores]
-work = "` + storeDir + `"
-
-[[repos]]
-name = "api"
-path = "/tmp/api"
-bundle = "backend"
-store = "work"
-
-[[repos]]
-name = "web"
-bundle = "frontend"
-`
-	os.WriteFile(cfgPath, []byte(content), 0644)
-
-	localPath := filepath.Join(dir, "config.local.toml")
-	localContent := `
-[[repos]]
-name = "api"
-path = "/dev/api"
-
-[[repos]]
-name = "web"
-path = "/dev/web"
-`
-	os.WriteFile(localPath, []byte(localContent), 0644)
-
-	cfg, err := Load(cfgPath)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
 	if len(cfg.Repos) != 2 {
 		t.Fatalf("expected 2 repos, got %d", len(cfg.Repos))
 	}
-	// api has explicit store
+	if cfg.Repos[0].Name != "api" {
+		t.Errorf("repo 0 name = %q, want api", cfg.Repos[0].Name)
+	}
 	if cfg.Repos[0].Store != "work" {
-		t.Errorf("api store = %q, want work", cfg.Repos[0].Store)
+		t.Errorf("repo 0 store = %q, want work", cfg.Repos[0].Store)
 	}
-	if cfg.Repos[0].Path != "/dev/api" {
-		t.Errorf("api path = %q, want /dev/api", cfg.Repos[0].Path)
+	if cfg.Repos[1].Name != "web" {
+		t.Errorf("repo 1 name = %q, want web", cfg.Repos[1].Name)
 	}
-	// web has no store, should default to default_store
 	if cfg.Repos[1].Store != "work" {
-		t.Errorf("web store = %q, want work (default)", cfg.Repos[1].Store)
-	}
-	if cfg.Repos[1].Path != "/dev/web" {
-		t.Errorf("web path = %q, want /dev/web", cfg.Repos[1].Path)
+		t.Errorf("repo 1 store = %q, want work (default)", cfg.Repos[1].Store)
 	}
 }
 
@@ -288,112 +238,30 @@ bundle = "oss"
 	}
 }
 
-func TestLoadReposLocalSkip(t *testing.T) {
+func TestLoadReposDefaultLayout(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.toml")
 	content := `
 [[repos]]
-name = "api"
+path = "/tmp/project"
 bundle = "backend"
 
 [[repos]]
-name = "web"
+path = "/tmp/other"
 bundle = "frontend"
-`
-	os.WriteFile(cfgPath, []byte(content), 0644)
-
-	localPath := filepath.Join(dir, "config.local.toml")
-	localContent := `
-[[repos]]
-name = "api"
-path = "/dev/api"
-
-[[repos]]
-name = "web"
-path = "/dev/web"
-skip = true
-`
-	os.WriteFile(localPath, []byte(localContent), 0644)
-
-	cfg, err := Load(cfgPath)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if len(cfg.Repos) != 1 {
-		t.Fatalf("expected 1 repo (web skipped), got %d", len(cfg.Repos))
-	}
-	if cfg.Repos[0].Name != "api" {
-		t.Errorf("expected api, got %s", cfg.Repos[0].Name)
-	}
-}
-
-func TestLoadReposLocalOverrides(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "config.toml")
-	content := `
-[[repos]]
-name = "api"
-bundle = "backend"
-layout = "pi"
-skills_add = ["base"]
-`
-	os.WriteFile(cfgPath, []byte(content), 0644)
-
-	localPath := filepath.Join(dir, "config.local.toml")
-	localContent := `
-[[repos]]
-name = "api"
-path = "/dev/api"
 layout = "claude"
-skills_add = ["local-extra"]
-skills_remove = ["unwanted"]
 `
-	os.WriteFile(localPath, []byte(localContent), 0644)
+	os.WriteFile(cfgPath, []byte(content), 0644)
 
 	cfg, err := Load(cfgPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if len(cfg.Repos) != 1 {
-		t.Fatalf("expected 1 repo, got %d", len(cfg.Repos))
+	if cfg.Repos[0].Layout != "pi" {
+		t.Errorf("repo 0 layout = %q, want pi (default)", cfg.Repos[0].Layout)
 	}
-	repo := cfg.Repos[0]
-	if repo.Layout != "claude" {
-		t.Errorf("layout = %q, want claude", repo.Layout)
-	}
-	if len(repo.SkillsAdd) != 2 || repo.SkillsAdd[0] != "base" || repo.SkillsAdd[1] != "local-extra" {
-		t.Errorf("skills_add = %v, want [base local-extra]", repo.SkillsAdd)
-	}
-	if len(repo.SkillsRemove) != 1 || repo.SkillsRemove[0] != "unwanted" {
-		t.Errorf("skills_remove = %v, want [unwanted]", repo.SkillsRemove)
-	}
-}
-
-func TestLoadReposLocalDuplicate(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "config.toml")
-	content := `
-[[repos]]
-name = "api"
-bundle = "backend"
-`
-	os.WriteFile(cfgPath, []byte(content), 0644)
-
-	localPath := filepath.Join(dir, "config.local.toml")
-	localContent := `
-[[repos]]
-name = "api"
-path = "/dev/api1"
-
-[[repos]]
-name = "api"
-path = "/dev/api2"
-`
-	os.WriteFile(localPath, []byte(localContent), 0644)
-
-	_, err := Load(cfgPath)
-	if err == nil {
-		t.Fatal("expected error for duplicate local name")
+	if cfg.Repos[1].Layout != "claude" {
+		t.Errorf("repo 1 layout = %q, want claude", cfg.Repos[1].Layout)
 	}
 }
 
@@ -402,18 +270,10 @@ func TestLoadReposTildeExpansion(t *testing.T) {
 	cfgPath := filepath.Join(dir, "config.toml")
 	content := `
 [[repos]]
-name = "api"
+path = "~/dev/api"
 bundle = "backend"
 `
 	os.WriteFile(cfgPath, []byte(content), 0644)
-
-	localPath := filepath.Join(dir, "config.local.toml")
-	localContent := `
-[[repos]]
-name = "api"
-path = "~/dev/api"
-`
-	os.WriteFile(localPath, []byte(localContent), 0644)
 
 	cfg, err := Load(cfgPath)
 	if err != nil {
@@ -426,50 +286,15 @@ path = "~/dev/api"
 	}
 }
 
-func TestLoadReposLocalOnly(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "config.toml")
-	os.WriteFile(cfgPath, []byte(""), 0644)
-
-	localPath := filepath.Join(dir, "config.local.toml")
-	localContent := `
-[[repos]]
-name = "devonly"
-path = "/dev/devonly"
-bundle = "devtools"
-`
-	os.WriteFile(localPath, []byte(localContent), 0644)
-
-	cfg, err := Load(cfgPath)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if len(cfg.Repos) != 1 {
-		t.Fatalf("expected 1 repo, got %d", len(cfg.Repos))
-	}
-	if cfg.Repos[0].Name != "devonly" {
-		t.Errorf("name = %q, want devonly", cfg.Repos[0].Name)
-	}
-	if cfg.Repos[0].Bundle != "devtools" {
-		t.Errorf("bundle = %q, want devtools", cfg.Repos[0].Bundle)
-	}
-	if cfg.Repos[0].Layout != "pi" {
-		t.Errorf("layout = %q, want pi (default)", cfg.Repos[0].Layout)
-	}
-}
-
 func TestLoadReposEmptyPath(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.toml")
-	os.WriteFile(cfgPath, []byte(""), 0644)
-
-	localPath := filepath.Join(dir, "config.local.toml")
-	localContent := `
+	content := `
 [[repos]]
 name = "nopath"
 bundle = "backend"
 `
-	os.WriteFile(localPath, []byte(localContent), 0644)
+	os.WriteFile(cfgPath, []byte(content), 0644)
 
 	_, err := Load(cfgPath)
 	if err == nil {
@@ -508,8 +333,6 @@ func TestTildeExpansion(t *testing.T) {
 		t.Skip("cannot determine home dir")
 	}
 
-	// Create a temp dir inside home to test tilde expansion
-	// We use expandPath directly since ResolveStore also validates existence
 	expanded, err := expandPath("~/some/path")
 	if err != nil {
 		t.Fatalf("expandPath: %v", err)

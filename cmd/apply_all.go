@@ -15,17 +15,14 @@ import (
 var applyAllCmd = &cobra.Command{
 	Use:   "apply-all",
 	Short: "Deploy agent files to all repos listed in the registry",
-	Long: `Read the central registry and deploy agent files to every listed repo.
+	Long: `Read the config and deploy agent files to every listed repo.
 
-For each registry entry the command will:
+For each repo entry the command will:
   1. Create the target directory if it doesn't exist
-  2. Write/update the .agentfiles manifest from the registry entry
+  2. Write/update the .agentfiles manifest from the config entry
   3. Run apply --force to deploy all assets
 
-The registry is configured in ~/.config/agentfiles/config.toml using
-[[repos]] entries. Local overrides live in config.local.toml alongside it.
-
-Config (config.toml):
+Config (~/.config/agentfiles/config.toml):
 
   default_store = "work"
 
@@ -35,31 +32,17 @@ Config (config.toml):
 
   [[repos]]
   name = "api-server"
+  path = "~/dev/api-server"
   store = "work"
   bundle = "backend"
   layout = "pi"
 
   [[repos]]
   name = "web-app"
+  path = "~/work/web-app"
   bundle = "frontend"
   layout = "all"
   skills_add = ["personal:browse"]
-
-Local overrides (config.local.toml):
-
-  [[repos]]
-  name = "api-server"
-  path = "~/dev/api-server"
-  layout = "claude"           # optional: override layout
-
-  [[repos]]
-  name = "web-app"
-  path = "~/work/web-app"
-  skip = true                 # optional: skip this repo
-
-Named repos without a local entry are silently skipped (the dev doesn't
-have that repo checked out). Repos with path set directly in config.toml
-work without a local entry (solo/non-team use).
 
 Examples:
   af apply-all              # deploy to all registered repos
