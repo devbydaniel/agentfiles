@@ -812,8 +812,8 @@ include = ["formatter"]
 	// ── 4. Verify files at user-level paths ────────────────────────
 	// Pi layout paths
 	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "User Agent")
-	assertFileContains(t, filepath.Join(home, ".pi", "skills", "browse", "SKILL.md"), "# Browse")
-	assertFileContains(t, filepath.Join(home, ".pi", "plugins", "formatter", "plugin.lua"), "-- formatter")
+	assertFileContains(t, filepath.Join(home, ".pi", "agent", "skills", "browse", "SKILL.md"), "# Browse")
+	assertFileContains(t, filepath.Join(home, ".pi", "agent", "plugins", "formatter", "plugin.lua"), "-- formatter")
 
 	// Claude layout paths (user-all deploys to all)
 	assertFileContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "User Agent")
@@ -844,7 +844,7 @@ include = ["formatter"]
 
 	// ── 5. Modify deployed file, push, verify store updated ────────
 	// Modify the pi-layout copy (primary for "all" layout).
-	mustWrite(t, filepath.Join(home, ".pi", "skills", "browse", "SKILL.md"), "# Browse\nModified by user\n")
+	mustWrite(t, filepath.Join(home, ".pi", "agent", "skills", "browse", "SKILL.md"), "# Browse\nModified by user\n")
 
 	pushRes, err := push.Push(stores, "default", home, push.Options{
 		LockFilePath: userLockPath,
@@ -1015,8 +1015,8 @@ include = ["work-skill"]
 
 	// Verify both skills deployed.
 	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "Work Agent")
-	assertFileContains(t, filepath.Join(home, ".pi", "skills", "work-skill", "SKILL.md"), "# Work Skill")
-	assertFileContains(t, filepath.Join(home, ".pi", "skills", "personal-skill", "SKILL.md"), "# Personal Skill")
+	assertFileContains(t, filepath.Join(home, ".pi", "agent", "skills", "work-skill", "SKILL.md"), "# Work Skill")
+	assertFileContains(t, filepath.Join(home, ".pi", "agent", "skills", "personal-skill", "SKILL.md"), "# Personal Skill")
 
 	// Verify lock entries have correct store provenance.
 	lf, err := lock.LoadFrom(userLockPath)
@@ -1045,7 +1045,7 @@ include = ["work-skill"]
 	}
 
 	// Modify the personal skill, push, verify it goes to personal store.
-	mustWrite(t, filepath.Join(home, ".pi", "skills", "personal-skill", "SKILL.md"), "# Personal Skill\nModified\n")
+	mustWrite(t, filepath.Join(home, ".pi", "agent", "skills", "personal-skill", "SKILL.md"), "# Personal Skill\nModified\n")
 
 	pushRes, err := push.Push(storesMap, "work", home, push.Options{
 		LockFilePath: userLockPath,
@@ -1153,7 +1153,7 @@ include = ["browse"]
 	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "Shared Agent")
 	assertFileContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Shared Agent")
 	assertFileContains(t, filepath.Join(home, ".cursor", "rules", "agentfiles.md"), "Shared Agent")
-	assertFileExists(t, filepath.Join(home, ".pi", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(home, ".pi", "agent", "skills", "browse", "SKILL.md"))
 	assertFileExists(t, filepath.Join(home, ".claude", "skills", "browse", "SKILL.md"))
 	assertFileExists(t, filepath.Join(home, ".cursor", "skills", "browse", "SKILL.md"))
 
@@ -1204,7 +1204,7 @@ include = ["browse"]
 	}
 
 	// User-level file should still have original content (not synced by push).
-	assertFileContains(t, filepath.Join(home, ".pi", "skills", "browse", "SKILL.md"), "# Browse\n")
+	assertFileContains(t, filepath.Join(home, ".pi", "agent", "skills", "browse", "SKILL.md"), "# Browse\n")
 
 	// But user push should now detect that the store changed and user is stale...
 	// Actually, user push compares deployed vs lock hash, not store. So user push
