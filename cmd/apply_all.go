@@ -258,4 +258,3 @@ func init() {
 	applyAllCmd.Flags().Bool("dry-run", false, "show what would be done without deploying")
 	rootCmd.AddCommand(applyAllCmd)
 }
-

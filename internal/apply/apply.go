@@ -29,8 +29,6 @@ type ApplyResult struct {
 	Warnings []string
 }
 
-
-
 // lockKey returns the key used in the lock file for an asset. Assets from the
 // default store use just the name; assets from other stores are prefixed with
 // "storename:".
@@ -432,4 +430,3 @@ func primaryPath(entries []layout.Entry) string {
 	}
 	return ""
 }
-

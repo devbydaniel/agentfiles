@@ -6,10 +6,14 @@ import "path/filepath"
 // Paths are relative to $HOME (the caller passes home as the deploy root).
 type UserPiLayout struct{}
 
-func (UserPiLayout) Name() string                  { return "user-pi" }
-func (UserPiLayout) AgentMdPath() string           { return "AGENTS.md" }
-func (UserPiLayout) SkillPath(name string) string  { return filepath.Join(".pi", "agent", "skills", name) }
-func (UserPiLayout) PluginPath(name string) string { return filepath.Join(".pi", "agent", "plugins", name) }
+func (UserPiLayout) Name() string        { return "user-pi" }
+func (UserPiLayout) AgentMdPath() string { return "AGENTS.md" }
+func (UserPiLayout) SkillPath(name string) string {
+	return filepath.Join(".pi", "agent", "skills", name)
+}
+func (UserPiLayout) PluginPath(name string) string {
+	return filepath.Join(".pi", "agent", "plugins", name)
+}
 
 func (l UserPiLayout) AgentMdEntries() []Entry {
 	return []Entry{{Path: l.AgentMdPath()}}

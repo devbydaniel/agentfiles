@@ -20,14 +20,12 @@ type Repo struct {
 	Name string `toml:"name"`
 	Path string `toml:"path"`
 	// Store is the name of the store to use for this repo.
-	Store string `toml:"store"`
+	Store        string   `toml:"store"`
 	Bundle       string   `toml:"bundle"`
 	Layout       string   `toml:"layout"`
 	SkillsAdd    []string `toml:"skills_add"`
 	SkillsRemove []string `toml:"skills_remove"`
 }
-
-
 
 func (r *Registry) validate() error {
 	seen := make(map[string]bool)
@@ -73,5 +71,3 @@ func LoadFromConfig(cfg *config.Config) (*Registry, error) {
 	}
 	return reg, nil
 }
-
-
