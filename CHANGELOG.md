@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.3.0](https://github.com/devbydaniel/agentfiles/compare/v0.2.0...v0.3.0) (2026-03-10)
+
+
+### Features
+
+* add central registry with apply-all command ([fee4a74](https://github.com/devbydaniel/agentfiles/commit/fee4a74a252dea9810ce78f15f892e2350410c43))
+* add config package for multi-store support and store provenance in lock entries ([a22eaec](https://github.com/devbydaniel/agentfiles/commit/a22eaeca994a459e17513e8030dd88040d411fbd))
+* add exec command to launch agent CLI for registered repos ([0463536](https://github.com/devbydaniel/agentfiles/commit/046353635bb75a045b35b45cbf6c5d2a72d27755))
+* move registry to config with repos, local merge, and LoadFromConfig ([06a6e16](https://github.com/devbydaniel/agentfiles/commit/06a6e163c4436d9c4d334b1e286af21a879df474))
+* multi-store apply and manifest resolution with store-qualified assets ([1f53089](https://github.com/devbydaniel/agentfiles/commit/1f530898044593219f2db4036a9c45cc26f135b1))
+* multi-store integration test and documentation ([3b8c2b9](https://github.com/devbydaniel/agentfiles/commit/3b8c2b9b275dec6f981ff8730d661dd0e195fa6c))
+* prune stale assets on apply ([3e1ac81](https://github.com/devbydaniel/agentfiles/commit/3e1ac817b8f3d6e0fcd6ca1cef6ef4fa3354ff6b))
+* update all CLI commands to use config-based multi-store ([ef4ec93](https://github.com/devbydaniel/agentfiles/commit/ef4ec93aaaf9c9784d4bdbad5eb8000acd61cc2d))
+* update diff and status commands for multi-store support ([190326c](https://github.com/devbydaniel/agentfiles/commit/190326c3b2b9bf982ae801254f2250eb8a51b00c))
+* update push to route changes to correct store via lock entry provenance ([52744f6](https://github.com/devbydaniel/agentfiles/commit/52744f605a12de3349a1e597794e30d44901e275))
+* user-level agent file deployment ([bc92b6b](https://github.com/devbydaniel/agentfiles/commit/bc92b6bd4475fa21c64f1ecc0b9c9f2af1f1644d))
+
+
+### Bug Fixes
+
+* always record assets in lock even when skipped ([9d6cd1c](https://github.com/devbydaniel/agentfiles/commit/9d6cd1c094528d97f2d83001613181a943f2bff7))
+* fix user scoped skill location for pi ([bd4f790](https://github.com/devbydaniel/agentfiles/commit/bd4f790e5c9838d0005241e7bdadcc81c8956467))
+* goimports formatting ([2afa828](https://github.com/devbydaniel/agentfiles/commit/2afa8282eb502ef10aa99d7a2f5b07a9eaef3390))
+
 ## [0.2.0](https://github.com/devbydaniel/agentfiles/compare/v0.1.0...v0.2.0) (2026-03-09)
 
 
