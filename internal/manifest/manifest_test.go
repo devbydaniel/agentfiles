@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/devbydaniel/agentfiles/internal/manifest"
@@ -89,6 +90,14 @@ func setupStore(t *testing.T) *store.Store {
 	return s
 }
 
+// createSkill creates a minimal skill directory with SKILL.md in the store.
+func createSkill(t *testing.T, s *store.Store, name string) {
+	t.Helper()
+	dir := filepath.Join(s.SkillsDir(), filepath.FromSlash(name))
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# "+filepath.Base(name)), 0o644)
+}
+
 // singleStoreMap wraps a single store into the map format expected by Resolve.
 func singleStoreMap(s *store.Store) (map[string]*store.Store, string) {
 	return map[string]*store.Store{"default": s}, "default"
@@ -96,6 +105,12 @@ func singleStoreMap(s *store.Store) (map[string]*store.Store, string) {
 
 func TestResolveBundleWithOverrides(t *testing.T) {
 	s := setupStore(t)
+
+	// Create skills that the bundle references.
+	createSkill(t, s, "nestjs-hexagonal-backend")
+	createSkill(t, s, "git-workflow")
+	createSkill(t, s, "typeorm-migrations")
+	createSkill(t, s, "browse")
 
 	bundleContent := `
 [bundle]
@@ -164,6 +179,8 @@ skills_remove = ["typeorm-migrations"]
 
 func TestResolveCherryPick(t *testing.T) {
 	s := setupStore(t)
+	createSkill(t, s, "browse")
+	createSkill(t, s, "git-workflow")
 
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
@@ -266,6 +283,9 @@ func TestResolveCrossStoreSkillsAdd(t *testing.T) {
 	personal := setupStore(t)
 	work := setupStore(t)
 
+	createSkill(t, work, "golang")
+	createSkill(t, personal, "my-skill")
+
 	bundleContent := `
 [bundle]
 name = "backend"
@@ -328,6 +348,10 @@ func TestResolveCrossStoreSkillsRemove(t *testing.T) {
 	personal := setupStore(t)
 	work := setupStore(t)
 
+	createSkill(t, work, "golang")
+	createSkill(t, work, "my-skill")
+	createSkill(t, personal, "my-skill")
+
 	bundleContent := `
 [bundle]
 name = "backend"
@@ -337,9 +361,6 @@ agents_md = "backend"
 include = ["golang", "my-skill"]
 `
 	os.WriteFile(filepath.Join(work.BundlesDir(), "backend.toml"), []byte(bundleContent), 0o644)
-
-	// Also add my-skill to personal store so both stores have it
-	os.MkdirAll(filepath.Join(personal.SkillsDir(), "my-skill"), 0o755)
 
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
@@ -389,6 +410,8 @@ skills_remove = ["personal:my-skill"]
 func TestResolveCrossStoreCherryPick(t *testing.T) {
 	personal := setupStore(t)
 	work := setupStore(t)
+	createSkill(t, work, "backend")
+	createSkill(t, personal, "utils")
 
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
@@ -531,4 +554,456 @@ func assetNames(assets []manifest.ResolvedAsset) []string {
 		names[i] = a.Store + ":" + a.Name
 	}
 	return names
+}
+
+// --- Skill group tests ---
+
+func TestResolveBundleWithGlob(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "ayunis/backend")
+	createSkill(t, s, "ayunis/frontend")
+	createSkill(t, s, "browse")
+
+	bundleContent := `
+[bundle]
+name = "test"
+agents_md = "core"
+
+[skills]
+include = ["ayunis/", "browse"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`bundle = "test"`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Skills) != 3 {
+		t.Fatalf("Skills len = %d, want 3; got %v", len(r.Skills), assetNames(r.Skills))
+	}
+
+	// Check StorePath is set correctly.
+	byName := map[string]manifest.ResolvedAsset{}
+	for _, sk := range r.Skills {
+		byName[sk.Name] = sk
+	}
+	if sk, ok := byName["backend"]; !ok || sk.StorePath != "ayunis/backend" {
+		t.Errorf("expected backend with StorePath=ayunis/backend, got %+v", byName["backend"])
+	}
+	if sk, ok := byName["frontend"]; !ok || sk.StorePath != "ayunis/frontend" {
+		t.Errorf("expected frontend with StorePath=ayunis/frontend, got %+v", byName["frontend"])
+	}
+	if sk, ok := byName["browse"]; !ok || sk.StorePath != "browse" {
+		t.Errorf("expected browse with StorePath=browse, got %+v", byName["browse"])
+	}
+}
+
+func TestResolveCherryPickQualifiedName(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "tooling/browse")
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+skills = ["tooling/browse"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Skills) != 1 {
+		t.Fatalf("Skills len = %d, want 1", len(r.Skills))
+	}
+	if r.Skills[0].Name != "browse" {
+		t.Errorf("Name = %q, want browse", r.Skills[0].Name)
+	}
+	if r.Skills[0].StorePath != "tooling/browse" {
+		t.Errorf("StorePath = %q, want tooling/browse", r.Skills[0].StorePath)
+	}
+}
+
+func TestResolveLeafNameCollisionError(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "tooling/browse")
+	createSkill(t, s, "legacy/browse")
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+skills = ["tooling/browse", "legacy/browse"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	_, err = manifest.Resolve(m, stores, defaultStore)
+	if err == nil {
+		t.Fatal("expected leaf name collision error")
+	}
+	if !strings.Contains(err.Error(), "collision") {
+		t.Errorf("error = %q, want 'collision'", err)
+	}
+}
+
+func TestResolveLeafNameCollisionCrossStore(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+	createSkill(t, personal, "browse")
+	createSkill(t, work, "tooling/browse")
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+skills = ["browse", "work:tooling/browse"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	_, err = manifest.Resolve(m, stores, "personal")
+	if err == nil {
+		t.Fatal("expected leaf name collision error across stores")
+	}
+	if !strings.Contains(err.Error(), "collision") {
+		t.Errorf("error = %q, want 'collision'", err)
+	}
+}
+
+func TestResolveCrossStoreGlob(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+	createSkill(t, work, "ayunis/backend")
+	createSkill(t, work, "ayunis/frontend")
+	createSkill(t, personal, "browse")
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+skills = ["browse", "work:ayunis/"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	r, err := manifest.Resolve(m, stores, "personal")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Skills) != 3 {
+		t.Fatalf("Skills len = %d, want 3; got %v", len(r.Skills), assetNames(r.Skills))
+	}
+}
+
+func TestResolveSkillsAddWithGlob(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "base")
+	createSkill(t, s, "ayunis/backend")
+	createSkill(t, s, "ayunis/frontend")
+
+	bundleContent := `
+[bundle]
+name = "test"
+agents_md = "core"
+
+[skills]
+include = ["base"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "test"
+skills_add = ["ayunis/"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Skills) != 3 {
+		t.Fatalf("Skills len = %d, want 3; got %v", len(r.Skills), assetNames(r.Skills))
+	}
+}
+
+func TestResolveSkillsRemoveSpecific(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "ayunis/backend")
+	createSkill(t, s, "ayunis/frontend")
+	createSkill(t, s, "browse")
+
+	bundleContent := `
+[bundle]
+name = "test"
+agents_md = "core"
+
+[skills]
+include = ["ayunis/", "browse"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "test"
+skills_remove = ["ayunis/backend"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Skills) != 2 {
+		t.Fatalf("Skills len = %d, want 2; got %v", len(r.Skills), assetNames(r.Skills))
+	}
+	for _, sk := range r.Skills {
+		if sk.Name == "backend" {
+			t.Error("backend should have been removed")
+		}
+	}
+}
+
+func TestResolveSkillsRemoveGlob(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "ayunis/backend")
+	createSkill(t, s, "ayunis/frontend")
+	createSkill(t, s, "browse")
+
+	bundleContent := `
+[bundle]
+name = "test"
+agents_md = "core"
+
+[skills]
+include = ["ayunis/", "browse"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "test"
+skills_remove = ["ayunis/"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Skills) != 1 {
+		t.Fatalf("Skills len = %d, want 1; got %v", len(r.Skills), assetNames(r.Skills))
+	}
+	if r.Skills[0].Name != "browse" {
+		t.Errorf("expected browse, got %q", r.Skills[0].Name)
+	}
+}
+
+func TestResolveBundleExcludeGlob(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "ayunis/backend")
+	createSkill(t, s, "ayunis/frontend")
+	createSkill(t, s, "browse")
+
+	bundleContent := `
+[bundle]
+name = "test"
+agents_md = "core"
+
+[skills]
+include = ["ayunis/", "browse"]
+exclude = ["ayunis/"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`bundle = "test"`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Skills) != 1 {
+		t.Fatalf("Skills len = %d, want 1; got %v", len(r.Skills), assetNames(r.Skills))
+	}
+	if r.Skills[0].Name != "browse" {
+		t.Errorf("expected browse, got %q", r.Skills[0].Name)
+	}
+}
+
+func TestResolveMixedFlatAndGrouped(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "browse")
+	createSkill(t, s, "tooling/web-search")
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+skills = ["browse", "tooling/web-search"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Skills) != 2 {
+		t.Fatalf("Skills len = %d, want 2", len(r.Skills))
+	}
+
+	byName := map[string]manifest.ResolvedAsset{}
+	for _, sk := range r.Skills {
+		byName[sk.Name] = sk
+	}
+	if sk := byName["browse"]; sk.StorePath != "browse" {
+		t.Errorf("browse StorePath = %q, want browse", sk.StorePath)
+	}
+	if sk := byName["web-search"]; sk.StorePath != "tooling/web-search" {
+		t.Errorf("web-search StorePath = %q, want tooling/web-search", sk.StorePath)
+	}
+}
+
+func TestResolveSkillsAddCrossStoreGlob(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+	createSkill(t, personal, "browse")
+	createSkill(t, work, "ayunis/backend")
+	createSkill(t, work, "ayunis/frontend")
+
+	bundleContent := `
+[bundle]
+name = "test"
+agents_md = "core"
+
+[skills]
+include = ["browse"]
+`
+	os.WriteFile(filepath.Join(personal.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "test"
+skills_add = ["work:ayunis/"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	r, err := manifest.Resolve(m, stores, "personal")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Skills) != 3 {
+		t.Fatalf("Skills len = %d, want 3; got %v", len(r.Skills), assetNames(r.Skills))
+	}
+
+	// Verify work skills have correct store
+	for _, sk := range r.Skills {
+		if sk.Name == "backend" || sk.Name == "frontend" {
+			if sk.Store != "work" {
+				t.Errorf("skill %q store = %q, want work", sk.Name, sk.Store)
+			}
+		}
+	}
+}
+
+func TestResolveStorePath(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "tooling/browse")
+	createSkill(t, s, "search")
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+skills = ["tooling/browse", "search"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	for _, sk := range r.Skills {
+		switch sk.Name {
+		case "browse":
+			if sk.StorePath != "tooling/browse" {
+				t.Errorf("browse StorePath = %q, want tooling/browse", sk.StorePath)
+			}
+		case "search":
+			if sk.StorePath != "search" {
+				t.Errorf("search StorePath = %q, want search", sk.StorePath)
+			}
+		}
+	}
 }

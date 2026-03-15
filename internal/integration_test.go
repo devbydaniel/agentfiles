@@ -45,7 +45,7 @@ func TestIntegrationRoundTrip(t *testing.T) {
 	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# My Skill\nOriginal content\n")
 	mustWrite(t, filepath.Join(skillSrc, "helper.sh"), "#!/bin/bash\necho hello\n")
 
-	name, _, err := s.AddSkill(skillSrc, false)
+	name, _, err := s.AddSkill(skillSrc, "", false)
 	if err != nil {
 		t.Fatalf("add skill: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestIntegrationAllLayout(t *testing.T) {
 	mustMkdir(t, skillSrc)
 	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# My Skill\n")
 
-	if _, _, err := s.AddSkill(skillSrc, false); err != nil {
+	if _, _, err := s.AddSkill(skillSrc, "", false); err != nil {
 		t.Fatalf("add skill: %v", err)
 	}
 
@@ -314,14 +314,14 @@ func TestIntegrationCherryPick(t *testing.T) {
 	skillSrc := filepath.Join(tmp, "src-skill", "browse")
 	mustMkdir(t, skillSrc)
 	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# Browse\n")
-	if _, _, err := s.AddSkill(skillSrc, false); err != nil {
+	if _, _, err := s.AddSkill(skillSrc, "", false); err != nil {
 		t.Fatalf("add skill: %v", err)
 	}
 
 	skillSrc2 := filepath.Join(tmp, "src-skill", "search")
 	mustMkdir(t, skillSrc2)
 	mustWrite(t, filepath.Join(skillSrc2, "SKILL.md"), "# Search\n")
-	if _, _, err := s.AddSkill(skillSrc2, false); err != nil {
+	if _, _, err := s.AddSkill(skillSrc2, "", false); err != nil {
 		t.Fatalf("add skill: %v", err)
 	}
 
@@ -398,7 +398,7 @@ func TestIntegrationDiffAndStatus(t *testing.T) {
 	mustMkdir(t, skillSrc)
 	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# My Skill\nOriginal\n")
 
-	if _, _, err := s.AddSkill(skillSrc, false); err != nil {
+	if _, _, err := s.AddSkill(skillSrc, "", false); err != nil {
 		t.Fatalf("add skill: %v", err)
 	}
 
@@ -511,7 +511,7 @@ func TestIntegrationMultiStore(t *testing.T) {
 	mustMkdir(t, pSkillSrc)
 	mustWrite(t, filepath.Join(pSkillSrc, "SKILL.md"), "# Personal Skill\nOriginal content\n")
 
-	if _, _, err := personal.AddSkill(pSkillSrc, false); err != nil {
+	if _, _, err := personal.AddSkill(pSkillSrc, "", false); err != nil {
 		t.Fatalf("add personal skill: %v", err)
 	}
 
@@ -520,7 +520,7 @@ func TestIntegrationMultiStore(t *testing.T) {
 	mustMkdir(t, wSkillSrc)
 	mustWrite(t, filepath.Join(wSkillSrc, "SKILL.md"), "# Work Skill\n")
 
-	if _, _, err := work.AddSkill(wSkillSrc, false); err != nil {
+	if _, _, err := work.AddSkill(wSkillSrc, "", false); err != nil {
 		t.Fatalf("add work skill: %v", err)
 	}
 
@@ -706,7 +706,7 @@ func TestIntegrationUserLevelDeploy(t *testing.T) {
 	skillSrc := filepath.Join(tmp, "src-skill", "browse")
 	mustMkdir(t, skillSrc)
 	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# Browse\nOriginal content\n")
-	if _, _, err := s.AddSkill(skillSrc, false); err != nil {
+	if _, _, err := s.AddSkill(skillSrc, "", false); err != nil {
 		t.Fatalf("add skill: %v", err)
 	}
 
@@ -824,7 +824,7 @@ func TestIntegrationUserLevelCherryPick(t *testing.T) {
 	skillSrc := filepath.Join(tmp, "src-skill", "git")
 	mustMkdir(t, skillSrc)
 	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# Git\n")
-	if _, _, err := s.AddSkill(skillSrc, false); err != nil {
+	if _, _, err := s.AddSkill(skillSrc, "", false); err != nil {
 		t.Fatalf("add skill: %v", err)
 	}
 
@@ -886,7 +886,7 @@ func TestIntegrationUserLevelMultiStore(t *testing.T) {
 	pSkillSrc := filepath.Join(tmp, "src-pskill", "personal-skill")
 	mustMkdir(t, pSkillSrc)
 	mustWrite(t, filepath.Join(pSkillSrc, "SKILL.md"), "# Personal Skill\nOriginal\n")
-	if _, _, err := personal.AddSkill(pSkillSrc, false); err != nil {
+	if _, _, err := personal.AddSkill(pSkillSrc, "", false); err != nil {
 		t.Fatalf("add personal skill: %v", err)
 	}
 
@@ -900,7 +900,7 @@ func TestIntegrationUserLevelMultiStore(t *testing.T) {
 	wSkillSrc := filepath.Join(tmp, "src-wskill", "work-skill")
 	mustMkdir(t, wSkillSrc)
 	mustWrite(t, filepath.Join(wSkillSrc, "SKILL.md"), "# Work Skill\n")
-	if _, _, err := work.AddSkill(wSkillSrc, false); err != nil {
+	if _, _, err := work.AddSkill(wSkillSrc, "", false); err != nil {
 		t.Fatalf("add work skill: %v", err)
 	}
 
@@ -1019,7 +1019,7 @@ func TestIntegrationApplyAllWithUser(t *testing.T) {
 	skillSrc := filepath.Join(tmp, "src-skill", "browse")
 	mustMkdir(t, skillSrc)
 	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# Browse\n")
-	if _, _, err := s.AddSkill(skillSrc, false); err != nil {
+	if _, _, err := s.AddSkill(skillSrc, "", false); err != nil {
 		t.Fatalf("add skill: %v", err)
 	}
 
@@ -1188,4 +1188,234 @@ func assertFileContains(t *testing.T, path, substr string) {
 	if !strings.Contains(string(data), substr) {
 		t.Fatalf("file %s does not contain %q; got: %s", path, substr, string(data))
 	}
+}
+
+// TestIntegrationSkillGroups exercises the full lifecycle with grouped skills:
+//
+//  1. Create a store with grouped skills (tooling/browse, ayunis/backend) and a flat skill (search).
+//  2. Create a bundle referencing "tooling/" (glob) + "search" (flat).
+//  3. Apply to a repo. Verify leaf-name deployment and lock keys.
+//  4. Modify a deployed skill.
+//  5. Push. Verify changes land in the grouped store path.
+//  6. Re-apply. Verify idempotent.
+func TestIntegrationSkillGroups(t *testing.T) {
+	tmp := t.TempDir()
+
+	// ── 1. Create store with grouped + flat skills ─────────────────
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+
+	// Grouped skills.
+	mustMkdir(t, filepath.Join(s.SkillsDir(), "tooling", "browse"))
+	mustWrite(t, filepath.Join(s.SkillsDir(), "tooling", "browse", "SKILL.md"), "# Browse\nOriginal\n")
+	mustMkdir(t, filepath.Join(s.SkillsDir(), "ayunis", "backend"))
+	mustWrite(t, filepath.Join(s.SkillsDir(), "ayunis", "backend", "SKILL.md"), "# Backend\nOriginal\n")
+
+	// Flat skill.
+	mustMkdir(t, filepath.Join(s.SkillsDir(), "search"))
+	mustWrite(t, filepath.Join(s.SkillsDir(), "search", "SKILL.md"), "# Search\nOriginal\n")
+
+	// Agent.
+	mustWrite(t, filepath.Join(s.AgentsDir(), "core.md"), "# Core Agent\n")
+
+	// ── 2. Bundle with glob + flat reference ───────────────────────
+	bundleTOML := `[bundle]
+name = "grouped-test"
+agents_md = "core"
+
+[skills]
+include = ["tooling/", "search"]
+`
+	mustWrite(t, filepath.Join(s.BundlesDir(), "grouped-test.toml"), bundleTOML)
+
+	// ── 3. Apply to repo ───────────────────────────────────────────
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), "bundle = \"grouped-test\"\nlayout = \"pi\"\n")
+
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	// agent + browse + search = 3 (ayunis/backend NOT in the glob "tooling/")
+	if res.Deployed != 3 {
+		t.Fatalf("deployed = %d, want 3", res.Deployed)
+	}
+
+	// Verify leaf-name deployment paths.
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "search", "SKILL.md"))
+	assertFileContains(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), "# Browse")
+
+	// Verify NO deployment at group path.
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "tooling")); err == nil {
+		t.Error("should not deploy at group path")
+	}
+
+	// Verify lock keys are group-qualified.
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("load lock: %v", err)
+	}
+	if _, ok := lf.Deployed.Skills["tooling/browse"]; !ok {
+		t.Errorf("lock missing 'tooling/browse'; keys = %v", skillLockKeys(lf))
+	}
+	if _, ok := lf.Deployed.Skills["search"]; !ok {
+		t.Errorf("lock missing 'search'; keys = %v", skillLockKeys(lf))
+	}
+	// Verify source paths.
+	if sp := lf.Deployed.Skills["tooling/browse"].StorePath; sp != "skills/tooling/browse/" {
+		t.Errorf("tooling/browse StorePath = %q, want skills/tooling/browse/", sp)
+	}
+
+	// ── 4. Modify deployed skill ───────────────────────────────────
+	browseDeployed := filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md")
+	mustWrite(t, browseDeployed, "# Browse\nModified locally\n")
+
+	// ── 5. Push → verify changes land in grouped store path ────────
+	pushRes, err := push.Push(stores, "default", repo, push.Options{})
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if len(pushRes.Changes) != 1 {
+		t.Fatalf("push changes = %d, want 1", len(pushRes.Changes))
+	}
+	if pushRes.Changes[0].Name != "tooling/browse" {
+		t.Errorf("push change name = %q, want tooling/browse", pushRes.Changes[0].Name)
+	}
+
+	// Verify store file updated at grouped path.
+	storeFile := filepath.Join(s.SkillsDir(), "tooling", "browse", "SKILL.md")
+	assertFileContains(t, storeFile, "Modified locally")
+
+	// ── 6. Re-apply → verify idempotent ────────────────────────────
+	res2, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("re-apply: %v", err)
+	}
+	// All should be deployed (force=true), no removals.
+	if res2.Removed != 0 {
+		t.Errorf("re-apply removed = %d, want 0", res2.Removed)
+	}
+
+	// Push again — should be clean.
+	pushRes2, err := push.Push(stores, "default", repo, push.Options{})
+	if err != nil {
+		t.Fatalf("push after re-apply: %v", err)
+	}
+	if len(pushRes2.Changes) != 0 {
+		t.Errorf("expected 0 changes after re-apply+push, got %d", len(pushRes2.Changes))
+	}
+}
+
+// TestIntegrationSkillGroupsCrossStore exercises cross-store grouped skills.
+func TestIntegrationSkillGroupsCrossStore(t *testing.T) {
+	tmp := t.TempDir()
+
+	personal, err := store.Init(filepath.Join(tmp, "personal"))
+	if err != nil {
+		t.Fatalf("init personal: %v", err)
+	}
+	work, err := store.Init(filepath.Join(tmp, "work"))
+	if err != nil {
+		t.Fatalf("init work: %v", err)
+	}
+
+	// Personal flat skill.
+	mustMkdir(t, filepath.Join(personal.SkillsDir(), "search"))
+	mustWrite(t, filepath.Join(personal.SkillsDir(), "search", "SKILL.md"), "# Search\n")
+
+	// Work grouped skills.
+	mustMkdir(t, filepath.Join(work.SkillsDir(), "ayunis", "backend"))
+	mustWrite(t, filepath.Join(work.SkillsDir(), "ayunis", "backend", "SKILL.md"), "# Backend\n")
+	mustMkdir(t, filepath.Join(work.SkillsDir(), "ayunis", "frontend"))
+	mustWrite(t, filepath.Join(work.SkillsDir(), "ayunis", "frontend", "SKILL.md"), "# Frontend\n")
+
+	// Agent in personal store.
+	mustWrite(t, filepath.Join(personal.AgentsDir(), "core.md"), "# Core\n")
+
+	// Bundle in personal store referencing cross-store glob.
+	bundleTOML := `[bundle]
+name = "cross-store"
+agents_md = "core"
+
+[skills]
+include = ["search"]
+`
+	mustWrite(t, filepath.Join(personal.BundlesDir(), "cross-store.toml"), bundleTOML)
+
+	// Repo with skills_add for cross-store glob.
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), "bundle = \"cross-store\"\nlayout = \"pi\"\nskills_add = [\"work:ayunis/\"]\n")
+
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	allStores := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	res, err := apply.Apply(allStores, "personal", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	// agent + search + backend + frontend = 4
+	if res.Deployed != 4 {
+		t.Fatalf("deployed = %d, want 4", res.Deployed)
+	}
+
+	// Verify deployment.
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "search", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "backend", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "frontend", "SKILL.md"))
+
+	// Verify lock.
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("load lock: %v", err)
+	}
+	if _, ok := lf.Deployed.Skills["search"]; !ok {
+		t.Errorf("lock missing 'search'")
+	}
+	if _, ok := lf.Deployed.Skills["work:ayunis/backend"]; !ok {
+		t.Errorf("lock missing 'work:ayunis/backend'; keys = %v", skillLockKeys(lf))
+	}
+	if _, ok := lf.Deployed.Skills["work:ayunis/frontend"]; !ok {
+		t.Errorf("lock missing 'work:ayunis/frontend'; keys = %v", skillLockKeys(lf))
+	}
+
+	// Modify work skill, push, verify routing.
+	mustWrite(t, filepath.Join(repo, ".pi", "skills", "backend", "SKILL.md"), "# Backend\nModified\n")
+	pushRes, err := push.Push(allStores, "personal", repo, push.Options{})
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if len(pushRes.Changes) != 1 {
+		t.Fatalf("push changes = %d, want 1", len(pushRes.Changes))
+	}
+	// Change should land in work store's grouped path.
+	assertFileContains(t, filepath.Join(work.SkillsDir(), "ayunis", "backend", "SKILL.md"), "Modified")
+	// Personal store should be unaffected.
+	if _, err := os.Stat(filepath.Join(personal.SkillsDir(), "ayunis")); err == nil {
+		t.Error("personal store should not have ayunis/ directory")
+	}
+}
+
+func skillLockKeys(lf *lock.LockFile) []string {
+	keys := make([]string, 0, len(lf.Deployed.Skills))
+	for k := range lf.Deployed.Skills {
+		keys = append(keys, k)
+	}
+	return keys
 }

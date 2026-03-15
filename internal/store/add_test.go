@@ -27,7 +27,7 @@ func TestAddSkillCopiesDir(t *testing.T) {
 	os.MkdirAll(filepath.Join(src, "sub"), 0o755)
 	os.WriteFile(filepath.Join(src, "sub", "helper.sh"), []byte("#!/bin/bash"), 0o755)
 
-	name, overwritten, err := s.AddSkill(src, false)
+	name, overwritten, err := s.AddSkill(src, "", false)
 	if err != nil {
 		t.Fatalf("AddSkill: %v", err)
 	}
@@ -173,13 +173,13 @@ func TestAddSkillAlreadyExistsNoForce(t *testing.T) {
 	os.MkdirAll(src, 0o755)
 	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("v1"), 0o644)
 
-	if _, _, err := s.AddSkill(src, false); err != nil {
+	if _, _, err := s.AddSkill(src, "", false); err != nil {
 		t.Fatalf("first AddSkill: %v", err)
 	}
 
 	// Second add without force should fail.
 	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("v2"), 0o644)
-	_, _, err := s.AddSkill(src, false)
+	_, _, err := s.AddSkill(src, "", false)
 	if err == nil {
 		t.Fatal("expected error on duplicate add without --force")
 	}
@@ -201,12 +201,12 @@ func TestAddSkillAlreadyExistsWithForce(t *testing.T) {
 	os.MkdirAll(src, 0o755)
 	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("v1"), 0o644)
 
-	if _, _, err := s.AddSkill(src, false); err != nil {
+	if _, _, err := s.AddSkill(src, "", false); err != nil {
 		t.Fatalf("first AddSkill: %v", err)
 	}
 
 	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("v2"), 0o644)
-	_, overwritten, err := s.AddSkill(src, true)
+	_, overwritten, err := s.AddSkill(src, "", true)
 	if err != nil {
 		t.Fatalf("AddSkill with force: %v", err)
 	}
@@ -223,7 +223,7 @@ func TestAddSkillAlreadyExistsWithForce(t *testing.T) {
 func TestAddSourceNotExists(t *testing.T) {
 	s := setupStore(t)
 
-	_, _, err := s.AddSkill("/nonexistent/path/xyz", false)
+	_, _, err := s.AddSkill("/nonexistent/path/xyz", "", false)
 	if err == nil {
 		t.Fatal("expected error for nonexistent source")
 	}
@@ -268,5 +268,111 @@ func TestAddResourcePreservesStructure(t *testing.T) {
 		} else if string(data) != tc.want {
 			t.Errorf("%s = %q, want %q", tc.path, data, tc.want)
 		}
+	}
+}
+
+// --- Group tests ---
+
+func TestAddSkillWithGroup(t *testing.T) {
+	s := setupStore(t)
+
+	src := filepath.Join(t.TempDir(), "browse")
+	os.MkdirAll(src, 0o755)
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# Browse"), 0o644)
+
+	name, overwritten, err := s.AddSkill(src, "tooling", false)
+	if err != nil {
+		t.Fatalf("AddSkill: %v", err)
+	}
+	if name != "tooling/browse" {
+		t.Errorf("name = %q, want tooling/browse", name)
+	}
+	if overwritten {
+		t.Error("expected overwritten=false")
+	}
+
+	data, err := os.ReadFile(filepath.Join(s.SkillsDir(), "tooling", "browse", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("SKILL.md missing: %v", err)
+	}
+	if string(data) != "# Browse" {
+		t.Errorf("content = %q", data)
+	}
+}
+
+func TestAddSkillWithDeepGroup(t *testing.T) {
+	s := setupStore(t)
+
+	src := filepath.Join(t.TempDir(), "deploy")
+	os.MkdirAll(src, 0o755)
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# Deploy"), 0o644)
+
+	name, _, err := s.AddSkill(src, "infra/aws", false)
+	if err != nil {
+		t.Fatalf("AddSkill: %v", err)
+	}
+	if name != "infra/aws/deploy" {
+		t.Errorf("name = %q, want infra/aws/deploy", name)
+	}
+
+	if _, err := os.Stat(filepath.Join(s.SkillsDir(), "infra", "aws", "deploy", "SKILL.md")); err != nil {
+		t.Errorf("SKILL.md not found at expected path: %v", err)
+	}
+}
+
+func TestAddSkillWithGroupNoGroup(t *testing.T) {
+	s := setupStore(t)
+
+	src := filepath.Join(t.TempDir(), "browse")
+	os.MkdirAll(src, 0o755)
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# Browse"), 0o644)
+
+	name, _, err := s.AddSkill(src, "", false)
+	if err != nil {
+		t.Fatalf("AddSkill: %v", err)
+	}
+	if name != "browse" {
+		t.Errorf("name = %q, want browse", name)
+	}
+}
+
+func TestAddSkillWithGroupInvalidTraversal(t *testing.T) {
+	s := setupStore(t)
+
+	src := filepath.Join(t.TempDir(), "browse")
+	os.MkdirAll(src, 0o755)
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# Browse"), 0o644)
+
+	for _, bad := range []string{"../escape", "foo/../bar", "."} {
+		_, _, err := s.AddSkill(src, bad, false)
+		if err == nil {
+			t.Errorf("expected error for group %q", bad)
+		}
+	}
+}
+
+func TestAddSkillWithGroupForce(t *testing.T) {
+	s := setupStore(t)
+
+	src := filepath.Join(t.TempDir(), "browse")
+	os.MkdirAll(src, 0o755)
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("v1"), 0o644)
+
+	if _, _, err := s.AddSkill(src, "tooling", false); err != nil {
+		t.Fatalf("first AddSkill: %v", err)
+	}
+
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("v2"), 0o644)
+	_, overwritten, err := s.AddSkill(src, "tooling", true)
+	if err != nil {
+		t.Fatalf("AddSkill with force: %v", err)
+	}
+	if !overwritten {
+		t.Error("expected overwritten=true")
+	}
+
+	data, _ := os.ReadFile(filepath.Join(s.SkillsDir(), "tooling", "browse", "SKILL.md"))
+	if string(data) != "v2" {
+		t.Errorf("content = %q, want v2", data)
 	}
 }

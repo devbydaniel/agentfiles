@@ -9,9 +9,33 @@ import (
 	"github.com/devbydaniel/agentfiles/internal/fsutil"
 )
 
-// AddSkill copies a skill directory into store/skills/<dirname>/.
-// Returns the derived name and whether an existing entry was overwritten.
-func (s *Store) AddSkill(srcPath string, force bool) (string, bool, error) {
+// AddSkill copies a skill directory into the store's skills directory.
+// If group is non-empty, the skill is placed in skills/<group>/<leafname>/
+// instead of skills/<leafname>/. Returns the group-qualified name (e.g.,
+// "tooling/browse" or just "browse" for flat) and whether an existing entry
+// was overwritten.
+func (s *Store) AddSkill(srcPath string, group string, force bool) (string, bool, error) {
+	if group != "" {
+		// Validate group: no ".." components, no absolute paths.
+		if filepath.IsAbs(group) {
+			return "", false, fmt.Errorf("invalid group %q: must not be an absolute path", group)
+		}
+		for _, part := range strings.Split(filepath.ToSlash(group), "/") {
+			if part == ".." || part == "." {
+				return "", false, fmt.Errorf("invalid group %q: must not contain '.' or '..' components", group)
+			}
+		}
+		parentDir := filepath.Join(s.SkillsDir(), filepath.FromSlash(group))
+		if err := os.MkdirAll(parentDir, 0o755); err != nil {
+			return "", false, fmt.Errorf("creating group directory: %w", err)
+		}
+		leafName, overwritten, err := s.addDir(srcPath, parentDir, force)
+		if err != nil {
+			return "", false, err
+		}
+		qualifiedName := group + "/" + leafName
+		return qualifiedName, overwritten, nil
+	}
 	return s.addDir(srcPath, s.SkillsDir(), force)
 }
 

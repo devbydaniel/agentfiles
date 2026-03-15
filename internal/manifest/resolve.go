@@ -10,8 +10,9 @@ import (
 
 // ResolvedAsset pairs an asset name with the store it comes from.
 type ResolvedAsset struct {
-	Name  string
-	Store string
+	Name      string // Leaf name for deployment (e.g., "browse")
+	Store     string // Store name
+	StorePath string // Group-qualified path (e.g., "tooling/browse" or "browse" for flat)
 }
 
 // ResolvedManifest contains the fully expanded lists after resolving
@@ -38,6 +39,8 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		Layout: m.Layout,
 	}
 
+	var skillRefs []skillRef
+
 	if m.Bundle != "" {
 		s := stores[defaultStore]
 		b, err := bundle.Load(s, m.Bundle)
@@ -48,28 +51,107 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		if name := b.AgentsMd(); name != "" {
 			r.AgentsMd = ResolvedAsset{Name: name, Store: defaultStore}
 		}
-		r.Skills = toResolvedAssets(filterExcluded(b.Skills.Include, b.Skills.Exclude), defaultStore)
+
+		// Expand globs in bundle skills include/exclude, then filter.
+		expandedInclude, err := expandGlobList(s, b.Skills.Include)
+		if err != nil {
+			return nil, fmt.Errorf("expanding bundle skills.include: %w", err)
+		}
+		expandedExclude, err := expandGlobList(s, b.Skills.Exclude)
+		if err != nil {
+			return nil, fmt.Errorf("expanding bundle skills.exclude: %w", err)
+		}
+		filtered := filterExcluded(expandedInclude, expandedExclude)
+		for _, name := range filtered {
+			skillRefs = append(skillRefs, skillRef{name: name, storeName: defaultStore})
+		}
+
 		r.Resources = toResolvedAssets(filterExcluded(b.Resources.Include, b.Resources.Exclude), defaultStore)
 	} else {
 		if m.AgentsMd != "" {
 			storeName, name := parseStorePrefix(m.AgentsMd, defaultStore)
 			r.AgentsMd = ResolvedAsset{Name: name, Store: storeName}
 		}
-		r.Skills = parseResolvedAssets(m.Skills, defaultStore)
+
+		// Expand globs in cherry-pick skills.
+		for _, raw := range m.Skills {
+			storeName, name := parseStorePrefix(raw, defaultStore)
+			s, err := store.LookupStore(stores, storeName)
+			if err != nil {
+				return nil, fmt.Errorf("skill %q: %w", raw, err)
+			}
+			expanded, err := s.ExpandSkillGlob(name)
+			if err != nil {
+				return nil, fmt.Errorf("expanding skill %q: %w", raw, err)
+			}
+			for _, n := range expanded {
+				skillRefs = append(skillRefs, skillRef{name: n, storeName: storeName})
+			}
+		}
+
 		r.Resources = parseResolvedAssets(m.Resources, defaultStore)
 	}
 
-	// Apply overrides.
+	// Apply overrides: expand globs in skills_add and skills_remove.
 	if len(m.SkillsAdd) > 0 {
-		for _, sk := range m.SkillsAdd {
-			storeName, name := parseStorePrefix(sk, defaultStore)
-			if !containsAsset(r.Skills, name, storeName) {
-				r.Skills = append(r.Skills, ResolvedAsset{Name: name, Store: storeName})
+		for _, raw := range m.SkillsAdd {
+			storeName, name := parseStorePrefix(raw, defaultStore)
+			s, err := store.LookupStore(stores, storeName)
+			if err != nil {
+				return nil, fmt.Errorf("skills_add %q: %w", raw, err)
+			}
+			expanded, err := s.ExpandSkillGlob(name)
+			if err != nil {
+				return nil, fmt.Errorf("expanding skills_add %q: %w", raw, err)
+			}
+			for _, n := range expanded {
+				if !containsSkillRef(skillRefs, n, storeName) {
+					skillRefs = append(skillRefs, skillRef{name: n, storeName: storeName})
+				}
 			}
 		}
 	}
 	if len(m.SkillsRemove) > 0 {
-		r.Skills = filterExcludedAssets(r.Skills, m.SkillsRemove)
+		// Expand globs in skills_remove, then filter.
+		var expandedRemove []string
+		for _, raw := range m.SkillsRemove {
+			storeName, name := parseStorePrefix(raw, defaultStore)
+			s, err := store.LookupStore(stores, storeName)
+			if err != nil {
+				return nil, fmt.Errorf("skills_remove %q: %w", raw, err)
+			}
+			expanded, err := s.ExpandSkillGlob(name)
+			if err != nil {
+				// Glob with no matches is a warning, not error — just skip.
+				continue
+			}
+			for _, n := range expanded {
+				// Re-add store prefix for filterExcludedRefs.
+				if storeName != defaultStore {
+					expandedRemove = append(expandedRemove, storeName+":"+n)
+				} else {
+					expandedRemove = append(expandedRemove, n)
+				}
+			}
+		}
+		skillRefs = filterExcludedRefs(skillRefs, expandedRemove, defaultStore)
+	}
+
+	// Resolve each skill ref via store.ResolveSkill to get SkillInfo.
+	for _, ref := range skillRefs {
+		s, err := store.LookupStore(stores, ref.storeName)
+		if err != nil {
+			return nil, fmt.Errorf("skill %q: %w", ref.name, err)
+		}
+		info, err := s.ResolveSkill(ref.name)
+		if err != nil {
+			return nil, fmt.Errorf("resolving skill %q in store %q: %w", ref.name, ref.storeName, err)
+		}
+		r.Skills = append(r.Skills, ResolvedAsset{
+			Name:      info.LeafName,
+			Store:     ref.storeName,
+			StorePath: info.GroupPath,
+		})
 	}
 
 	// Validate that all referenced stores exist.
@@ -85,8 +167,8 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		}
 	}
 
-	// Validate no same-name collisions across different stores.
-	if err := checkNameCollisions("skill", r.Skills); err != nil {
+	// Validate no leaf-name collisions across skills (same leaf from different groups or stores).
+	if err := checkLeafNameCollisions(r.Skills); err != nil {
 		return nil, err
 	}
 	if err := checkNameCollisions("resource", r.Resources); err != nil {
@@ -94,6 +176,81 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 	}
 
 	return r, nil
+}
+
+// skillRef is a store-tagged skill reference (pre-resolution, post-glob-expansion).
+type skillRef struct {
+	name      string // bare or group-qualified, no trailing slash
+	storeName string
+}
+
+// expandGlobList expands all glob patterns in a string list against the given store.
+func expandGlobList(s *store.Store, patterns []string) ([]string, error) {
+	var result []string
+	for _, p := range patterns {
+		expanded, err := s.ExpandSkillGlob(p)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, expanded...)
+	}
+	return result, nil
+}
+
+// containsSkillRef checks if a skill reference already exists in the list.
+func containsSkillRef(refs []skillRef, name, storeName string) bool {
+	for _, r := range refs {
+		if r.name == name && r.storeName == storeName {
+			return true
+		}
+	}
+	return false
+}
+
+// filterExcludedRefs removes skill refs matching the expanded exclude list.
+func filterExcludedRefs(refs []skillRef, exclude []string, defaultStore string) []skillRef {
+	if len(exclude) == 0 {
+		return refs
+	}
+	type entry struct {
+		name      string
+		storeName string
+	}
+	entries := make([]entry, len(exclude))
+	for i, raw := range exclude {
+		if idx := strings.Index(raw, ":"); idx > 0 {
+			entries[i] = entry{name: raw[idx+1:], storeName: raw[:idx]}
+		} else {
+			entries[i] = entry{name: raw}
+		}
+	}
+	var out []skillRef
+	for _, r := range refs {
+		excluded := false
+		for _, ex := range entries {
+			if r.name == ex.name && (ex.storeName == "" || ex.storeName == r.storeName) {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// checkLeafNameCollisions returns an error if two skills resolve to the same
+// leaf name, regardless of group path or store.
+func checkLeafNameCollisions(skills []ResolvedAsset) error {
+	seen := make(map[string]ResolvedAsset, len(skills))
+	for _, sk := range skills {
+		if prev, ok := seen[sk.Name]; ok {
+			return fmt.Errorf("skill leaf name %q collision: %s (store %s) and %s (store %s)", sk.Name, prev.StorePath, prev.Store, sk.StorePath, sk.Store)
+		}
+		seen[sk.Name] = sk
+	}
+	return nil
 }
 
 // parseStorePrefix splits "storename:assetname" into (storeName, assetName).

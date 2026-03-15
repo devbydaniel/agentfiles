@@ -19,8 +19,9 @@ Each store is a git repository containing agent assets. You can have multiple na
 ├── skills/
 │   ├── browse/
 │   │   └── SKILL.md
-│   └── web-search/
-│       └── SKILL.md
+│   └── tooling/            # skill group
+│       └── web-search/
+│           └── SKILL.md
 ├── agents/
 │   └── assistant.md
 ├── resources/
@@ -61,11 +62,52 @@ Each store is just a git repo. You manage them with normal git operations (commi
 
 | Asset | What it is | Store location | Example |
 |-------|-----------|----------------|---------|
-| **Skill** | A directory with a `SKILL.md` and optional supporting files | `skills/<name>/` | `skills/browse/SKILL.md` |
+| **Skill** | A directory with a `SKILL.md` and optional supporting files | `skills/<name>/` or `skills/<group>/<name>/` | `skills/browse/SKILL.md`, `skills/tooling/browse/SKILL.md` |
 | **Agent** | A markdown file with agent instructions | `agents/<name>.md` | `agents/assistant.md` |
 | **Resource** | An arbitrary file tree copied to repo root | `resources/<name>/` | `resources/cursor-config/.cursor/rules.json` |
 
 **Resources** are special: their contents are copied directly into the repo root, preserving internal directory structure. For example, `resources/cursor-config/.cursor/rules.json` deploys to `.cursor/rules.json` in the repo. This makes resources useful for tool configs, shared scripts, or any files that need specific paths.
+
+### Skill Groups
+
+Skills can be organized into subdirectories (groups) within the store. Grouping is purely a store-side organizational concern — deployed skills always use the **leaf name** (the last path component).
+
+```
+~/.agentfiles/
+└── skills/
+    ├── browse/              # flat skill → "browse"
+    │   └── SKILL.md
+    ├── tooling/             # group directory (no SKILL.md)
+    │   ├── web-search/      # grouped skill → "tooling/web-search"
+    │   │   └── SKILL.md
+    │   └── browse/          # grouped skill → "tooling/browse"
+    │       └── SKILL.md
+    └── infra/
+        └── aws/
+            └── deploy/      # deeply nested → "infra/aws/deploy"
+                └── SKILL.md
+```
+
+**Key rules:**
+
+- **A directory is a skill if it contains `SKILL.md`.** This is the marker. Everything inside a skill directory (scripts/, references/, etc.) is part of that skill.
+- **A skill directory cannot be a group parent.** The walk stops at `SKILL.md` — subdirectories are skill content, not nested groups.
+- **Deploy uses the leaf name.** `skills/tooling/browse/` deploys as `.pi/skills/browse/`, not `.pi/skills/tooling/browse/`. Grouping is invisible to the consuming agent.
+- **Leaf-name collisions are an error.** If two resolved skills have the same leaf name (e.g., `tooling/browse` and `legacy/browse`), resolution fails.
+
+**Referencing grouped skills:**
+
+| Syntax | Meaning |
+|--------|---------|
+| `"browse"` | Bare name — searches all groups, errors if ambiguous |
+| `"tooling/browse"` | Group-qualified — direct lookup |
+| `"tooling/"` | Trailing-slash glob — all skills under `tooling/` recursively |
+| `"infra/aws/"` | Nested glob — all skills under `infra/aws/` |
+| `"work:tooling/"` | Cross-store glob — all skills under `tooling/` in the `work` store |
+
+Globs work in bundle `skills.include`, `skills.exclude`, manifest `skills`, `skills_add`, and `skills_remove`.
+
+**Migration:** Existing flat skills work unchanged. To reorganize into groups, move skill directories into subdirectories under `skills/` and update bundle/manifest references.
 
 ### Bundles
 
@@ -78,8 +120,8 @@ name = "backend"
 agents_md = "backend"           # → agents/backend.md
 
 [skills]
-include = ["git-workflow", "nestjs-hexagonal-backend", "typeorm-migrations"]
-exclude = []                    # optional: remove specific items from include
+include = ["git-workflow", "nestjs-hexagonal-backend", "tooling/"]  # trailing / = group glob
+exclude = ["tooling/deprecated-linter"]   # exclude specific grouped skills
 
 [resources]
 include = ["cursor-config", "editorconfig"]
@@ -137,7 +179,7 @@ skills_remove = ["typeorm-migrations"]         # remove from bundle's list
 
 ```toml
 agents_md = "assistant"
-skills = ["browse", "web-search", "personal:git-workflow"]  # storename: prefix for cross-store
+skills = ["browse", "tooling/web-search", "personal:git-workflow", "work:ayunis/"]  # qualified names, globs, cross-store
 resources = ["editorconfig"]
 layout = "pi"
 ```
@@ -188,6 +230,12 @@ hash = "a1b2c3..."
 source = "skills/browse/"
 path = ".pi/skills/browse"
 hash = "d4e5f6..."
+
+# Grouped skill — key is group-qualified
+[deployed.skills."tooling/web-search"]
+source = "skills/tooling/web-search/"
+path = ".pi/skills/web-search"
+hash = "g7h8i9..."
 ```
 
 ---
@@ -310,12 +358,15 @@ New stores can optionally be registered in `~/.config/agentfiles/config.toml` un
 Copy assets from the filesystem into the source store.
 
 ```bash
-af add skill <dir>                  # copies dir → store/skills/<dirname>/
-af add agent <file> --name <name>   # copies file → store/agents/<name>.md
-af add resource <dir>               # copies dir → store/resources/<dirname>/
+af add skill <dir>                         # copies dir → store/skills/<dirname>/
+af add skill <dir> --group tooling         # copies dir → store/skills/tooling/<dirname>/
+af add skill <dir> --group infra/aws       # copies dir → store/skills/infra/aws/<dirname>/
+af add agent <file> --name <name>          # copies file → store/agents/<name>.md
+af add resource <dir>                      # copies dir → store/resources/<dirname>/
 ```
 
 Use `--force` to overwrite existing assets in the store. Without it, existing assets produce an error.
+Use `--group` with `af add skill` to place the skill in a group subdirectory.
 
 The `--name` flag is required for `af add agent` because agent files (e.g., `AGENTS.md`, `CLAUDE.md`) don't have meaningful filenames — the name you choose becomes the identifier used in bundles and manifests.
 
@@ -441,10 +492,19 @@ After pushing, commit the changes in your source store (`cd ~/.agentfiles && git
 List assets in the source store.
 
 ```bash
-af list skills              # list all skill directories
+af list skills              # list all skills (group-qualified paths, sorted)
+af list skills --flat       # list only leaf names (for scripting)
 af list agents              # list all agent files (without .md extension)
 af list bundles             # list all bundle files (without .toml extension)
 af list resources           # list all resource directories
+```
+
+With skill groups, `af list skills` shows group-qualified paths:
+```
+ayunis/backend
+browse
+infra/aws/deploy
+tooling/web-search
 ```
 
 ### `af diff`
@@ -699,8 +759,8 @@ name = "backend"
 agents_md = "backend"             # references agents/<name>.md
 
 [skills]
-include = ["browse", "git-workflow"]
-exclude = []                      # removed from include before deployment
+include = ["browse", "git-workflow", "tooling/"]  # trailing / = group glob (recursive)
+exclude = ["tooling/deprecated"]                  # globs work in exclude too
 
 [resources]
 include = ["cursor-config"]

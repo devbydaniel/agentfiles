@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/devbydaniel/agentfiles/internal/fsutil"
 	"github.com/devbydaniel/agentfiles/internal/lock"
@@ -91,7 +92,7 @@ func Push(stores map[string]*store.Store, defaultStore string, repoDir string, o
 
 	// Push skills.
 	for name, e := range lf.Deployed.Skills {
-		if opts.SkillOnly != "" && name != opts.SkillOnly {
+		if opts.SkillOnly != "" && !matchSkillKey(name, opts.SkillOnly) {
 			continue
 		}
 		s, err := entryStore(stores, defaultStore, e)
@@ -239,6 +240,23 @@ func hashResourceDeployed(repoDir, storeResDir string) (string, error) {
 	// Simplest correct approach: hash by walking storeResDir for structure
 	// but reading content from repoDir.
 	return lock.HashDirMapped(storeResDir, repoDir)
+}
+
+// matchSkillKey checks if a lock key matches a skill-only filter.
+// Matches against the full key (e.g., "tooling/browse" or "work:tooling/browse")
+// and the leaf name (last path component, after stripping any store prefix).
+func matchSkillKey(lockKey, filter string) bool {
+	if lockKey == filter {
+		return true
+	}
+	// Strip store prefix from the lock key to get the group-qualified path.
+	qualifiedName := lockKey
+	if idx := strings.Index(lockKey, ":"); idx > 0 {
+		qualifiedName = lockKey[idx+1:]
+	}
+	// Match by leaf name (last path component).
+	leaf := filepath.Base(qualifiedName)
+	return leaf == filter || qualifiedName == filter
 }
 
 // syncResourceToStore copies each deployed resource file from repoDir back

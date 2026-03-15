@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 )
 
@@ -222,5 +224,278 @@ func TestInitFromCloneBadURL(t *testing.T) {
 	_, err := InitFromClone("https://invalid.example.test/no-such-repo.git", dest)
 	if err == nil {
 		t.Fatal("InitFromClone should fail with invalid URL")
+	}
+}
+
+// --- Skill discovery tests (Step 1) ---
+
+// createSkill creates a minimal skill directory with SKILL.md.
+func createSkill(t *testing.T, s *Store, groupPath string) {
+	t.Helper()
+	dir := filepath.Join(s.SkillsDir(), filepath.FromSlash(groupPath))
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# "+filepath.Base(dir)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestListSkillsFlat(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "browse")
+
+	skills, err := s.ListSkills()
+	if err != nil {
+		t.Fatalf("ListSkills: %v", err)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("got %d skills, want 1", len(skills))
+	}
+	if skills[0].GroupPath != "browse" || skills[0].LeafName != "browse" {
+		t.Errorf("got %+v, want {GroupPath:browse LeafName:browse}", skills[0])
+	}
+}
+
+func TestListSkillsGrouped(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "tooling/browse")
+	createSkill(t, s, "ayunis/backend")
+
+	skills, err := s.ListSkills()
+	if err != nil {
+		t.Fatalf("ListSkills: %v", err)
+	}
+	if len(skills) != 2 {
+		t.Fatalf("got %d skills, want 2", len(skills))
+	}
+
+	sort.Slice(skills, func(i, j int) bool { return skills[i].GroupPath < skills[j].GroupPath })
+	if skills[0].GroupPath != "ayunis/backend" || skills[0].LeafName != "backend" {
+		t.Errorf("skills[0] = %+v", skills[0])
+	}
+	if skills[1].GroupPath != "tooling/browse" || skills[1].LeafName != "browse" {
+		t.Errorf("skills[1] = %+v", skills[1])
+	}
+}
+
+func TestListSkillsDeeplyNested(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "infra/aws/deploy")
+
+	skills, err := s.ListSkills()
+	if err != nil {
+		t.Fatalf("ListSkills: %v", err)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("got %d skills, want 1", len(skills))
+	}
+	if skills[0].GroupPath != "infra/aws/deploy" || skills[0].LeafName != "deploy" {
+		t.Errorf("got %+v", skills[0])
+	}
+}
+
+func TestListSkillsStopsAtSkillDir(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "browse")
+	// Add a scripts/ subdirectory inside the skill — should NOT be treated as a nested skill.
+	scriptsDir := filepath.Join(s.SkillsDir(), "browse", "scripts")
+	os.MkdirAll(scriptsDir, 0o755)
+	os.WriteFile(filepath.Join(scriptsDir, "helper.sh"), []byte("#!/bin/bash"), 0o755)
+
+	skills, err := s.ListSkills()
+	if err != nil {
+		t.Fatalf("ListSkills: %v", err)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("got %d skills, want 1 (scripts/ should not be a skill)", len(skills))
+	}
+}
+
+func TestListSkillsIgnoresGroupDirsWithoutSkillMD(t *testing.T) {
+	s := setupStore(t)
+	// Create a group directory with no SKILL.md — not a skill.
+	os.MkdirAll(filepath.Join(s.SkillsDir(), "tooling"), 0o755)
+	// But a skill inside the group.
+	createSkill(t, s, "tooling/browse")
+
+	skills, err := s.ListSkills()
+	if err != nil {
+		t.Fatalf("ListSkills: %v", err)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("got %d skills, want 1", len(skills))
+	}
+	if skills[0].GroupPath != "tooling/browse" {
+		t.Errorf("got %+v", skills[0])
+	}
+}
+
+func TestListSkillsEmpty(t *testing.T) {
+	s := setupStore(t)
+	skills, err := s.ListSkills()
+	if err != nil {
+		t.Fatalf("ListSkills: %v", err)
+	}
+	if len(skills) != 0 {
+		t.Errorf("got %d skills, want 0", len(skills))
+	}
+}
+
+func TestResolveSkillBare(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "tooling/browse")
+
+	info, err := s.ResolveSkill("browse")
+	if err != nil {
+		t.Fatalf("ResolveSkill: %v", err)
+	}
+	if info.GroupPath != "tooling/browse" || info.LeafName != "browse" {
+		t.Errorf("got %+v", info)
+	}
+}
+
+func TestResolveSkillQualified(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "tooling/browse")
+
+	info, err := s.ResolveSkill("tooling/browse")
+	if err != nil {
+		t.Fatalf("ResolveSkill: %v", err)
+	}
+	if info.GroupPath != "tooling/browse" || info.LeafName != "browse" {
+		t.Errorf("got %+v", info)
+	}
+}
+
+func TestResolveSkillFlatBare(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "browse")
+
+	info, err := s.ResolveSkill("browse")
+	if err != nil {
+		t.Fatalf("ResolveSkill: %v", err)
+	}
+	if info.GroupPath != "browse" || info.LeafName != "browse" {
+		t.Errorf("got %+v", info)
+	}
+}
+
+func TestResolveSkillAmbiguous(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "a/browse")
+	createSkill(t, s, "b/browse")
+
+	_, err := s.ResolveSkill("browse")
+	if err == nil {
+		t.Fatal("expected ambiguous error")
+	}
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("error = %q, want 'ambiguous'", err)
+	}
+}
+
+func TestResolveSkillNotFound(t *testing.T) {
+	s := setupStore(t)
+
+	_, err := s.ResolveSkill("nonexistent")
+	if err == nil {
+		t.Fatal("expected not found error")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error = %q, want 'not found'", err)
+	}
+}
+
+func TestResolveSkillQualifiedNotFound(t *testing.T) {
+	s := setupStore(t)
+
+	_, err := s.ResolveSkill("tooling/nonexistent")
+	if err == nil {
+		t.Fatal("expected not found error")
+	}
+}
+
+// --- Glob expansion tests (Step 2) ---
+
+func TestExpandSkillGlobNonGlob(t *testing.T) {
+	s := setupStore(t)
+	result, err := s.ExpandSkillGlob("browse")
+	if err != nil {
+		t.Fatalf("ExpandSkillGlob: %v", err)
+	}
+	if len(result) != 1 || result[0] != "browse" {
+		t.Errorf("got %v, want [browse]", result)
+	}
+}
+
+func TestExpandSkillGlobSingleGroup(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "ayunis/backend")
+	createSkill(t, s, "ayunis/frontend")
+	createSkill(t, s, "tooling/browse")
+
+	result, err := s.ExpandSkillGlob("ayunis/")
+	if err != nil {
+		t.Fatalf("ExpandSkillGlob: %v", err)
+	}
+	sort.Strings(result)
+	if len(result) != 2 || result[0] != "ayunis/backend" || result[1] != "ayunis/frontend" {
+		t.Errorf("got %v", result)
+	}
+}
+
+func TestExpandSkillGlobRecursive(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "infra/aws/deploy")
+	createSkill(t, s, "infra/gcp/deploy")
+	createSkill(t, s, "infra/monitoring")
+
+	result, err := s.ExpandSkillGlob("infra/")
+	if err != nil {
+		t.Fatalf("ExpandSkillGlob: %v", err)
+	}
+	sort.Strings(result)
+	if len(result) != 3 {
+		t.Fatalf("got %d results, want 3: %v", len(result), result)
+	}
+	if result[0] != "infra/aws/deploy" || result[1] != "infra/gcp/deploy" || result[2] != "infra/monitoring" {
+		t.Errorf("got %v", result)
+	}
+}
+
+func TestExpandSkillGlobNestedPrefix(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "infra/aws/deploy")
+	createSkill(t, s, "infra/gcp/deploy")
+
+	result, err := s.ExpandSkillGlob("infra/aws/")
+	if err != nil {
+		t.Fatalf("ExpandSkillGlob: %v", err)
+	}
+	if len(result) != 1 || result[0] != "infra/aws/deploy" {
+		t.Errorf("got %v", result)
+	}
+}
+
+func TestExpandSkillGlobNoMatch(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "tooling/browse")
+
+	_, err := s.ExpandSkillGlob("nonexistent/")
+	if err == nil {
+		t.Fatal("expected error for non-matching glob")
+	}
+	if !strings.Contains(err.Error(), "no skills found") {
+		t.Errorf("error = %q", err)
+	}
+}
+
+func TestExpandSkillGlobEmptyStore(t *testing.T) {
+	s := setupStore(t)
+
+	_, err := s.ExpandSkillGlob("anything/")
+	if err == nil {
+		t.Fatal("expected error for empty store glob")
 	}
 }

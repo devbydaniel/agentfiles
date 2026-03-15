@@ -59,6 +59,79 @@ func TestListSkillsShowsNames(t *testing.T) {
 	}
 }
 
+func TestListSkillsGrouped(t *testing.T) {
+	storeDir := setupStore(t)
+
+	// Create grouped and flat skills.
+	for _, sk := range []string{
+		"skills/browse",
+		"skills/tooling/web-search",
+		"skills/ayunis/backend",
+	} {
+		os.MkdirAll(filepath.Join(storeDir, sk), 0o755)
+		os.WriteFile(filepath.Join(storeDir, sk, "SKILL.md"), []byte("# skill"), 0o644)
+	}
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(new(bytes.Buffer))
+	rootCmd.SetArgs([]string{"list", "skills", "--store", storeDir})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d: %q", len(lines), out)
+	}
+	// Should be sorted: ayunis/backend, browse, tooling/web-search
+	if lines[0] != "ayunis/backend" {
+		t.Errorf("lines[0] = %q, want ayunis/backend", lines[0])
+	}
+	if lines[1] != "browse" {
+		t.Errorf("lines[1] = %q, want browse", lines[1])
+	}
+	if lines[2] != "tooling/web-search" {
+		t.Errorf("lines[2] = %q, want tooling/web-search", lines[2])
+	}
+}
+
+func TestListSkillsFlat(t *testing.T) {
+	storeDir := setupStore(t)
+
+	for _, sk := range []string{
+		"skills/browse",
+		"skills/tooling/web-search",
+	} {
+		os.MkdirAll(filepath.Join(storeDir, sk), 0o755)
+		os.WriteFile(filepath.Join(storeDir, sk, "SKILL.md"), []byte("# skill"), 0o644)
+	}
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(new(bytes.Buffer))
+	rootCmd.SetArgs([]string{"list", "skills", "--flat", "--store", storeDir})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d: %q", len(lines), out)
+	}
+	// Sorted leaf names: browse, web-search
+	if lines[0] != "browse" {
+		t.Errorf("lines[0] = %q, want browse", lines[0])
+	}
+	if lines[1] != "web-search" {
+		t.Errorf("lines[1] = %q, want web-search", lines[1])
+	}
+}
+
 func TestListBundlesEmpty(t *testing.T) {
 	storeDir := setupStore(t)
 

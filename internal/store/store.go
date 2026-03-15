@@ -2,9 +2,11 @@ package store
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 var subdirs = []string{"skills", "agents", "resources", "bundles"}
@@ -114,4 +116,126 @@ func LookupStore(stores map[string]*Store, name string) (*Store, error) {
 		return nil, fmt.Errorf("store %q not found", name)
 	}
 	return s, nil
+}
+
+// SkillInfo describes a skill found in the store.
+type SkillInfo struct {
+	// GroupPath is the full group-qualified name, e.g., "tooling/browse" or "browse" (flat).
+	GroupPath string
+	// LeafName is the last path component, e.g., "browse".
+	LeafName string
+}
+
+// ListSkills walks skills/ recursively and returns all directories containing SKILL.md.
+// The walk stops descending into a directory once SKILL.md is found there — a skill
+// directory cannot also be a group parent.
+func (s *Store) ListSkills() ([]SkillInfo, error) {
+	skillsDir := s.SkillsDir()
+	var skills []SkillInfo
+
+	err := filepath.WalkDir(skillsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		// Skip the root skills/ directory itself.
+		if path == skillsDir {
+			return nil
+		}
+
+		// Check if this directory contains SKILL.md.
+		skillMD := filepath.Join(path, "SKILL.md")
+		if _, statErr := os.Stat(skillMD); statErr == nil {
+			rel, relErr := filepath.Rel(skillsDir, path)
+			if relErr != nil {
+				return relErr
+			}
+			// Normalize to forward slashes for consistency.
+			groupPath := filepath.ToSlash(rel)
+			skills = append(skills, SkillInfo{
+				GroupPath: groupPath,
+				LeafName:  filepath.Base(path),
+			})
+			return fs.SkipDir // Don't descend into skill directories.
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listing skills: %w", err)
+	}
+	return skills, nil
+}
+
+// ResolveSkill takes a reference like "browse" or "tooling/browse" and returns
+// the matching SkillInfo. For bare names (no slash), searches all groups —
+// errors if ambiguous (multiple skills with the same leaf name).
+// For qualified names (contains slash, no trailing slash), looks up directly.
+func (s *Store) ResolveSkill(name string) (SkillInfo, error) {
+	if strings.Contains(name, "/") {
+		// Qualified name — direct lookup.
+		skillMD := filepath.Join(s.SkillsDir(), filepath.FromSlash(name), "SKILL.md")
+		if _, err := os.Stat(skillMD); err != nil {
+			return SkillInfo{}, fmt.Errorf("skill %q not found in store", name)
+		}
+		return SkillInfo{
+			GroupPath: name,
+			LeafName:  filepath.Base(filepath.FromSlash(name)),
+		}, nil
+	}
+
+	// Bare name — search all skills.
+	all, err := s.ListSkills()
+	if err != nil {
+		return SkillInfo{}, err
+	}
+
+	var matches []SkillInfo
+	for _, info := range all {
+		if info.LeafName == name {
+			matches = append(matches, info)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return SkillInfo{}, fmt.Errorf("skill %q not found in store", name)
+	case 1:
+		return matches[0], nil
+	default:
+		var paths []string
+		for _, m := range matches {
+			paths = append(paths, m.GroupPath)
+		}
+		return SkillInfo{}, fmt.Errorf("ambiguous skill name %q: found in multiple groups: %s — qualify with group path", name, strings.Join(paths, ", "))
+	}
+}
+
+// ExpandSkillGlob expands a skill reference. If pattern ends with "/", it's a
+// group glob: returns all skills whose GroupPath starts with the prefix (recursive).
+// If pattern doesn't end with "/", returns it as-is (single skill reference).
+func (s *Store) ExpandSkillGlob(pattern string) ([]string, error) {
+	if !strings.HasSuffix(pattern, "/") {
+		return []string{pattern}, nil
+	}
+
+	prefix := strings.TrimSuffix(pattern, "/")
+	all, err := s.ListSkills()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []string
+	for _, info := range all {
+		if info.GroupPath == prefix || strings.HasPrefix(info.GroupPath, prefix+"/") {
+			result = append(result, info.GroupPath)
+		}
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no skills found matching glob %q", pattern)
+	}
+	return result, nil
 }

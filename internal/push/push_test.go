@@ -437,6 +437,100 @@ func TestPushMultiStore(t *testing.T) {
 	}
 }
 
+// --- Grouped skill push tests ---
+
+func TestPushGroupedSkill(t *testing.T) {
+	s := setupStore(t)
+	addSkill(t, s, "tooling/browse", "# Browse skill")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "pi", Skills: []string{"tooling/browse"}}
+	applyToRepo(t, s, m, repo)
+
+	// Modify the deployed skill (deployed at leaf name path).
+	deployed := filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md")
+	if err := os.WriteFile(deployed, []byte("# Browse MODIFIED"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res := pushFromRepo(t, s, repo, Options{})
+	if len(res.Changes) != 1 {
+		t.Fatalf("expected 1 change, got %d", len(res.Changes))
+	}
+
+	// Verify changes land in the grouped store path, not flat.
+	data, err := os.ReadFile(filepath.Join(s.SkillsDir(), "tooling", "browse", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("grouped store path missing: %v", err)
+	}
+	if string(data) != "# Browse MODIFIED" {
+		t.Errorf("store content = %q", data)
+	}
+
+	// Second push should be no-op.
+	res2 := pushFromRepo(t, s, repo, Options{})
+	if len(res2.Changes) != 0 {
+		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
+	}
+}
+
+func TestPushGroupedSkillOnlyByStorePath(t *testing.T) {
+	s := setupStore(t)
+	addSkill(t, s, "tooling/browse", "# Browse")
+	addSkill(t, s, "tooling/search", "# Search")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "pi", Skills: []string{"tooling/browse", "tooling/search"}}
+	applyToRepo(t, s, m, repo)
+
+	// Modify both.
+	os.WriteFile(filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), []byte("# Browse MOD"), 0o644)
+	os.WriteFile(filepath.Join(repo, ".pi", "skills", "search", "SKILL.md"), []byte("# Search MOD"), 0o644)
+
+	// Push only tooling/browse by StorePath.
+	res := pushFromRepo(t, s, repo, Options{SkillOnly: "tooling/browse"})
+	if len(res.Changes) != 1 {
+		t.Fatalf("expected 1 change, got %d", len(res.Changes))
+	}
+
+	// Browse should be updated in store.
+	data, _ := os.ReadFile(filepath.Join(s.SkillsDir(), "tooling", "browse", "SKILL.md"))
+	if string(data) != "# Browse MOD" {
+		t.Errorf("browse not updated: %q", data)
+	}
+
+	// Search should NOT be updated.
+	data, _ = os.ReadFile(filepath.Join(s.SkillsDir(), "tooling", "search", "SKILL.md"))
+	if string(data) != "# Search" {
+		t.Errorf("search was modified: %q", data)
+	}
+}
+
+func TestPushGroupedSkillOnlyByLeafName(t *testing.T) {
+	s := setupStore(t)
+	addSkill(t, s, "tooling/browse", "# Browse")
+	addSkill(t, s, "search", "# Search")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "pi", Skills: []string{"tooling/browse", "search"}}
+	applyToRepo(t, s, m, repo)
+
+	// Modify browse.
+	os.WriteFile(filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), []byte("# Browse MOD"), 0o644)
+
+	// Push by leaf name "browse".
+	res := pushFromRepo(t, s, repo, Options{SkillOnly: "browse"})
+	if len(res.Changes) != 1 {
+		t.Fatalf("expected 1 change, got %d", len(res.Changes))
+	}
+
+	// Changes should land in the grouped path.
+	data, _ := os.ReadFile(filepath.Join(s.SkillsDir(), "tooling", "browse", "SKILL.md"))
+	if string(data) != "# Browse MOD" {
+		t.Errorf("browse not updated in grouped path: %q", data)
+	}
+}
+
 func TestPushUnknownStoreError(t *testing.T) {
 	s := setupStore(t)
 	addAgent(t, s, "main", "# Agent")

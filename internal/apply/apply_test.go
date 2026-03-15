@@ -614,3 +614,181 @@ func assertFileExists(t *testing.T, path string) {
 		t.Fatalf("expected file %s to exist: %v", path, err)
 	}
 }
+
+// --- Grouped skill tests ---
+
+func TestApplyGroupedSkill(t *testing.T) {
+	s := setupStore(t)
+	addSkillToStore(t, s, "tooling/browse", "# Browse skill")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "pi",
+		Skills: []string{"tooling/browse"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+
+	// Deploys using leaf name, not group path.
+	data, err := os.ReadFile(filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("skill not found at leaf path: %v", err)
+	}
+	if string(data) != "# Browse skill" {
+		t.Errorf("content = %q", data)
+	}
+
+	// Should NOT exist at the group path.
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "tooling", "browse")); err == nil {
+		t.Error("skill should not be deployed at group path")
+	}
+}
+
+func TestApplyGroupedSkillLock(t *testing.T) {
+	s := setupStore(t)
+	addSkillToStore(t, s, "tooling/browse", "# Browse")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "pi",
+		Skills: []string{"tooling/browse"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("loading lock: %v", err)
+	}
+
+	// Lock key uses group-qualified path.
+	entry, ok := lf.Deployed.Skills["tooling/browse"]
+	if !ok {
+		t.Fatalf("lock missing 'tooling/browse'; keys = %v", lockKeys(lf.Deployed.Skills))
+	}
+	if entry.StorePath != "skills/tooling/browse/" {
+		t.Errorf("StorePath = %q, want skills/tooling/browse/", entry.StorePath)
+	}
+}
+
+func TestApplyGroupedSkillMultiStoreLock(t *testing.T) {
+	work := setupStore(t)
+	personal := setupStore(t)
+	addSkillToStore(t, work, "tooling/browse", "# Browse")
+	addSkillToStore(t, personal, "search", "# Search")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "pi",
+		Skills: []string{"tooling/browse", "personal:search"},
+	}
+
+	stores := map[string]*store.Store{
+		"work":     work,
+		"personal": personal,
+	}
+	if _, err := Apply(stores, "work", m, repo, Options{Force: true}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("loading lock: %v", err)
+	}
+
+	// Default store skill uses group path as key.
+	if _, ok := lf.Deployed.Skills["tooling/browse"]; !ok {
+		t.Errorf("lock missing 'tooling/browse'; keys = %v", lockKeys(lf.Deployed.Skills))
+	}
+	// Non-default store uses store prefix + group path.
+	if _, ok := lf.Deployed.Skills["personal:search"]; !ok {
+		t.Errorf("lock missing 'personal:search'; keys = %v", lockKeys(lf.Deployed.Skills))
+	}
+}
+
+func TestApplyTwoGroupedSkills(t *testing.T) {
+	s := setupStore(t)
+	addSkillToStore(t, s, "tooling/browse", "# Browse")
+	addSkillToStore(t, s, "ayunis/backend", "# Backend")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "pi",
+		Skills: []string{"tooling/browse", "ayunis/backend"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Deployed != 2 {
+		t.Errorf("deployed = %d, want 2", res.Deployed)
+	}
+
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "backend", "SKILL.md"))
+}
+
+func TestApplySkillOnlyByStorePath(t *testing.T) {
+	s := setupStore(t)
+	addSkillToStore(t, s, "tooling/browse", "# Browse")
+	addSkillToStore(t, s, "tooling/search", "# Search")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "pi",
+		Skills: []string{"tooling/browse", "tooling/search"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true, SkillOnly: "tooling/browse"}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "search")); err == nil {
+		t.Error("search should not be deployed")
+	}
+}
+
+func TestApplySkillOnlyByLeafName(t *testing.T) {
+	s := setupStore(t)
+	addSkillToStore(t, s, "tooling/browse", "# Browse")
+	addSkillToStore(t, s, "search", "# Search")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "pi",
+		Skills: []string{"tooling/browse", "search"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true, SkillOnly: "browse"}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "search")); err == nil {
+		t.Error("search should not be deployed")
+	}
+}
+
+// lockKeys returns all keys from a lock entry map.
+func lockKeys(m map[string]*lock.Entry) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}

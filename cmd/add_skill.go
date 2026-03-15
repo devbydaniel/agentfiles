@@ -16,7 +16,8 @@ var addSkillCmd = &cobra.Command{
 			return err
 		}
 		force, _ := cmd.Flags().GetBool("force")
-		name, overwritten, err := s.AddSkill(args[0], force)
+		group, _ := cmd.Flags().GetString("group")
+		name, overwritten, err := s.AddSkill(args[0], group, force)
 		if err != nil {
 			return err
 		}
@@ -30,5 +31,6 @@ var addSkillCmd = &cobra.Command{
 
 func init() {
 	addSkillCmd.Flags().Bool("force", false, "overwrite if already exists")
+	addSkillCmd.Flags().String("group", "", "place skill in a group subdirectory (e.g., tooling, infra/aws)")
 	addCmd.AddCommand(addSkillCmd)
 }

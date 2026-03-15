@@ -123,7 +123,8 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 	if opts.SkillOnly != "" {
 		found := false
 		for _, sk := range resolved.Skills {
-			if sk.Name == opts.SkillOnly {
+			// Match against StorePath (qualified) or Name (leaf) for convenience.
+			if sk.StorePath == opts.SkillOnly || sk.Name == opts.SkillOnly {
 				resolvedSkills = []manifest.ResolvedAsset{sk}
 				found = true
 				break
@@ -138,9 +139,9 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		if err != nil {
 			return nil, fmt.Errorf("skill %q: %w", skill.Name, err)
 		}
-		src := filepath.Join(s.SkillsDir(), skill.Name)
+		src := filepath.Join(s.SkillsDir(), filepath.FromSlash(skill.StorePath))
 		if _, err := os.Stat(src); err != nil {
-			return nil, fmt.Errorf("skill %q not found in store %q", skill.Name, skill.Store)
+			return nil, fmt.Errorf("skill %q not found in store %q", skill.StorePath, skill.Store)
 		}
 		entries := lay.SkillEntries(skill.Name)
 		allSkipped := true
@@ -160,9 +161,9 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		if err != nil {
 			return nil, fmt.Errorf("hashing skill %q: %w", skill.Name, err)
 		}
-		relSource := filepath.Join("skills", skill.Name) + "/"
+		relSource := filepath.Join("skills", filepath.FromSlash(skill.StorePath)) + "/"
 		deployedPath := primaryPath(entries)
-		lk := lockKey(skill.Name, skill.Store, defaultStore)
+		lk := lockKey(skill.StorePath, skill.Store, defaultStore)
 		if err := lf.Record(lock.RecordParams{AssetType: lock.AssetSkills, Name: lk, StoreName: skill.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
 			return nil, err
 		}
