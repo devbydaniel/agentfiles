@@ -23,6 +23,30 @@ func agentCmd(layout string) string {
 	}
 }
 
+// completeRepoNames returns repo names for shell completion.
+func completeRepoNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	reg, err := loadRegistry(cfg)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	var names []string
+	for _, repo := range reg.Repos {
+		name := repo.Name
+		if name == "" {
+			name = filepath.Base(repo.Path)
+		}
+		names = append(names, name)
+	}
+	return names, cobra.ShellCompDirectiveNoFileComp
+}
+
 var execCmd = &cobra.Command{
 	Use:   "exec <repo-name> [-- agent-args...]",
 	Short: "Launch the agent CLI for a registered repo",
@@ -41,6 +65,7 @@ Examples:
   af exec api-server
   af exec web-app -- -p "fix the tests"
   af exec api-server --agent claude   # override agent choice`,
+	ValidArgsFunction:  completeRepoNames,
 	Args:               cobra.MinimumNArgs(1),
 	DisableFlagParsing: false,
 	RunE: func(cmd *cobra.Command, args []string) error {
