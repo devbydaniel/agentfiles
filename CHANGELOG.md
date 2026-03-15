@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/devbydaniel/agentfiles/compare/v0.3.0...v0.4.0) (2026-03-15)
+
+
+### Features
+
+* support store field in manifest for multi-store repos ([c15b5de](https://github.com/devbydaniel/agentfiles/commit/c15b5de3789a309f29fc427b227114a8fbaf10a1))
+
+
+### Bug Fixes
+
+* fix cursor AGENTS.md ([8d65eb7](https://github.com/devbydaniel/agentfiles/commit/8d65eb7944214de5e3b224e2dcb6a82a97b6215a))
+
 ## [0.3.0](https://github.com/devbydaniel/agentfiles/compare/v0.2.0...v0.3.0) (2026-03-10)
 
 
