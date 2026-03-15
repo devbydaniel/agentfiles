@@ -214,6 +214,35 @@ alias af=agentfiles
 
 ---
 
+## Shell Completion
+
+Enable tab completion for `af` commands and arguments (e.g., repo names for `af exec`).
+
+### Zsh
+
+```bash
+echo 'source <(af completion zsh)' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### Bash
+
+```bash
+echo 'source <(af completion bash)' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Fish
+
+```bash
+af completion fish | source
+af completion fish > ~/.config/fish/completions/af.fish
+```
+
+After setup, `af exec <TAB>` will autocomplete repo names, and all commands/flags are completable.
+
+---
+
 ## Quick Start
 
 ```bash
