@@ -270,5 +270,3 @@ func TestAddResourcePreservesStructure(t *testing.T) {
 		}
 	}
 }
-
-

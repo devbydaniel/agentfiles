@@ -33,5 +33,3 @@ func (a UserAllLayout) SkillEntries(name string) []Entry {
 		{Path: a.cursor.SkillPath(name)},
 	}
 }
-
-

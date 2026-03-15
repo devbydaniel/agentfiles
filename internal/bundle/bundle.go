@@ -13,8 +13,8 @@ import (
 // Bundle represents a parsed bundle TOML file.
 type Bundle struct {
 	BundleMeta bundleMeta `toml:"bundle"`
-	Skills    ItemList `toml:"skills"`
-	Resources ItemList `toml:"resources"`
+	Skills     ItemList   `toml:"skills"`
+	Resources  ItemList   `toml:"resources"`
 }
 
 type bundleMeta struct {

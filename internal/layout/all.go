@@ -47,5 +47,3 @@ func (a AllLayout) SkillEntries(name string) []Entry {
 		{Path: a.cursor.SkillPath(name)},
 	}
 }
-
-
