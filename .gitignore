@@ -1,6 +1,6 @@
 # Binary
-agentfiles
-af
+/agentfiles
+/af
 
 # IDE
 .idea/
