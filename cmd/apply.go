@@ -48,6 +48,11 @@ Examples:
 			return err
 		}
 
+		// Allow the manifest to override the default store.
+		if m.Store != "" {
+			defaultStore = m.Store
+		}
+
 		force, _ := cmd.Flags().GetBool("force")
 		skill, _ := cmd.Flags().GetString("skill")
 

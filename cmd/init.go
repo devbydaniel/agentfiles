@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/devbydaniel/agentfiles/internal/config"
 	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
@@ -115,7 +116,16 @@ Prints suggested .gitignore entries after creating the manifest.`,
 		}
 
 		// Write .agentfiles
-		content := fmt.Sprintf("bundle = %q\nlayout = %q\n", bundleName, layoutName)
+		// If --store was set and differs from the config default, record it
+		// so that "af apply" can resolve the bundle from the correct store.
+		var storePrefix string
+		if storePath != "" && !looksLikePath(storePath) {
+			cfg, err := config.Load(resolvedConfigPath())
+			if err == nil && storePath != cfg.DefaultStore {
+				storePrefix = fmt.Sprintf("store = %q\n", storePath)
+			}
+		}
+		content := storePrefix + fmt.Sprintf("bundle = %q\nlayout = %q\n", bundleName, layoutName)
 		if err := os.WriteFile(afPath, []byte(content), 0644); err != nil {
 			return fmt.Errorf("writing .agentfiles: %w", err)
 		}

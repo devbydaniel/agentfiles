@@ -10,6 +10,7 @@ import (
 
 // Manifest represents a parsed .agentfiles TOML file.
 type Manifest struct {
+	Store        string   `toml:"store"`
 	Bundle       string   `toml:"bundle"`
 	Layout       string   `toml:"layout"`
 	AgentsMd     string   `toml:"agents_md"`
