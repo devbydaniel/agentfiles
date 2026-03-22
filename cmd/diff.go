@@ -46,12 +46,12 @@ or what's changed in the store since your last "af apply".`,
 		}
 		var entries []entryInfo
 
-		if lf.Deployed.AgentsMD != nil {
-			sp, err := entrySourcePath(lf.Deployed.AgentsMD, stores, defaultStore)
+		if lf.Deployed.Instructions != nil {
+			sp, err := entrySourcePath(lf.Deployed.Instructions, stores, defaultStore)
 			if err != nil {
 				return err
 			}
-			entries = append(entries, entryInfo{"agents.md", sp, lf.Deployed.AgentsMD.DeployedPath})
+			entries = append(entries, entryInfo{"instructions.md", sp, lf.Deployed.Instructions.DeployedPath})
 		}
 		for name, e := range lf.Deployed.Skills {
 			sp, err := entrySourcePath(e, stores, defaultStore)

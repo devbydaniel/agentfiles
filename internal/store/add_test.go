@@ -71,7 +71,7 @@ func TestAddAgentCopiesFile(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "AGENTS.md")
 	os.WriteFile(src, []byte("# Agent instructions"), 0o644)
 
-	overwritten, err := s.AddAgent(src, "test", false)
+	overwritten, err := s.AddInstruction(src, "test", false)
 	if err != nil {
 		t.Fatalf("AddAgent: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestAddAgentCopiesFile(t *testing.T) {
 		t.Error("expected overwritten=false")
 	}
 
-	data, err := os.ReadFile(filepath.Join(s.AgentsDir(), "test.md"))
+	data, err := os.ReadFile(filepath.Join(s.InstructionsDir(), "test.md"))
 	if err != nil {
 		t.Fatalf("test.md missing: %v", err)
 	}
@@ -94,12 +94,12 @@ func TestAddAgentAlreadyExistsNoForce(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "agent.md")
 	os.WriteFile(src, []byte("v1"), 0o644)
 
-	if _, err := s.AddAgent(src, "myagent", false); err != nil {
+	if _, err := s.AddInstruction(src, "myagent", false); err != nil {
 		t.Fatalf("first AddAgent: %v", err)
 	}
 
 	os.WriteFile(src, []byte("v2"), 0o644)
-	_, err := s.AddAgent(src, "myagent", false)
+	_, err := s.AddInstruction(src, "myagent", false)
 	if err == nil {
 		t.Fatal("expected error on duplicate add without --force")
 	}
@@ -108,7 +108,7 @@ func TestAddAgentAlreadyExistsNoForce(t *testing.T) {
 	}
 
 	// Original content preserved.
-	data, _ := os.ReadFile(filepath.Join(s.AgentsDir(), "myagent.md"))
+	data, _ := os.ReadFile(filepath.Join(s.InstructionsDir(), "myagent.md"))
 	if string(data) != "v1" {
 		t.Errorf("content = %q, want v1", data)
 	}
@@ -120,12 +120,12 @@ func TestAddAgentAlreadyExistsWithForce(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "agent.md")
 	os.WriteFile(src, []byte("v1"), 0o644)
 
-	if _, err := s.AddAgent(src, "myagent", false); err != nil {
+	if _, err := s.AddInstruction(src, "myagent", false); err != nil {
 		t.Fatalf("first AddAgent: %v", err)
 	}
 
 	os.WriteFile(src, []byte("v2"), 0o644)
-	overwritten, err := s.AddAgent(src, "myagent", true)
+	overwritten, err := s.AddInstruction(src, "myagent", true)
 	if err != nil {
 		t.Fatalf("AddAgent with force: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestAddAgentAlreadyExistsWithForce(t *testing.T) {
 		t.Error("expected overwritten=true")
 	}
 
-	data, _ := os.ReadFile(filepath.Join(s.AgentsDir(), "myagent.md"))
+	data, _ := os.ReadFile(filepath.Join(s.InstructionsDir(), "myagent.md"))
 	if string(data) != "v2" {
 		t.Errorf("content = %q, want v2", data)
 	}
@@ -143,7 +143,7 @@ func TestAddAgentRejectsDirectory(t *testing.T) {
 	s := setupStore(t)
 
 	src := t.TempDir()
-	_, err := s.AddAgent(src, "myagent", false)
+	_, err := s.AddInstruction(src, "myagent", false)
 	if err == nil {
 		t.Fatal("expected error when source is a directory")
 	}
@@ -159,7 +159,7 @@ func TestAddAgentRejectsPathTraversal(t *testing.T) {
 	os.WriteFile(src, []byte("data"), 0o644)
 
 	for _, bad := range []string{"../escape", "foo/bar", `foo\bar`, "a..b/c"} {
-		_, err := s.AddAgent(src, bad, false)
+		_, err := s.AddInstruction(src, bad, false)
 		if err == nil {
 			t.Errorf("expected error for name %q", bad)
 		}
@@ -231,7 +231,7 @@ func TestAddSourceNotExists(t *testing.T) {
 		t.Errorf("error = %q", err)
 	}
 
-	_, err = s.AddAgent("/nonexistent/file.md", "x", false)
+	_, err = s.AddInstruction("/nonexistent/file.md", "x", false)
 	if err == nil {
 		t.Fatal("expected error for nonexistent source")
 	}

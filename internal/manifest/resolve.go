@@ -19,7 +19,7 @@ type ResolvedAsset struct {
 // bundle references and applying overrides.
 type ResolvedManifest struct {
 	Layout    string
-	AgentsMd  ResolvedAsset
+	Instructions ResolvedAsset
 	Skills    []ResolvedAsset
 	Resources []ResolvedAsset
 }
@@ -48,8 +48,8 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 			return nil, err
 		}
 
-		if name := b.AgentsMd(); name != "" {
-			r.AgentsMd = ResolvedAsset{Name: name, Store: defaultStore}
+		if name := b.Instructions(); name != "" {
+			r.Instructions = ResolvedAsset{Name: name, Store: defaultStore}
 		}
 
 		// Expand globs in bundle skills include/exclude, then filter.
@@ -68,9 +68,9 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 
 		r.Resources = toResolvedAssets(filterExcluded(b.Resources.Include, b.Resources.Exclude), defaultStore)
 	} else {
-		if m.AgentsMd != "" {
-			storeName, name := parseStorePrefix(m.AgentsMd, defaultStore)
-			r.AgentsMd = ResolvedAsset{Name: name, Store: storeName}
+		if m.Instructions != "" {
+			storeName, name := parseStorePrefix(m.Instructions, defaultStore)
+			r.Instructions = ResolvedAsset{Name: name, Store: storeName}
 		}
 
 		// Expand globs in cherry-pick skills.
@@ -156,8 +156,8 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 
 	// Validate that all referenced stores exist.
 	allAssets := []ResolvedAsset{}
-	if r.AgentsMd.Name != "" {
-		allAssets = append(allAssets, r.AgentsMd)
+	if r.Instructions.Name != "" {
+		allAssets = append(allAssets, r.Instructions)
 	}
 	allAssets = append(allAssets, r.Skills...)
 	allAssets = append(allAssets, r.Resources...)

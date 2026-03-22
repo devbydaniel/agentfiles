@@ -19,7 +19,7 @@ type Bundle struct {
 
 type bundleMeta struct {
 	Name     string `toml:"name"`
-	AgentsMd string `toml:"agents_md"`
+	Instructions string `toml:"instructions"`
 }
 
 // ItemList holds include/exclude slices for a bundle section.
@@ -31,8 +31,8 @@ type ItemList struct {
 // Name returns the bundle name.
 func (b *Bundle) Name() string { return b.BundleMeta.Name }
 
-// AgentsMd returns the agents_md reference.
-func (b *Bundle) AgentsMd() string { return b.BundleMeta.AgentsMd }
+// Instructions returns the instructions reference.
+func (b *Bundle) Instructions() string { return b.BundleMeta.Instructions }
 
 // Load reads and parses a bundle TOML from the store's bundles directory.
 func Load(s *store.Store, name string) (*Bundle, error) {

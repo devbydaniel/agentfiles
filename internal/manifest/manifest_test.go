@@ -33,7 +33,7 @@ layout = "pi"
 func TestLoadCherryPick(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
-agents_md = "ayunis-core"
+instructions = "ayunis-core"
 skills = ["browse", "git-workflow"]
 resources = ["cursor-config"]
 `), 0o644)
@@ -42,8 +42,8 @@ resources = ["cursor-config"]
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if m.AgentsMd != "ayunis-core" {
-		t.Errorf("AgentsMd = %q, want %q", m.AgentsMd, "ayunis-core")
+	if m.Instructions != "ayunis-core" {
+		t.Errorf("AgentsMd = %q, want %q", m.Instructions, "ayunis-core")
 	}
 	if len(m.Skills) != 2 {
 		t.Errorf("Skills len = %d, want 2", len(m.Skills))
@@ -79,7 +79,7 @@ skills = ["browse"]
 func setupStore(t *testing.T) *store.Store {
 	t.Helper()
 	dir := t.TempDir()
-	for _, sub := range []string{"skills", "agents", "resources", "bundles"} {
+	for _, sub := range []string{"skills", "instructions", "resources", "bundles"} {
 		os.MkdirAll(filepath.Join(dir, sub), 0o755)
 	}
 	exec.Command("git", "init", dir).Run()
@@ -115,7 +115,7 @@ func TestResolveBundleWithOverrides(t *testing.T) {
 	bundleContent := `
 [bundle]
 name = "ayunis-core"
-agents_md = "ayunis-core"
+instructions = "ayunis-core"
 
 [skills]
 include = ["nestjs-hexagonal-backend", "git-workflow", "typeorm-migrations"]
@@ -143,11 +143,11 @@ skills_remove = ["typeorm-migrations"]
 		t.Fatalf("Resolve: %v", err)
 	}
 
-	if r.AgentsMd.Name != "ayunis-core" {
-		t.Errorf("AgentsMd.Name = %q, want %q", r.AgentsMd.Name, "ayunis-core")
+	if r.Instructions.Name != "ayunis-core" {
+		t.Errorf("AgentsMd.Name = %q, want %q", r.Instructions.Name, "ayunis-core")
 	}
-	if r.AgentsMd.Store != "default" {
-		t.Errorf("AgentsMd.Store = %q, want %q", r.AgentsMd.Store, "default")
+	if r.Instructions.Store != "default" {
+		t.Errorf("AgentsMd.Store = %q, want %q", r.Instructions.Store, "default")
 	}
 	if r.Layout != "pi" {
 		t.Errorf("Layout = %q, want %q", r.Layout, "pi")
@@ -184,7 +184,7 @@ func TestResolveCherryPick(t *testing.T) {
 
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
-agents_md = "ayunis-core"
+instructions = "ayunis-core"
 skills = ["browse", "git-workflow"]
 resources = ["cursor-config"]
 `), 0o644)
@@ -200,8 +200,8 @@ resources = ["cursor-config"]
 		t.Fatalf("Resolve: %v", err)
 	}
 
-	if r.AgentsMd.Name != "ayunis-core" {
-		t.Errorf("AgentsMd.Name = %q, want %q", r.AgentsMd.Name, "ayunis-core")
+	if r.Instructions.Name != "ayunis-core" {
+		t.Errorf("AgentsMd.Name = %q, want %q", r.Instructions.Name, "ayunis-core")
 	}
 	if r.Layout != "pi" {
 		t.Errorf("Layout = %q, want %q", r.Layout, "pi")
@@ -238,7 +238,7 @@ resources = ["x"]
 func TestLoadSkillsAddWithoutBundle(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
-agents_md = "core"
+instructions = "core"
 skills_add = ["browse"]
 `), 0o644)
 
@@ -289,7 +289,7 @@ func TestResolveCrossStoreSkillsAdd(t *testing.T) {
 	bundleContent := `
 [bundle]
 name = "backend"
-agents_md = "backend"
+instructions = "backend"
 
 [skills]
 include = ["golang"]
@@ -355,7 +355,7 @@ func TestResolveCrossStoreSkillsRemove(t *testing.T) {
 	bundleContent := `
 [bundle]
 name = "backend"
-agents_md = "backend"
+instructions = "backend"
 
 [skills]
 include = ["golang", "my-skill"]
@@ -415,7 +415,7 @@ func TestResolveCrossStoreCherryPick(t *testing.T) {
 
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
-agents_md = "personal:my-agent"
+instructions = "personal:my-agent"
 skills = ["work:backend", "personal:utils"]
 `), 0o644)
 
@@ -433,8 +433,8 @@ skills = ["work:backend", "personal:utils"]
 		t.Fatalf("Resolve: %v", err)
 	}
 
-	if r.AgentsMd.Name != "my-agent" || r.AgentsMd.Store != "personal" {
-		t.Errorf("AgentsMd = %+v, want {Name:my-agent Store:personal}", r.AgentsMd)
+	if r.Instructions.Name != "my-agent" || r.Instructions.Store != "personal" {
+		t.Errorf("AgentsMd = %+v, want {Name:my-agent Store:personal}", r.Instructions)
 	}
 
 	if len(r.Skills) != 2 {
@@ -490,14 +490,14 @@ func TestFromUserConfigBundle(t *testing.T) {
 
 func TestFromUserConfigCherryPick(t *testing.T) {
 	m, err := manifest.FromUserConfig(manifest.UserFields{
-		AgentsMd: "my-agent",
+		Instructions: "my-agent",
 		Skills:   []string{"browse", "git"},
 	})
 	if err != nil {
 		t.Fatalf("FromUserConfig: %v", err)
 	}
-	if m.AgentsMd != "my-agent" {
-		t.Errorf("AgentsMd = %q, want %q", m.AgentsMd, "my-agent")
+	if m.Instructions != "my-agent" {
+		t.Errorf("AgentsMd = %q, want %q", m.Instructions, "my-agent")
 	}
 	if len(m.Skills) != 2 {
 		t.Errorf("Skills len = %d, want 2", len(m.Skills))
@@ -510,7 +510,7 @@ func TestFromUserConfigCherryPick(t *testing.T) {
 
 func TestFromUserConfigDefaultLayout(t *testing.T) {
 	m, err := manifest.FromUserConfig(manifest.UserFields{
-		AgentsMd: "core",
+		Instructions: "core",
 	})
 	if err != nil {
 		t.Fatalf("FromUserConfig: %v", err)
@@ -539,7 +539,7 @@ func TestFromUserConfigEmptyError(t *testing.T) {
 
 func TestFromUserConfigSkillsAddWithoutBundleError(t *testing.T) {
 	_, err := manifest.FromUserConfig(manifest.UserFields{
-		AgentsMd:  "core",
+		Instructions:  "core",
 		SkillsAdd: []string{"extra"},
 	})
 	if err == nil {
@@ -567,7 +567,7 @@ func TestResolveBundleWithGlob(t *testing.T) {
 	bundleContent := `
 [bundle]
 name = "test"
-agents_md = "core"
+instructions = "core"
 
 [skills]
 include = ["ayunis/", "browse"]
@@ -733,7 +733,7 @@ func TestResolveSkillsAddWithGlob(t *testing.T) {
 	bundleContent := `
 [bundle]
 name = "test"
-agents_md = "core"
+instructions = "core"
 
 [skills]
 include = ["base"]
@@ -771,7 +771,7 @@ func TestResolveSkillsRemoveSpecific(t *testing.T) {
 	bundleContent := `
 [bundle]
 name = "test"
-agents_md = "core"
+instructions = "core"
 
 [skills]
 include = ["ayunis/", "browse"]
@@ -814,7 +814,7 @@ func TestResolveSkillsRemoveGlob(t *testing.T) {
 	bundleContent := `
 [bundle]
 name = "test"
-agents_md = "core"
+instructions = "core"
 
 [skills]
 include = ["ayunis/", "browse"]
@@ -855,7 +855,7 @@ func TestResolveBundleExcludeGlob(t *testing.T) {
 	bundleContent := `
 [bundle]
 name = "test"
-agents_md = "core"
+instructions = "core"
 
 [skills]
 include = ["ayunis/", "browse"]
@@ -932,7 +932,7 @@ func TestResolveSkillsAddCrossStoreGlob(t *testing.T) {
 	bundleContent := `
 [bundle]
 name = "test"
-agents_md = "core"
+instructions = "core"
 
 [skills]
 include = ["browse"]

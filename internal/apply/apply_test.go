@@ -30,7 +30,7 @@ func singleStoreMap(s *store.Store) (map[string]*store.Store, string) {
 // addAgentToStore writes a .md file into the store agents dir.
 func addAgentToStore(t *testing.T, s *store.Store, name, content string) {
 	t.Helper()
-	p := filepath.Join(s.AgentsDir(), name+".md")
+	p := filepath.Join(s.InstructionsDir(), name+".md")
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestApplyPiLayout(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:   "pi",
-		AgentsMd: "main",
+		Instructions: "main",
 		Skills:   []string{"golang"},
 	}
 
@@ -107,7 +107,7 @@ func TestApplyClaudeLayout(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:   "claude",
-		AgentsMd: "main",
+		Instructions: "main",
 		Skills:   []string{"testing"},
 	}
 
@@ -141,7 +141,7 @@ func TestApplyCursorLayout(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:   "cursor",
-		AgentsMd: "main",
+		Instructions: "main",
 		Skills:   []string{"refactor"},
 	}
 
@@ -181,7 +181,7 @@ func TestApplyAllLayout(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:   "all",
-		AgentsMd: "main",
+		Instructions: "main",
 		Skills:   []string{"debug"},
 	}
 
@@ -239,7 +239,7 @@ func TestApplyResources(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:    "pi",
-		AgentsMd:  "main",
+		Instructions:  "main",
 		Resources: []string{"configs"},
 	}
 
@@ -273,7 +273,7 @@ func TestApplyWritesLockFile(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:   "pi",
-		AgentsMd: "main",
+		Instructions: "main",
 		Skills:   []string{"golang"},
 	}
 
@@ -286,18 +286,18 @@ func TestApplyWritesLockFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loading lock: %v", err)
 	}
-	if lf.Deployed.AgentsMD == nil {
-		t.Fatal("lock file missing agents_md entry")
+	if lf.Deployed.Instructions == nil {
+		t.Fatal("lock file missing instructions entry")
 	}
 	// Source should be store-relative, not absolute.
-	if strings.HasPrefix(lf.Deployed.AgentsMD.StorePath, "/") {
-		t.Errorf("agents_md source is absolute: %s", lf.Deployed.AgentsMD.StorePath)
+	if strings.HasPrefix(lf.Deployed.Instructions.StorePath, "/") {
+		t.Errorf("instructions source is absolute: %s", lf.Deployed.Instructions.StorePath)
 	}
-	if lf.Deployed.AgentsMD.StorePath != filepath.Join("agents", "main.md") {
-		t.Errorf("agents_md source = %q, want %q", lf.Deployed.AgentsMD.StorePath, filepath.Join("agents", "main.md"))
+	if lf.Deployed.Instructions.StorePath != filepath.Join("instructions", "main.md") {
+		t.Errorf("instructions source = %q, want %q", lf.Deployed.Instructions.StorePath, filepath.Join("instructions", "main.md"))
 	}
-	if lf.Deployed.AgentsMD.Store != "default" {
-		t.Errorf("agents_md store = %q, want %q", lf.Deployed.AgentsMD.Store, "default")
+	if lf.Deployed.Instructions.Store != "default" {
+		t.Errorf("instructions store = %q, want %q", lf.Deployed.Instructions.Store, "default")
 	}
 
 	skill, ok := lf.Deployed.Skills["golang"]
@@ -325,7 +325,7 @@ func TestApplyWritesLockForResources(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:    "pi",
-		AgentsMd:  "main",
+		Instructions:  "main",
 		Resources: []string{"myresource"},
 	}
 
@@ -360,7 +360,7 @@ func TestApplySkillOnly(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:   "pi",
-		AgentsMd: "main",
+		Instructions: "main",
 		Skills:   []string{"golang", "python"},
 	}
 
@@ -393,7 +393,7 @@ func TestApplySkillNotInManifest(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:   "pi",
-		AgentsMd: "main",
+		Instructions: "main",
 		Skills:   []string{"golang"},
 	}
 
@@ -414,7 +414,7 @@ func TestApplySkillNotInStore(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:   "pi",
-		AgentsMd: "main",
+		Instructions: "main",
 		Skills:   []string{"nonexistent"},
 	}
 
@@ -440,7 +440,7 @@ func TestApplyNoForceSkipsExisting(t *testing.T) {
 
 	m := &manifest.Manifest{
 		Layout:   "pi",
-		AgentsMd: "main",
+		Instructions: "main",
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -463,7 +463,7 @@ func TestApplyNoForceSkipsExisting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loading lock: %v", err)
 	}
-	if lf.Deployed.AgentsMD == nil {
+	if lf.Deployed.Instructions == nil {
 		t.Error("lock file should record skipped agent to prevent stale pruning")
 	}
 
@@ -488,7 +488,7 @@ func TestApplyMultiStore(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{
 		Layout:   "pi",
-		AgentsMd: "main",
+		Instructions: "main",
 		Skills:   []string{"backend", "personal:my-utils"},
 	}
 
@@ -543,8 +543,8 @@ func TestApplyMultiStore(t *testing.T) {
 		t.Errorf("my-utils store = %q, want %q", utilsEntry.Store, "personal")
 	}
 
-	if lf.Deployed.AgentsMD.Store != "work" {
-		t.Errorf("agents_md store = %q, want %q", lf.Deployed.AgentsMD.Store, "work")
+	if lf.Deployed.Instructions.Store != "work" {
+		t.Errorf("instructions store = %q, want %q", lf.Deployed.Instructions.Store, "work")
 	}
 }
 

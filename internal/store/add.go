@@ -39,12 +39,12 @@ func (s *Store) AddSkill(srcPath string, group string, force bool) (string, bool
 	return s.addDir(srcPath, s.SkillsDir(), force)
 }
 
-// AddAgent copies a file into store/agents/<name>.md.
-// Returns whether an existing agent was overwritten.
-func (s *Store) AddAgent(srcPath, name string, force bool) (bool, error) {
+// AddInstruction copies a file into store/instructions/<name>.md.
+// Returns whether an existing instruction was overwritten.
+func (s *Store) AddInstruction(srcPath, name string, force bool) (bool, error) {
 	// Validate name: reject path separators and traversal.
 	if strings.ContainsAny(name, `/\`) || strings.Contains(name, "..") {
-		return false, fmt.Errorf("invalid agent name %q: must not contain path separators or '..'", name)
+		return false, fmt.Errorf("invalid instruction name %q: must not contain path separators or '..'", name)
 	}
 
 	abs, err := filepath.Abs(srcPath)
@@ -59,22 +59,22 @@ func (s *Store) AddAgent(srcPath, name string, force bool) (bool, error) {
 		return false, fmt.Errorf("source path %q is a directory, expected a file", srcPath)
 	}
 
-	dest := filepath.Join(s.AgentsDir(), name+".md")
+	dest := filepath.Join(s.InstructionsDir(), name+".md")
 
-	// Ensure the resolved dest is still inside AgentsDir.
+	// Ensure the resolved dest is still inside InstructionsDir.
 	cleanDest, err := filepath.Abs(dest)
 	if err != nil {
 		return false, fmt.Errorf("resolving dest path: %w", err)
 	}
-	agentsDir := s.AgentsDir()
-	if !strings.HasPrefix(cleanDest, agentsDir+string(filepath.Separator)) && cleanDest != agentsDir {
-		return false, fmt.Errorf("invalid agent name %q: resolved path escapes agents directory", name)
+	instructionsDir := s.InstructionsDir()
+	if !strings.HasPrefix(cleanDest, instructionsDir+string(filepath.Separator)) && cleanDest != instructionsDir {
+		return false, fmt.Errorf("invalid instruction name %q: resolved path escapes instructions directory", name)
 	}
 
 	overwritten := false
 	if _, err := os.Stat(dest); err == nil {
 		if !force {
-			return false, fmt.Errorf("agent %q already exists in store (use --force to overwrite)", name)
+			return false, fmt.Errorf("instruction %q already exists in store (use --force to overwrite)", name)
 		}
 		overwritten = true
 	}

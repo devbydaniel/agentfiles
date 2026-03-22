@@ -24,7 +24,7 @@ func setupStore(t *testing.T) *store.Store {
 
 func addAgent(t *testing.T, s *store.Store, name, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(s.AgentsDir(), name+".md"), []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(s.InstructionsDir(), name+".md"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -78,7 +78,7 @@ func TestPushModifiedSkill(t *testing.T) {
 	addSkill(t, s, "browse", "# Browse skill")
 
 	repo := t.TempDir()
-	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Skills: []string{"browse"}}
+	m := &manifest.Manifest{Layout: "pi", Instructions: "main", Skills: []string{"browse"}}
 	applyToRepo(t, s, m, repo)
 
 	// Modify the deployed SKILL.md.
@@ -118,14 +118,14 @@ func TestPushUnmodifiedNoop(t *testing.T) {
 	addSkill(t, s, "browse", "# Browse skill")
 
 	repo := t.TempDir()
-	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Skills: []string{"browse"}}
+	m := &manifest.Manifest{Layout: "pi", Instructions: "main", Skills: []string{"browse"}}
 	applyToRepo(t, s, m, repo)
 
 	res := pushFromRepo(t, s, repo, Options{})
 	if len(res.Changes) != 0 {
 		t.Errorf("expected 0 changes, got %d", len(res.Changes))
 	}
-	if res.Checked != 2 { // agents_md + browse
+	if res.Checked != 2 { // instructions + browse
 		t.Errorf("checked = %d, want 2", res.Checked)
 	}
 }
@@ -136,7 +136,7 @@ func TestPushDryRun(t *testing.T) {
 	addSkill(t, s, "browse", "# Browse skill")
 
 	repo := t.TempDir()
-	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Skills: []string{"browse"}}
+	m := &manifest.Manifest{Layout: "pi", Instructions: "main", Skills: []string{"browse"}}
 	applyToRepo(t, s, m, repo)
 
 	// Modify deployed file.
@@ -181,7 +181,7 @@ func TestPushSkillFilter(t *testing.T) {
 	addSkill(t, s, "git", "# Git")
 
 	repo := t.TempDir()
-	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Skills: []string{"browse", "git"}}
+	m := &manifest.Manifest{Layout: "pi", Instructions: "main", Skills: []string{"browse", "git"}}
 	applyToRepo(t, s, m, repo)
 
 	// Modify both skills.
@@ -237,7 +237,7 @@ func TestPushModifiedResource(t *testing.T) {
 	})
 
 	repo := t.TempDir()
-	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Resources: []string{"configs"}}
+	m := &manifest.Manifest{Layout: "pi", Instructions: "main", Resources: []string{"configs"}}
 	applyToRepo(t, s, m, repo)
 
 	// Verify resources were deployed to repo root.
@@ -296,7 +296,7 @@ func TestPushUnmodifiedResource(t *testing.T) {
 	addResource(t, s, "configs", map[string]string{"config.yaml": "key: value"})
 
 	repo := t.TempDir()
-	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Resources: []string{"configs"}}
+	m := &manifest.Manifest{Layout: "pi", Instructions: "main", Resources: []string{"configs"}}
 	applyToRepo(t, s, m, repo)
 
 	res := pushFromRepo(t, s, repo, Options{})
@@ -310,7 +310,7 @@ func TestPushModifiedAgentMd(t *testing.T) {
 	addAgent(t, s, "main", "# Original agent")
 
 	repo := t.TempDir()
-	m := &manifest.Manifest{Layout: "pi", AgentsMd: "main"}
+	m := &manifest.Manifest{Layout: "pi", Instructions: "main"}
 	applyToRepo(t, s, m, repo)
 
 	// Modify deployed AGENTS.md.
@@ -322,12 +322,12 @@ func TestPushModifiedAgentMd(t *testing.T) {
 	if len(res.Changes) != 1 {
 		t.Fatalf("expected 1 change, got %d", len(res.Changes))
 	}
-	if res.Changes[0].Name != "agents_md" {
+	if res.Changes[0].Name != "instructions" {
 		t.Errorf("change name = %q", res.Changes[0].Name)
 	}
 
 	// Store should be updated.
-	data, err := os.ReadFile(filepath.Join(s.AgentsDir(), "main.md"))
+	data, err := os.ReadFile(filepath.Join(s.InstructionsDir(), "main.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +354,7 @@ func TestPushMultiStore(t *testing.T) {
 	}
 
 	// Apply backend from work store (default).
-	m2 := &manifest.Manifest{Layout: "pi", AgentsMd: "main", Skills: []string{"backend"}}
+	m2 := &manifest.Manifest{Layout: "pi", Instructions: "main", Skills: []string{"backend"}}
 	repo2 := t.TempDir()
 	if _, err := apply.Apply(stores, "work", m2, repo2, apply.Options{Force: true}); err != nil {
 		t.Fatalf("Apply: %v", err)
@@ -539,7 +539,7 @@ func TestPushUnknownStoreError(t *testing.T) {
 	repo := t.TempDir()
 	stores := map[string]*store.Store{"default": s}
 	if _, err := apply.Apply(stores, "default", &manifest.Manifest{
-		Layout: "pi", AgentsMd: "main", Skills: []string{"browse"},
+		Layout: "pi", Instructions: "main", Skills: []string{"browse"},
 	}, repo, apply.Options{Force: true}); err != nil {
 		t.Fatal(err)
 	}

@@ -57,7 +57,7 @@ func TestIntegrationRoundTrip(t *testing.T) {
 	agentSrc := filepath.Join(tmp, "src-agent.md")
 	mustWrite(t, agentSrc, "# Agent Instructions\nBe helpful.\n")
 
-	_, err = s.AddAgent(agentSrc, "default", false)
+	_, err = s.AddInstruction(agentSrc, "default", false)
 	if err != nil {
 		t.Fatalf("add agent: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestIntegrationRoundTrip(t *testing.T) {
 	// ── 3. create bundle TOML ──────────────────────────────────────
 	bundleTOML := `[bundle]
 name = "test-bundle"
-agents_md = "default"
+instructions = "default"
 
 [skills]
 include = ["my-skill"]
@@ -127,11 +127,11 @@ include = ["configs"]
 	if err != nil {
 		t.Fatalf("load lock: %v", err)
 	}
-	if lf1.Deployed.AgentsMD == nil {
-		t.Fatal("lock missing agents_md entry")
+	if lf1.Deployed.Instructions == nil {
+		t.Fatal("lock missing instructions entry")
 	}
-	if lf1.Deployed.AgentsMD.Hash == "" {
-		t.Fatal("lock agents_md hash is empty")
+	if lf1.Deployed.Instructions.Hash == "" {
+		t.Fatal("lock instructions hash is empty")
 	}
 	if _, ok := lf1.Deployed.Skills["my-skill"]; !ok {
 		t.Fatal("lock missing skill 'my-skill'")
@@ -215,7 +215,7 @@ include = ["configs"]
 			lf2.Deployed.Skills["my-skill"].Hash, skillHashAfter)
 	}
 	// Agent and resource hashes should match between repos.
-	if lf2.Deployed.AgentsMD.Hash != lf1After.Deployed.AgentsMD.Hash {
+	if lf2.Deployed.Instructions.Hash != lf1After.Deployed.Instructions.Hash {
 		t.Fatal("agent hash mismatch between repos")
 	}
 	if lf2.Deployed.Resources["configs"].Hash != lf1After.Deployed.Resources["configs"].Hash {
@@ -254,14 +254,14 @@ func TestIntegrationAllLayout(t *testing.T) {
 
 	agentSrc := filepath.Join(tmp, "src-agent.md")
 	mustWrite(t, agentSrc, "# Agent\n")
-	if _, err := s.AddAgent(agentSrc, "default", false); err != nil {
+	if _, err := s.AddInstruction(agentSrc, "default", false); err != nil {
 		t.Fatalf("add agent: %v", err)
 	}
 
 	// Bundle
 	bundleTOML := `[bundle]
 name = "all-bundle"
-agents_md = "default"
+instructions = "default"
 
 [skills]
 include = ["my-skill"]
@@ -327,7 +327,7 @@ func TestIntegrationCherryPick(t *testing.T) {
 
 	agentSrc := filepath.Join(tmp, "src-agent.md")
 	mustWrite(t, agentSrc, "# Cherry Agent\n")
-	if _, err := s.AddAgent(agentSrc, "cherry", false); err != nil {
+	if _, err := s.AddInstruction(agentSrc, "cherry", false); err != nil {
 		t.Fatalf("add agent: %v", err)
 	}
 
@@ -342,7 +342,7 @@ func TestIntegrationCherryPick(t *testing.T) {
 	repo := filepath.Join(tmp, "repo-cherry")
 	mustMkdir(t, repo)
 	mustWrite(t, filepath.Join(repo, ".agentfiles"), `layout = "pi"
-agents_md = "cherry"
+instructions = "cherry"
 skills = ["browse"]
 resources = ["dotfiles"]
 `)
@@ -404,13 +404,13 @@ func TestIntegrationDiffAndStatus(t *testing.T) {
 
 	agentSrc := filepath.Join(tmp, "src-agent.md")
 	mustWrite(t, agentSrc, "# Agent\n")
-	if _, err := s.AddAgent(agentSrc, "default", false); err != nil {
+	if _, err := s.AddInstruction(agentSrc, "default", false); err != nil {
 		t.Fatalf("add agent: %v", err)
 	}
 
 	bundleTOML := `[bundle]
 name = "diff-test"
-agents_md = "default"
+instructions = "default"
 
 [skills]
 include = ["my-skill"]
@@ -435,11 +435,11 @@ include = ["my-skill"]
 	if err != nil {
 		t.Fatalf("load lock: %v", err)
 	}
-	if lf.Deployed.AgentsMD == nil {
-		t.Fatal("lock missing agents_md")
+	if lf.Deployed.Instructions == nil {
+		t.Fatal("lock missing instructions")
 	}
-	if strings.HasPrefix(lf.Deployed.AgentsMD.StorePath, "/") {
-		t.Fatalf("expected relative store path, got %q", lf.Deployed.AgentsMD.StorePath)
+	if strings.HasPrefix(lf.Deployed.Instructions.StorePath, "/") {
+		t.Fatalf("expected relative store path, got %q", lf.Deployed.Instructions.StorePath)
 	}
 
 	// Status should show all unchanged.
@@ -526,13 +526,13 @@ func TestIntegrationMultiStore(t *testing.T) {
 
 	agentSrc := filepath.Join(tmp, "src-agent.md")
 	mustWrite(t, agentSrc, "# Work Agent\n")
-	if _, err := work.AddAgent(agentSrc, "default", false); err != nil {
+	if _, err := work.AddInstruction(agentSrc, "default", false); err != nil {
 		t.Fatalf("add work agent: %v", err)
 	}
 
 	bundleTOML := `[bundle]
 name = "backend"
-agents_md = "default"
+instructions = "default"
 
 [skills]
 include = ["work-skill"]
@@ -698,7 +698,7 @@ func TestIntegrationUserLevelDeploy(t *testing.T) {
 	// Agent
 	agentSrc := filepath.Join(tmp, "src-agent.md")
 	mustWrite(t, agentSrc, "# User Agent\nGlobal instructions.\n")
-	if _, err := s.AddAgent(agentSrc, "global", false); err != nil {
+	if _, err := s.AddInstruction(agentSrc, "global", false); err != nil {
 		t.Fatalf("add agent: %v", err)
 	}
 
@@ -713,7 +713,7 @@ func TestIntegrationUserLevelDeploy(t *testing.T) {
 	// ── 2. Create bundle ───────────────────────────────────────────
 	bundleTOML := `[bundle]
 name = "user-bundle"
-agents_md = "global"
+instructions = "global"
 
 [skills]
 include = ["browse"]
@@ -767,8 +767,8 @@ include = ["browse"]
 	if err != nil {
 		t.Fatalf("load user lock: %v", err)
 	}
-	if lf.Deployed.AgentsMD == nil {
-		t.Fatal("user lock missing agents_md entry")
+	if lf.Deployed.Instructions == nil {
+		t.Fatal("user lock missing instructions entry")
 	}
 	if _, ok := lf.Deployed.Skills["browse"]; !ok {
 		t.Fatal("user lock missing skill 'browse'")
@@ -817,7 +817,7 @@ func TestIntegrationUserLevelCherryPick(t *testing.T) {
 	// Add agent and skill.
 	agentSrc := filepath.Join(tmp, "src-agent.md")
 	mustWrite(t, agentSrc, "# Cherry Agent\n")
-	if _, err := s.AddAgent(agentSrc, "cherry", false); err != nil {
+	if _, err := s.AddInstruction(agentSrc, "cherry", false); err != nil {
 		t.Fatalf("add agent: %v", err)
 	}
 
@@ -830,7 +830,7 @@ func TestIntegrationUserLevelCherryPick(t *testing.T) {
 
 	// Cherry-pick manifest with claude layout.
 	m, err := manifest.FromUserConfig(manifest.UserFields{
-		AgentsMd: "cherry",
+		Instructions: "cherry",
 		Skills:   []string{"git"},
 		Layout:   "claude",
 	})
@@ -893,7 +893,7 @@ func TestIntegrationUserLevelMultiStore(t *testing.T) {
 	// Work store: agent, skill, bundle.
 	agentSrc := filepath.Join(tmp, "src-agent.md")
 	mustWrite(t, agentSrc, "# Work Agent\n")
-	if _, err := work.AddAgent(agentSrc, "default", false); err != nil {
+	if _, err := work.AddInstruction(agentSrc, "default", false); err != nil {
 		t.Fatalf("add work agent: %v", err)
 	}
 
@@ -906,7 +906,7 @@ func TestIntegrationUserLevelMultiStore(t *testing.T) {
 
 	bundleTOML := `[bundle]
 name = "user-multi"
-agents_md = "default"
+instructions = "default"
 
 [skills]
 include = ["work-skill"]
@@ -1012,7 +1012,7 @@ func TestIntegrationApplyAllWithUser(t *testing.T) {
 
 	agentSrc := filepath.Join(tmp, "src-agent.md")
 	mustWrite(t, agentSrc, "# Shared Agent\n")
-	if _, err := s.AddAgent(agentSrc, "shared", false); err != nil {
+	if _, err := s.AddInstruction(agentSrc, "shared", false); err != nil {
 		t.Fatalf("add agent: %v", err)
 	}
 
@@ -1025,7 +1025,7 @@ func TestIntegrationApplyAllWithUser(t *testing.T) {
 
 	bundleTOML := `[bundle]
 name = "shared-bundle"
-agents_md = "shared"
+instructions = "shared"
 
 [skills]
 include = ["browse"]
@@ -1105,11 +1105,11 @@ include = ["browse"]
 	}
 
 	// Both should track the same assets but in separate lock files.
-	if userLF.Deployed.AgentsMD == nil {
-		t.Fatal("user lock missing agents_md")
+	if userLF.Deployed.Instructions == nil {
+		t.Fatal("user lock missing instructions")
 	}
-	if repoLF.Deployed.AgentsMD == nil {
-		t.Fatal("repo lock missing agents_md")
+	if repoLF.Deployed.Instructions == nil {
+		t.Fatal("repo lock missing instructions")
 	}
 	if _, ok := userLF.Deployed.Skills["browse"]; !ok {
 		t.Fatal("user lock missing skill 'browse'")
@@ -1119,7 +1119,7 @@ include = ["browse"]
 	}
 
 	// Hashes should match (same source).
-	if userLF.Deployed.AgentsMD.Hash != repoLF.Deployed.AgentsMD.Hash {
+	if userLF.Deployed.Instructions.Hash != repoLF.Deployed.Instructions.Hash {
 		t.Fatal("agent hash differs between user and repo locks")
 	}
 	if userLF.Deployed.Skills["browse"].Hash != repoLF.Deployed.Skills["browse"].Hash {
@@ -1218,12 +1218,12 @@ func TestIntegrationSkillGroups(t *testing.T) {
 	mustWrite(t, filepath.Join(s.SkillsDir(), "search", "SKILL.md"), "# Search\nOriginal\n")
 
 	// Agent.
-	mustWrite(t, filepath.Join(s.AgentsDir(), "core.md"), "# Core Agent\n")
+	mustWrite(t, filepath.Join(s.InstructionsDir(), "core.md"), "# Core Agent\n")
 
 	// ── 2. Bundle with glob + flat reference ───────────────────────
 	bundleTOML := `[bundle]
 name = "grouped-test"
-agents_md = "core"
+instructions = "core"
 
 [skills]
 include = ["tooling/", "search"]
@@ -1340,12 +1340,12 @@ func TestIntegrationSkillGroupsCrossStore(t *testing.T) {
 	mustWrite(t, filepath.Join(work.SkillsDir(), "ayunis", "frontend", "SKILL.md"), "# Frontend\n")
 
 	// Agent in personal store.
-	mustWrite(t, filepath.Join(personal.AgentsDir(), "core.md"), "# Core\n")
+	mustWrite(t, filepath.Join(personal.InstructionsDir(), "core.md"), "# Core\n")
 
 	// Bundle in personal store referencing cross-store glob.
 	bundleTOML := `[bundle]
 name = "cross-store"
-agents_md = "core"
+instructions = "core"
 
 [skills]
 include = ["search"]

@@ -16,7 +16,7 @@ const FileName = ".agentfiles.lock"
 
 // Asset type constants for use with Record.
 const (
-	AssetAgentsMD  = "agents_md"
+	AssetInstructions = "instructions"
 	AssetSkills    = "skills"
 	AssetResources = "resources"
 )
@@ -29,7 +29,7 @@ type Entry struct {
 }
 
 type DeployedMap struct {
-	AgentsMD  *Entry            `toml:"agents_md,omitempty"`
+	Instructions *Entry            `toml:"instructions,omitempty"`
 	Skills    map[string]*Entry `toml:"skills,omitempty"`
 	Resources map[string]*Entry `toml:"resources,omitempty"`
 }
@@ -114,8 +114,8 @@ func (lf *LockFile) Record(p RecordParams) error {
 	name := p.Name
 	entry := &Entry{Store: p.StoreName, StorePath: p.SourcePath, DeployedPath: p.DeployedPath, Hash: p.Hash}
 	switch assetType {
-	case AssetAgentsMD:
-		lf.Deployed.AgentsMD = entry
+	case AssetInstructions:
+		lf.Deployed.Instructions = entry
 	case AssetSkills:
 		if lf.Deployed.Skills == nil {
 			lf.Deployed.Skills = make(map[string]*Entry)

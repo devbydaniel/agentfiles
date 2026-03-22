@@ -29,7 +29,7 @@ type UserConfig struct {
 	Store        string   `toml:"store"`
 	Bundle       string   `toml:"bundle"`
 	Layout       string   `toml:"layout"`
-	AgentsMd     string   `toml:"agents_md"`
+	Instructions string  `toml:"instructions"`
 	Skills       []string `toml:"skills"`
 	SkillsAdd    []string `toml:"skills_add"`
 	SkillsRemove []string `toml:"skills_remove"`
@@ -147,13 +147,13 @@ func Load(path string) (*Config, error) {
 // validate checks that the user config has valid manifest-style fields.
 func (u *UserConfig) validate() error {
 	hasBundle := u.Bundle != ""
-	hasCherryPick := u.AgentsMd != "" || len(u.Skills) > 0
+	hasCherryPick := u.Instructions != "" || len(u.Skills) > 0
 
 	if !hasBundle && !hasCherryPick {
-		return fmt.Errorf("must set either 'bundle' or cherry-pick fields ('agents_md', 'skills')")
+		return fmt.Errorf("must set either 'bundle' or cherry-pick fields ('instructions', 'skills')")
 	}
 	if hasBundle && hasCherryPick {
-		return fmt.Errorf("cannot set both 'bundle' and cherry-pick fields ('agents_md', 'skills')")
+		return fmt.Errorf("cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills')")
 	}
 	if !hasBundle && (len(u.SkillsAdd) > 0 || len(u.SkillsRemove) > 0) {
 		return fmt.Errorf("'skills_add' and 'skills_remove' require 'bundle' to be set")

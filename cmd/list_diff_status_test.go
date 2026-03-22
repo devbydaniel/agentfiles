@@ -15,7 +15,7 @@ import (
 func setupStore(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	for _, sub := range []string{"skills", "agents", "resources", "bundles"} {
+	for _, sub := range []string{"skills", "instructions", "resources", "bundles"} {
 		os.MkdirAll(filepath.Join(dir, sub), 0o755)
 	}
 	gitIn(t, dir, "init")
@@ -158,8 +158,8 @@ func TestDiffClean(t *testing.T) {
 	emptyConfig := filepath.Join(t.TempDir(), "config.toml")
 
 	// Write the source file into the store
-	os.MkdirAll(filepath.Join(storeDir, "agents"), 0o755)
-	srcFile := filepath.Join(storeDir, "agents", "default.md")
+	os.MkdirAll(filepath.Join(storeDir, "instructions"), 0o755)
+	srcFile := filepath.Join(storeDir, "instructions", "default.md")
 	os.WriteFile(srcFile, []byte("hello world\n"), 0o644)
 
 	deployFile := filepath.Join(projDir, "AGENTS.md")
@@ -170,8 +170,8 @@ func TestDiffClean(t *testing.T) {
 	lf := &lock.LockFile{}
 	lf.Deployed.Skills = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
-	lf.Deployed.AgentsMD = &lock.Entry{
-		StorePath:    "agents/default.md",
+	lf.Deployed.Instructions = &lock.Entry{
+		StorePath:    "instructions/default.md",
 		DeployedPath: "AGENTS.md",
 		Hash:         hash,
 	}
@@ -200,8 +200,8 @@ func TestDiffWithLocalEdit(t *testing.T) {
 	os.Chdir(projDir)
 	emptyConfig := filepath.Join(t.TempDir(), "config.toml")
 
-	os.MkdirAll(filepath.Join(storeDir, "agents"), 0o755)
-	srcFile := filepath.Join(storeDir, "agents", "default.md")
+	os.MkdirAll(filepath.Join(storeDir, "instructions"), 0o755)
+	srcFile := filepath.Join(storeDir, "instructions", "default.md")
 	os.WriteFile(srcFile, []byte("line one\nline two\n"), 0o644)
 
 	deployFile := filepath.Join(projDir, "AGENTS.md")
@@ -212,8 +212,8 @@ func TestDiffWithLocalEdit(t *testing.T) {
 	lf := &lock.LockFile{}
 	lf.Deployed.Skills = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
-	lf.Deployed.AgentsMD = &lock.Entry{
-		StorePath:    "agents/default.md",
+	lf.Deployed.Instructions = &lock.Entry{
+		StorePath:    "instructions/default.md",
 		DeployedPath: "AGENTS.md",
 		Hash:         hash,
 	}

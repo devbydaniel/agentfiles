@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var subdirs = []string{"skills", "agents", "resources", "bundles"}
+var subdirs = []string{"skills", "instructions", "resources", "bundles"}
 
 // Store represents an opened agentfiles source store.
 type Store struct {
@@ -17,7 +17,7 @@ type Store struct {
 }
 
 func (s *Store) SkillsDir() string    { return filepath.Join(s.Root, "skills") }
-func (s *Store) AgentsDir() string    { return filepath.Join(s.Root, "agents") }
+func (s *Store) InstructionsDir() string { return filepath.Join(s.Root, "instructions") }
 func (s *Store) ResourcesDir() string { return filepath.Join(s.Root, "resources") }
 func (s *Store) BundlesDir() string   { return filepath.Join(s.Root, "bundles") }
 

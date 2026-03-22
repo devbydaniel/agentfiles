@@ -1,10 +1,10 @@
 # agentfiles (`af`)
 
-Portable config management for AI coding agents. Multiple named stores, many repos, any tool.
+Portable config management for AI coding tools. Multiple named stores, many repos, any tool.
 
-`af` keeps skills, agent instructions, and resources in git-managed stores and deploys them into repositories using **layouts** that match each tool's expected file structure. Multiple named stores let you separate personal and work assets while composing them freely across repos. Edit files in any repo, push changes back, and every other repo picks them up on the next `af apply`.
+`af` keeps skills, instructions, and resources in git-managed stores and deploys them into repositories using **layouts** that match each tool's expected file structure. Multiple named stores let you separate personal and work assets while composing them freely across repos. Edit files in any repo, push changes back, and every other repo picks them up on the next `af apply`.
 
-Think **chezmoi, but for AI agent context files**.
+Think **chezmoi, but for AI coding context files**.
 
 ---
 
@@ -12,7 +12,7 @@ Think **chezmoi, but for AI agent context files**.
 
 ### Source Stores
 
-Each store is a git repository containing agent assets. You can have multiple named stores — for example, one for personal skills and another for work:
+Each store is a git repository containing assets. You can have multiple named stores — for example, one for personal skills and another for work:
 
 ```
 ~/.agentfiles/              # "personal" store
@@ -22,7 +22,7 @@ Each store is a git repository containing agent assets. You can have multiple na
 │   └── tooling/            # skill group
 │       └── web-search/
 │           └── SKILL.md
-├── agents/
+├── instructions/
 │   └── assistant.md
 ├── resources/
 │   └── editorconfig/
@@ -35,7 +35,7 @@ Each store is a git repository containing agent assets. You can have multiple na
 │   └── git-workflow/
 │       ├── SKILL.md
 │       └── examples/
-├── agents/
+├── instructions/
 │   └── backend.md
 ├── resources/
 │   └── cursor-config/
@@ -63,7 +63,7 @@ Each store is just a git repo. You manage them with normal git operations (commi
 | Asset | What it is | Store location | Example |
 |-------|-----------|----------------|---------|
 | **Skill** | A directory with a `SKILL.md` and optional supporting files | `skills/<name>/` or `skills/<group>/<name>/` | `skills/browse/SKILL.md`, `skills/tooling/browse/SKILL.md` |
-| **Agent** | A markdown file with agent instructions | `agents/<name>.md` | `agents/assistant.md` |
+| **Instruction** | A markdown file with system-level instructions | `instructions/<name>.md` | `instructions/assistant.md` |
 | **Resource** | An arbitrary file tree copied to repo root | `resources/<name>/` | `resources/cursor-config/.cursor/rules.json` |
 
 **Resources** are special: their contents are copied directly into the repo root, preserving internal directory structure. For example, `resources/cursor-config/.cursor/rules.json` deploys to `.cursor/rules.json` in the repo. This makes resources useful for tool configs, shared scripts, or any files that need specific paths.
@@ -117,7 +117,7 @@ A bundle is a named grouping of assets defined in a TOML file. Instead of listin
 # ~/.agentfiles/bundles/backend.toml
 [bundle]
 name = "backend"
-agents_md = "backend"           # → agents/backend.md
+instructions = "backend"           # → instructions/backend.md
 
 [skills]
 include = ["git-workflow", "nestjs-hexagonal-backend", "tooling/"]  # trailing / = group glob
@@ -178,7 +178,7 @@ skills_remove = ["typeorm-migrations"]         # remove from bundle's list
 **Cherry-pick mode** — select individual assets, no bundle:
 
 ```toml
-agents_md = "assistant"
+instructions = "assistant"
 skills = ["browse", "tooling/web-search", "personal:git-workflow", "work:ayunis/"]  # qualified names, globs, cross-store
 resources = ["editorconfig"]
 layout = "pi"
@@ -192,7 +192,7 @@ Bundle mode and cherry-pick mode are **mutually exclusive**. The `layout` field 
 
 Layouts control where files land in the repo. Different AI tools expect different directory structures:
 
-| Layout | Agent file | Skills |
+| Layout | Instruction file | Skills |
 |--------|-----------|--------|
 | `pi` | `AGENTS.md` | `.pi/skills/<name>/` |
 | `claude` | `CLAUDE.md` | `.claude/skills/<name>/` |
@@ -207,7 +207,7 @@ The **`all` layout** deploys for every tool simultaneously — all entries are f
 
 When deploying to user-level paths (via `[user]` config or `af apply-user`), layouts produce home-relative paths:
 
-| Layout | Agent file | Skills |
+| Layout | Instruction file | Skills |
 |--------|-----------|--------|
 | `pi` | `~/AGENTS.md` | `~/.pi/skills/<name>/` |
 | `claude` | `~/.claude/CLAUDE.md` | `~/.claude/skills/<name>/` |
@@ -221,8 +221,8 @@ The lock file for user-level deployments lives at `~/.config/agentfiles/user.loc
 Created/updated by `af apply`. Tracks what was deployed, where, and its content hash. Used by `af push`, `af diff`, and `af status` to detect changes. Auto-generated — gitignore it.
 
 ```toml
-[deployed.agents_md]
-source = "agents/backend.md"
+[deployed.instructions]
+source = "instructions/backend.md"
 path = "AGENTS.md"
 hash = "a1b2c3..."
 
@@ -297,17 +297,17 @@ After setup, `af exec <TAB>` will autocomplete repo names, and all commands/flag
 # 1. Create a source store
 af init-store
 
-# 2. Add your existing skills and agent files
+# 2. Add your existing skills and instruction files
 af add skill ~/ai/skills/browse/
 af add skill ~/ai/skills/web-search/
-af add agent ~/my-project/AGENTS.md --name backend
+af add instruction ~/my-project/AGENTS.md --name backend
 af add resource ~/shared-configs/cursor-config/
 
 # 3. Create a bundle
 cat > ~/.agentfiles/bundles/backend.toml << 'EOF'
 [bundle]
 name = "backend"
-agents_md = "backend"
+instructions = "backend"
 
 [skills]
 include = ["browse", "web-search"]
@@ -329,7 +329,7 @@ af status
 
 After this, `~/my-project/` contains:
 ```
-AGENTS.md                      ← from agents/backend.md
+AGENTS.md                      ← from instructions/backend.md
 .pi/skills/browse/SKILL.md     ← from skills/browse/
 .pi/skills/web-search/SKILL.md ← from skills/web-search/
 .cursor/rules.json             ← from resources/cursor-config/
@@ -343,7 +343,7 @@ AGENTS.md                      ← from agents/backend.md
 
 ### `af init-store [path]`
 
-Create a new source store. Creates `skills/`, `agents/`, `resources/`, `bundles/` subdirectories and runs `git init`.
+Create a new source store. Creates `skills/`, `instructions/`, `resources/`, `bundles/` subdirectories and runs `git init`.
 
 ```bash
 af init-store                                    # default: ~/.agentfiles
@@ -361,14 +361,14 @@ Copy assets from the filesystem into the source store.
 af add skill <dir>                         # copies dir → store/skills/<dirname>/
 af add skill <dir> --group tooling         # copies dir → store/skills/tooling/<dirname>/
 af add skill <dir> --group infra/aws       # copies dir → store/skills/infra/aws/<dirname>/
-af add agent <file> --name <name>          # copies file → store/agents/<name>.md
+af add instruction <file> --name <name>          # copies file → store/instructions/<name>.md
 af add resource <dir>                      # copies dir → store/resources/<dirname>/
 ```
 
 Use `--force` to overwrite existing assets in the store. Without it, existing assets produce an error.
 Use `--group` with `af add skill` to place the skill in a group subdirectory.
 
-The `--name` flag is required for `af add agent` because agent files (e.g., `AGENTS.md`, `CLAUDE.md`) don't have meaningful filenames — the name you choose becomes the identifier used in bundles and manifests.
+The `--name` flag is required for `af add instruction` because instruction files (e.g., `AGENTS.md`, `CLAUDE.md`) don't have meaningful filenames — the name you choose becomes the identifier used in bundles and manifests.
 
 ### `af init`
 
@@ -403,7 +403,7 @@ Without `--force`, existing files are skipped with a warning. The lock file only
 
 ### `af apply-all`
 
-Deploy agent files to every repo listed in the config (`[[repos]]` in `config.toml`). For each entry the command:
+Deploy instruction files to every repo listed in the config (`[[repos]]` in `config.toml`). For each entry the command:
 
 1. Creates the target directory if it doesn't exist
 2. Writes/updates the `.agentfiles` manifest from the registry entry
@@ -416,11 +416,11 @@ af apply-all --dry-run    # show what would be done, don't deploy
 
 If a `[user]` section is present in the config, user-level files are also deployed before processing repos.
 
-This is the fastest way to propagate store changes (new skills, updated agent instructions) to all your projects at once. Repos that aren't in the config are unaffected.
+This is the fastest way to propagate store changes (new skills, updated instructions) to all your projects at once. Repos that aren't in the config are unaffected.
 
 ### `af apply-user`
 
-Deploy agent files to user-level paths (e.g. `~/.claude/`, `~/.pi/`). Reads the `[user]` section from the config file.
+Deploy instruction files to user-level paths (e.g. `~/.claude/`, `~/.pi/`). Reads the `[user]` section from the config file.
 
 ```bash
 af apply-user               # deploy user-level files
@@ -436,11 +436,11 @@ bundle = "personal-base"
 layout = "all"
 ```
 
-The `[user]` section supports the same fields as a manifest: `bundle`, `layout`, `agents_md`, `skills`, `skills_add`, `skills_remove`. Resources are not supported at user level.
+The `[user]` section supports the same fields as a manifest: `bundle`, `layout`, `instructions`, `skills`, `skills_add`, `skills_remove`. Resources are not supported at user level.
 
 ### `af push-user`
 
-Push locally modified user-level agent files back to the source store.
+Push locally modified user-level instruction files back to the source store.
 
 ```bash
 af push-user               # push all user-level changes
@@ -494,7 +494,7 @@ List assets in the source store.
 ```bash
 af list skills              # list all skills (group-qualified paths, sorted)
 af list skills --flat       # list only leaf names (for scripting)
-af list agents              # list all agent files (without .md extension)
+af list instructions              # list all instruction files (without .md extension)
 af list bundles             # list all bundle files (without .toml extension)
 af list resources           # list all resource directories
 ```
@@ -626,7 +626,7 @@ af apply   # deploys from both stores
 af push    # modified personal skills go to personal store
 ```
 
-### Deploying global/user-level agent files
+### Deploying global/user-level instruction files
 
 ```bash
 # Add a [user] section to your config
@@ -745,7 +745,7 @@ skills_add = ["extra-skill"]      # optional: add skills on top of bundle
 skills_remove = ["unwanted"]      # optional: remove skills from bundle
 
 # OR cherry-pick mode:
-agents_md = "assistant"           # references agents/<name>.md in the store
+instructions = "assistant"           # references instructions/<name>.md in the store
 skills = ["browse", "web-search"] # skill directory names in the store
 resources = ["cursor-config"]     # resource directory names in the store
 layout = "pi"                     # pi | claude | cursor | all (default: pi)
@@ -756,7 +756,7 @@ layout = "pi"                     # pi | claude | cursor | all (default: pi)
 ```toml
 [bundle]
 name = "backend"
-agents_md = "backend"             # references agents/<name>.md
+instructions = "backend"             # references instructions/<name>.md
 
 [skills]
 include = ["browse", "git-workflow", "tooling/"]  # trailing / = group glob (recursive)
@@ -772,9 +772,9 @@ exclude = []
 Auto-generated by `af apply`. Do not edit manually.
 
 ```toml
-[deployed.agents_md]
+[deployed.instructions]
 store = "work"                   # which named store this came from
-source = "agents/backend.md"     # store-relative path
+source = "instructions/backend.md"     # store-relative path
 path = "AGENTS.md"               # repo-relative deployed path
 hash = "sha256hex..."            # content hash at deploy time
 
@@ -809,7 +809,7 @@ default_store = "work"
 personal = "~/.agentfiles"
 work = "~/.agentfiles-work"
 
-# Optional: user-level deployment (global agent files)
+# Optional: user-level deployment (global instruction files)
 [user]
 bundle = "personal-base"
 layout = "all"

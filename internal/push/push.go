@@ -14,7 +14,7 @@ import (
 
 // Change describes a single asset that was (or would be) pushed.
 type Change struct {
-	Name    string // Asset name (or "agents_md" for the agent file).
+	Name    string // Asset name (or "instructions" for the instruction file).
 	Type    string // lock.Asset* constant.
 	OldHash string
 	NewHash string
@@ -69,17 +69,17 @@ func Push(stores map[string]*store.Store, defaultStore string, repoDir string, o
 
 	res := &Result{}
 
-	// Push agents_md (unless filtering by skill).
-	if opts.SkillOnly == "" && lf.Deployed.AgentsMD != nil {
-		e := lf.Deployed.AgentsMD
+	// Push instructions (unless filtering by skill).
+	if opts.SkillOnly == "" && lf.Deployed.Instructions != nil {
+		e := lf.Deployed.Instructions
 		s, err := entryStore(stores, defaultStore, e)
 		if err != nil {
-			return nil, fmt.Errorf("pushing agent md: %w", err)
+			return nil, fmt.Errorf("pushing instruction md: %w", err)
 		}
 		deployed := filepath.Join(repoDir, e.DeployedPath)
-		ch, err := pushFile(deployed, filepath.Join(s.Root, e.StorePath), e, "agents_md", lock.AssetAgentsMD, opts.DryRun)
+		ch, err := pushFile(deployed, filepath.Join(s.Root, e.StorePath), e, "instructions", lock.AssetInstructions, opts.DryRun)
 		if err != nil {
-			return nil, fmt.Errorf("pushing agent md: %w", err)
+			return nil, fmt.Errorf("pushing instruction md: %w", err)
 		}
 		res.Checked++
 		if ch != nil {

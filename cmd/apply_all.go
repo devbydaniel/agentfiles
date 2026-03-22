@@ -204,7 +204,7 @@ func userFields(u *config.UserConfig) manifest.UserFields {
 	return manifest.UserFields{
 		Bundle:       u.Bundle,
 		Layout:       u.Layout,
-		AgentsMd:     u.AgentsMd,
+		Instructions: u.Instructions,
 		Skills:       u.Skills,
 		SkillsAdd:    u.SkillsAdd,
 		SkillsRemove: u.SkillsRemove,

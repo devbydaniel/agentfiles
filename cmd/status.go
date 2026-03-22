@@ -50,13 +50,13 @@ Requires a prior "af apply" (needs .agentfiles.lock).`,
 		}
 		var items []item
 
-		if lf.Deployed.AgentsMD != nil {
-			e := lf.Deployed.AgentsMD
+		if lf.Deployed.Instructions != nil {
+			e := lf.Deployed.Instructions
 			sp, err := entrySourcePath(e, stores, defaultStore)
 			if err != nil {
 				return err
 			}
-			items = append(items, item{"agents.md", sp, e.DeployedPath, e.Hash, false})
+			items = append(items, item{"instructions.md", sp, e.DeployedPath, e.Hash, false})
 		}
 		for name, e := range lf.Deployed.Skills {
 			sp, err := entrySourcePath(e, stores, defaultStore)

@@ -23,7 +23,7 @@ var initStoreCmd = &cobra.Command{
 
 The store is a git-managed directory with this structure:
   skills/       Skill directories (each contains SKILL.md + supporting files)
-  agents/       Agent instruction files (<name>.md)
+  instructions/ Instruction files (<name>.md)
   resources/    Arbitrary file trees copied as-is into repo roots
   bundles/      Named groupings of assets (<name>.toml)
 

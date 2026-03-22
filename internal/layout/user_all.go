@@ -10,18 +10,18 @@ type UserAllLayout struct {
 
 func (UserAllLayout) Name() string { return "user-all" }
 
-// AgentMdPath returns the primary agent file path (pi layout).
-func (a UserAllLayout) AgentMdPath() string { return a.pi.AgentMdPath() }
+// InstructionMdPath returns the primary instruction file path (pi layout).
+func (a UserAllLayout) InstructionMdPath() string { return a.pi.InstructionMdPath() }
 
 // SkillPath returns the primary skill path (pi layout).
 func (a UserAllLayout) SkillPath(name string) string { return a.pi.SkillPath(name) }
 
-// AgentMdEntries returns entries for the agent file across all user layouts.
-func (a UserAllLayout) AgentMdEntries() []Entry {
+// InstructionMdEntries returns entries for the instruction file across all user layouts.
+func (a UserAllLayout) InstructionMdEntries() []Entry {
 	return []Entry{
-		{Path: a.pi.AgentMdPath()},
-		{Path: a.claude.AgentMdPath()},
-		{Path: a.cursor.AgentMdPath()},
+		{Path: a.pi.InstructionMdPath()},
+		{Path: a.claude.InstructionMdPath()},
+		{Path: a.cursor.InstructionMdPath()},
 	}
 }
 

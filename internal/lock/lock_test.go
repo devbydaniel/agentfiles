@@ -12,7 +12,7 @@ func TestWriteAndReadBack(t *testing.T) {
 
 	lf := &LockFile{}
 	lf.Deployed.Skills = make(map[string]*Entry)
-	mustRecord(t, lf, AssetAgentsMD, "", "agents/ayunis-core.md", "AGENTS.md", "abc123")
+	mustRecord(t, lf, AssetInstructions, "", "instructions/ayunis-core.md", "AGENTS.md", "abc123")
 	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", ".pi/skills/browse", "def456")
 	mustRecord(t, lf, AssetSkills, "git-workflow", "skills/git-workflow/", ".pi/skills/git-workflow", "ghi789")
 
@@ -25,11 +25,11 @@ func TestWriteAndReadBack(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if got.Deployed.AgentsMD == nil {
-		t.Fatal("agents_md entry missing")
+	if got.Deployed.Instructions == nil {
+		t.Fatal("instructions entry missing")
 	}
-	if got.Deployed.AgentsMD.StorePath != "agents/ayunis-core.md" || got.Deployed.AgentsMD.Hash != "abc123" {
-		t.Errorf("agents_md mismatch: %+v", got.Deployed.AgentsMD)
+	if got.Deployed.Instructions.StorePath != "instructions/ayunis-core.md" || got.Deployed.Instructions.Hash != "abc123" {
+		t.Errorf("instructions mismatch: %+v", got.Deployed.Instructions)
 	}
 
 	for _, name := range []string{"browse", "git-workflow"} {
@@ -101,8 +101,8 @@ func TestLoadNonexistent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if lf.Deployed.AgentsMD != nil {
-		t.Error("expected nil agents_md")
+	if lf.Deployed.Instructions != nil {
+		t.Error("expected nil instructions")
 	}
 	if len(lf.Deployed.Skills) != 0 {
 		t.Error("expected empty skills map")
@@ -241,7 +241,7 @@ func TestLoadFromSaveTo(t *testing.T) {
 	lf := &LockFile{}
 	lf.Deployed.Skills = make(map[string]*Entry)
 	lf.Deployed.Resources = make(map[string]*Entry)
-	mustRecord(t, lf, AssetAgentsMD, "", "agents/test.md", "AGENTS.md", "abc123")
+	mustRecord(t, lf, AssetInstructions, "", "instructions/test.md", "AGENTS.md", "abc123")
 	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", ".pi/skills/browse", "def456")
 
 	// SaveTo should create parent dirs.
@@ -260,11 +260,11 @@ func TestLoadFromSaveTo(t *testing.T) {
 		t.Fatalf("LoadFrom: %v", err)
 	}
 
-	if got.Deployed.AgentsMD == nil {
-		t.Fatal("agents_md entry missing")
+	if got.Deployed.Instructions == nil {
+		t.Fatal("instructions entry missing")
 	}
-	if got.Deployed.AgentsMD.Hash != "abc123" {
-		t.Errorf("agents_md hash = %q, want abc123", got.Deployed.AgentsMD.Hash)
+	if got.Deployed.Instructions.Hash != "abc123" {
+		t.Errorf("instructions hash = %q, want abc123", got.Deployed.Instructions.Hash)
 	}
 
 	e := got.Deployed.Skills["browse"]
@@ -281,8 +281,8 @@ func TestLoadFromNonexistent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFrom should return empty lock for missing file, got: %v", err)
 	}
-	if lf.Deployed.AgentsMD != nil {
-		t.Error("expected nil agents_md")
+	if lf.Deployed.Instructions != nil {
+		t.Error("expected nil instructions")
 	}
 	if len(lf.Deployed.Skills) != 0 {
 		t.Error("expected empty skills map")

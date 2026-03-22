@@ -15,19 +15,19 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "af",
 	Short: "agentfiles — portable context files for AI coding agents",
-	Long: `agentfiles (af) manages a central source store of AI agent config files
-(skills, agent instructions, resources) and deploys them into
+	Long: `agentfiles (af) manages a central source store of AI coding config files
+(skills, instructions, resources) and deploys them into
 repositories using layout presets for different tools (pi, Claude Code, Cursor).
 
 Key concepts:
-  Store     Git-managed directory (~/.agentfiles) holding all agent assets.
+  Store     Git-managed directory (~/.agentfiles) holding all assets.
   Manifest  A .agentfiles TOML file in each repo declaring what it needs.
   Bundle    A named grouping of assets (store/bundles/<name>.toml).
   Layout    How assets map to files on disk (pi, claude, cursor, all).
 
 Typical workflow:
   af init-store                       # create the store (once)
-  af add skill ./my-skill/            # populate the store
+  af add skill ./my-skill/               # populate the store
   af init --bundle backend --layout pi  # set up a repo
   af apply                            # deploy files into the repo
   # ... edit files in context ...

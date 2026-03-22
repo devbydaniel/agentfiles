@@ -10,19 +10,19 @@ type AllLayout struct {
 
 func (AllLayout) Name() string { return "all" }
 
-// AgentMdPath returns the primary agent file path (AGENTS.md).
-func (a AllLayout) AgentMdPath() string { return a.pi.AgentMdPath() }
+// InstructionMdPath returns the primary instruction file path (AGENTS.md).
+func (a AllLayout) InstructionMdPath() string { return a.pi.InstructionMdPath() }
 
 // SkillPath returns the primary skill path (pi layout).
 func (a AllLayout) SkillPath(name string) string { return a.pi.SkillPath(name) }
 
-// AgentMdEntries returns entries for the agent file across all layouts.
+// InstructionMdEntries returns entries for the instruction file across all layouts.
 // Duplicate paths (e.g. pi and cursor both use AGENTS.md) are deduplicated.
-func (a AllLayout) AgentMdEntries() []Entry {
+func (a AllLayout) InstructionMdEntries() []Entry {
 	return dedup([]Entry{
-		{Path: a.pi.AgentMdPath()},
-		{Path: a.claude.AgentMdPath()},
-		{Path: a.cursor.AgentMdPath()},
+		{Path: a.pi.InstructionMdPath()},
+		{Path: a.claude.InstructionMdPath()},
+		{Path: a.cursor.InstructionMdPath()},
 	})
 }
 

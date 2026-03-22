@@ -380,7 +380,7 @@ default_store = "personal"
 personal = "` + storeDir + `"
 
 [user]
-agents_md = "my-agent"
+instructions = "my-agent"
 skills = ["browse", "plan"]
 `
 	os.WriteFile(cfgPath, []byte(content), 0644)
@@ -392,8 +392,8 @@ skills = ["browse", "plan"]
 	if cfg.User == nil {
 		t.Fatal("expected User to be set")
 	}
-	if cfg.User.AgentsMd != "my-agent" {
-		t.Errorf("User.AgentsMd = %q, want my-agent", cfg.User.AgentsMd)
+	if cfg.User.Instructions != "my-agent" {
+		t.Errorf("User.Instructions = %q, want my-agent", cfg.User.Instructions)
 	}
 	if len(cfg.User.Skills) != 2 {
 		t.Errorf("User.Skills = %v, want [browse plan]", cfg.User.Skills)

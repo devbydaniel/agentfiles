@@ -77,22 +77,22 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 
 	res := &ApplyResult{}
 
-	// Deploy agent md (unless skill-only filter is set).
-	if opts.SkillOnly == "" && resolved.AgentsMd.Name != "" {
-		s, err := store.LookupStore(stores, resolved.AgentsMd.Store)
+	// Deploy instruction md (unless skill-only filter is set).
+	if opts.SkillOnly == "" && resolved.Instructions.Name != "" {
+		s, err := store.LookupStore(stores, resolved.Instructions.Store)
 		if err != nil {
-			return nil, fmt.Errorf("agent %q: %w", resolved.AgentsMd.Name, err)
+			return nil, fmt.Errorf("instruction %q: %w", resolved.Instructions.Name, err)
 		}
-		src := filepath.Join(s.AgentsDir(), resolved.AgentsMd.Name+".md")
+		src := filepath.Join(s.InstructionsDir(), resolved.Instructions.Name+".md")
 		if _, err := os.Stat(src); err != nil {
-			return nil, fmt.Errorf("agent %q not found in store %q", resolved.AgentsMd.Name, resolved.AgentsMd.Store)
+			return nil, fmt.Errorf("instruction %q not found in store %q", resolved.Instructions.Name, resolved.Instructions.Store)
 		}
-		entries := lay.AgentMdEntries()
+		entries := lay.InstructionMdEntries()
 		allSkipped := true
 		for _, e := range entries {
 			skipped, warn, err := deployEntry(repoDir, e, src, opts.Force)
 			if err != nil {
-				return nil, fmt.Errorf("deploying agent md to %s: %w", e.Path, err)
+				return nil, fmt.Errorf("deploying instruction md to %s: %w", e.Path, err)
 			}
 			if warn != "" {
 				res.Warnings = append(res.Warnings, warn)
@@ -103,12 +103,12 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		}
 		h, err := lock.Hash(src)
 		if err != nil {
-			return nil, fmt.Errorf("hashing agent md: %w", err)
+			return nil, fmt.Errorf("hashing instruction md: %w", err)
 		}
-		relSource := filepath.Join("agents", resolved.AgentsMd.Name+".md")
+		relSource := filepath.Join("instructions", resolved.Instructions.Name+".md")
 		deployedPath := primaryPath(entries)
-		lk := lockKey(resolved.AgentsMd.Name, resolved.AgentsMd.Store, defaultStore)
-		if err := lf.Record(lock.RecordParams{AssetType: lock.AssetAgentsMD, Name: lk, StoreName: resolved.AgentsMd.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+		lk := lockKey(resolved.Instructions.Name, resolved.Instructions.Store, defaultStore)
+		if err := lf.Record(lock.RecordParams{AssetType: lock.AssetInstructions, Name: lk, StoreName: resolved.Instructions.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
 			return nil, err
 		}
 		if allSkipped {
@@ -235,8 +235,8 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 
 	// Collect all deployed paths from the new lock.
 	newPaths := make(map[string]bool)
-	if newLF.Deployed.AgentsMD != nil {
-		newPaths[newLF.Deployed.AgentsMD.DeployedPath] = true
+	if newLF.Deployed.Instructions != nil {
+		newPaths[newLF.Deployed.Instructions.DeployedPath] = true
 	}
 	for _, e := range newLF.Deployed.Skills {
 		newPaths[e.DeployedPath] = true
@@ -245,9 +245,9 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 		newPaths[e.DeployedPath] = true
 	}
 
-	// Remove old agents_md if no longer present.
-	if oldLF.Deployed.AgentsMD != nil && !newPaths[oldLF.Deployed.AgentsMD.DeployedPath] {
-		if removeDeployed(repoDir, oldLF.Deployed.AgentsMD.DeployedPath) {
+	// Remove old instructions if no longer present.
+	if oldLF.Deployed.Instructions != nil && !newPaths[oldLF.Deployed.Instructions.DeployedPath] {
+		if removeDeployed(repoDir, oldLF.Deployed.Instructions.DeployedPath) {
 			removed++
 		}
 	}

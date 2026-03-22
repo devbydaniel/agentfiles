@@ -13,7 +13,7 @@ import (
 func setupStore(t *testing.T) *store.Store {
 	t.Helper()
 	dir := t.TempDir()
-	for _, sub := range []string{"skills", "agents", "resources", "bundles"} {
+	for _, sub := range []string{"skills", "instructions", "resources", "bundles"} {
 		os.MkdirAll(filepath.Join(dir, sub), 0o755)
 	}
 	exec.Command("git", "init", dir).Run()
@@ -30,7 +30,7 @@ func TestLoadBundle(t *testing.T) {
 	content := `
 [bundle]
 name = "ayunis-core"
-agents_md = "ayunis-core"
+instructions = "ayunis-core"
 
 [skills]
 include = ["nestjs-hexagonal-backend", "git-workflow"]
@@ -49,8 +49,8 @@ include = ["cursor-config", "shared-scripts"]
 	if b.Name() != "ayunis-core" {
 		t.Errorf("Name = %q, want %q", b.Name(), "ayunis-core")
 	}
-	if b.AgentsMd() != "ayunis-core" {
-		t.Errorf("AgentsMd = %q, want %q", b.AgentsMd(), "ayunis-core")
+	if b.Instructions() != "ayunis-core" {
+		t.Errorf("AgentsMd = %q, want %q", b.Instructions(), "ayunis-core")
 	}
 	if len(b.Skills.Include) != 2 {
 		t.Errorf("Skills.Include len = %d, want 2", len(b.Skills.Include))
