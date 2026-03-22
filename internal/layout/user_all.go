@@ -6,6 +6,7 @@ type UserAllLayout struct {
 	pi     UserPiLayout
 	claude UserClaudeLayout
 	cursor UserCursorLayout
+	codex  UserCodexLayout
 }
 
 func (UserAllLayout) Name() string { return "user-all" }
@@ -18,18 +19,20 @@ func (a UserAllLayout) SkillPath(name string) string { return a.pi.SkillPath(nam
 
 // InstructionMdEntries returns entries for the instruction file across all user layouts.
 func (a UserAllLayout) InstructionMdEntries() []Entry {
-	return []Entry{
+	return dedup([]Entry{
 		{Path: a.pi.InstructionMdPath()},
 		{Path: a.claude.InstructionMdPath()},
 		{Path: a.cursor.InstructionMdPath()},
-	}
+		{Path: a.codex.InstructionMdPath()},
+	})
 }
 
 // SkillEntries returns entries for a skill across all user layouts.
 func (a UserAllLayout) SkillEntries(name string) []Entry {
-	return []Entry{
+	return dedup([]Entry{
 		{Path: a.pi.SkillPath(name)},
 		{Path: a.claude.SkillPath(name)},
 		{Path: a.cursor.SkillPath(name)},
-	}
+		{Path: a.codex.SkillPath(name)},
+	})
 }

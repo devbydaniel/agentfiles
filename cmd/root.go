@@ -23,7 +23,7 @@ Key concepts:
   Store     Git-managed directory (~/.agentfiles) holding all assets.
   Manifest  A .agentfiles TOML file in each repo declaring what it needs.
   Bundle    A named grouping of assets (store/bundles/<name>.toml).
-  Layout    How assets map to files on disk (pi, claude, cursor, all).
+  Layout    How assets map to files on disk (pi, claude, cursor, codex, all).
 
 Typical workflow:
   af init-store                       # create the store (once)

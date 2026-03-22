@@ -15,12 +15,13 @@ import (
 	"github.com/devbydaniel/agentfiles/internal/store"
 )
 
-var validLayouts = []string{"pi", "claude", "cursor", "all"}
+var validLayouts = []string{"pi", "claude", "cursor", "codex", "all"}
 
 var gitignoreByLayout = map[string][]string{
 	"pi":     {"AGENTS.md", ".pi/skills/"},
 	"claude": {"CLAUDE.md", ".claude/skills/"},
 	"cursor": {".cursorrules", ".cursor/skills/"},
+	"codex":  {"AGENTS.md", ".agents/"},
 }
 
 var initCmd = &cobra.Command{
@@ -176,7 +177,7 @@ func gitignoreSuggestions(layout string) []string {
 	var suggestions []string
 
 	if layout == "all" {
-		for _, l := range []string{"pi", "claude", "cursor"} {
+		for _, l := range []string{"pi", "claude", "cursor", "codex"} {
 			suggestions = append(suggestions, gitignoreByLayout[l]...)
 		}
 	} else {

@@ -6,6 +6,7 @@ type AllLayout struct {
 	pi     PiLayout
 	claude ClaudeLayout
 	cursor CursorLayout
+	codex  CodexLayout
 }
 
 func (AllLayout) Name() string { return "all" }
@@ -23,6 +24,7 @@ func (a AllLayout) InstructionMdEntries() []Entry {
 		{Path: a.pi.InstructionMdPath()},
 		{Path: a.claude.InstructionMdPath()},
 		{Path: a.cursor.InstructionMdPath()},
+		{Path: a.codex.InstructionMdPath()},
 	})
 }
 
@@ -41,9 +43,10 @@ func dedup(entries []Entry) []Entry {
 
 // SkillEntries returns entries for a skill across all layouts.
 func (a AllLayout) SkillEntries(name string) []Entry {
-	return []Entry{
+	return dedup([]Entry{
 		{Path: a.pi.SkillPath(name)},
 		{Path: a.claude.SkillPath(name)},
 		{Path: a.cursor.SkillPath(name)},
-	}
+		{Path: a.codex.SkillPath(name)},
+	})
 }

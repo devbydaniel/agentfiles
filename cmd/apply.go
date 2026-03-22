@@ -23,7 +23,8 @@ What gets deployed (per layout):
   pi:      AGENTS.md, .pi/skills/<name>/
   claude:  CLAUDE.md, .claude/skills/<name>/
   cursor:  .cursorrules, .cursor/skills/<name>/
-  all:     All of the above (pi primary + claude + cursor copies)
+  codex:   AGENTS.md, .agents/<name>/
+  all:     All of the above (pi primary + claude + cursor + codex copies)
 
 Resources are always copied to the repo root regardless of layout.
 
