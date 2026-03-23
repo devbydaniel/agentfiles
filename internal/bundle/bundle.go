@@ -12,10 +12,11 @@ import (
 
 // Bundle represents a parsed bundle TOML file.
 type Bundle struct {
-	BundleMeta bundleMeta `toml:"bundle"`
-	Skills     ItemList   `toml:"skills"`
-	Resources  ItemList   `toml:"resources"`
-	Agents     ItemList   `toml:"agents"`
+	BundleMeta   bundleMeta `toml:"bundle"`
+	Skills       ItemList   `toml:"skills"`
+	Resources    ItemList   `toml:"resources"`
+	Agents       ItemList   `toml:"agents"`
+	PiExtensions ItemList   `toml:"pi_extensions"`
 }
 
 type bundleMeta struct {

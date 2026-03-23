@@ -370,6 +370,102 @@ hash = "def456"
 	}
 }
 
+func TestPiExtensionRecordAndLoad(t *testing.T) {
+	dir := t.TempDir()
+
+	lf := &LockFile{}
+	lf.Deployed.Skills = make(map[string]*Entry)
+	lf.Deployed.Resources = make(map[string]*Entry)
+	lf.Deployed.Agents = make(map[string]*Entry)
+	lf.Deployed.PiExtensions = make(map[string]*Entry)
+	mustRecord(t, lf, AssetPiExtensions, "no-model-flag", "pi_extensions/no-model-flag.ts", ".pi/extensions/no-model-flag.ts", "aaa111")
+	mustRecord(t, lf, AssetPiExtensions, "my-ext", "pi_extensions/my-ext/", ".pi/extensions/my-ext", "bbb222")
+
+	if err := Save(dir, lf); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if len(got.Deployed.PiExtensions) != 2 {
+		t.Fatalf("PiExtensions len = %d, want 2", len(got.Deployed.PiExtensions))
+	}
+
+	e := got.Deployed.PiExtensions["no-model-flag"]
+	if e == nil {
+		t.Fatal("no-model-flag pi_extension missing")
+	}
+	if e.StorePath != "pi_extensions/no-model-flag.ts" || e.Hash != "aaa111" {
+		t.Errorf("no-model-flag mismatch: %+v", e)
+	}
+	if e.DeployedPath != ".pi/extensions/no-model-flag.ts" {
+		t.Errorf("DeployedPath = %q", e.DeployedPath)
+	}
+
+	e2 := got.Deployed.PiExtensions["my-ext"]
+	if e2 == nil {
+		t.Fatal("my-ext pi_extension missing")
+	}
+	if e2.StorePath != "pi_extensions/my-ext/" || e2.Hash != "bbb222" {
+		t.Errorf("my-ext mismatch: %+v", e2)
+	}
+}
+
+func TestPiExtensionEmptyMapInit(t *testing.T) {
+	dir := t.TempDir()
+
+	// Legacy lock with no pi_extensions section.
+	legacy := `[deployed]
+[deployed.skills.browse]
+source = "skills/browse/"
+path = ".pi/skills/browse"
+hash = "def456"
+`
+	os.WriteFile(filepath.Join(dir, FileName), []byte(legacy), 0644)
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if got.Deployed.PiExtensions == nil {
+		t.Fatal("PiExtensions map should be initialized, got nil")
+	}
+	if len(got.Deployed.PiExtensions) != 0 {
+		t.Errorf("PiExtensions should be empty for legacy lock, got %d entries", len(got.Deployed.PiExtensions))
+	}
+}
+
+func TestPiExtensionStoreFieldRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+
+	lf := &LockFile{}
+	lf.Deployed.PiExtensions = make(map[string]*Entry)
+	if err := lf.Record(RecordParams{AssetType: AssetPiExtensions, Name: "my-ext", StoreName: "work", SourcePath: "pi_extensions/my-ext.ts", DeployedPath: ".pi/extensions/my-ext.ts", Hash: "ccc333"}); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	if err := Save(dir, lf); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	e := got.Deployed.PiExtensions["my-ext"]
+	if e == nil {
+		t.Fatal("my-ext missing")
+	}
+	if e.Store != "work" {
+		t.Errorf("Store = %q, want work", e.Store)
+	}
+}
+
 func TestLoadFromNonexistent(t *testing.T) {
 	lf, err := LoadFrom("/nonexistent/path/lock.toml")
 	if err != nil {

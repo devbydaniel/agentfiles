@@ -9,10 +9,10 @@ Go CLI (`af`) using cobra. Entry: `main.go` → `cmd/root.go`. All commands in `
 ```
 Config (~/.config/agentfiles/config.toml)
   → Named stores (personal = "~/.agentfiles", work = "~/.agentfiles-work")
-    Stores contain: instructions/, skills/, resources/, bundles/, agents/, pi_extensions/
+    Stores contain: instructions/, skills/, resources/, bundles/, agents/
   → Manifest (.agentfiles per repo) or Config repos ([[repos]] entries)
     OR [user] section for user-level deployment
-  → manifest.Resolve(m, stores, defaultStore) expands bundle refs + skill/agent/pi_extension overrides
+  → manifest.Resolve(m, stores, defaultStore) expands bundle refs + skill/agent overrides
     into flat ResolvedAsset lists (each carries Name + Store provenance)
   → layout.Get() or layout.GetUser() determines file paths per tool
   → apply.Apply(stores, defaultStore, ...) copies files from correct stores
@@ -37,7 +37,7 @@ Config (~/.config/agentfiles/config.toml)
 - **apply-all always force-writes the manifest**: It overwrites `.agentfiles` in each repo to keep it in sync with the config. Then runs apply with Force=true.
 - **exec uses os/exec.Command.Run()**, not syscall.Exec, so it works cross-platform. Looks up by name first, falls back to path basename.
 - **Store must be a git repo**: `store.Open` checks for `.git` directory.
-- **Bundle vs cherry-pick modes are mutually exclusive** in manifest validation. `skills_add`/`skills_remove`/`pi_extensions_add`/`pi_extensions_remove` only work with bundle mode.
+- **Bundle vs cherry-pick modes are mutually exclusive** in manifest validation. `skills_add`/`skills_remove` only work with bundle mode.
 - **Resources are layout-independent**: copied to repo root preserving internal structure, not placed in `.pi/` etc.
 - **Backward compat**: Single-store setups work with `--store <path>` flag. Lock files without store fields default to the default store. The `storename:` prefix is optional — unprefixed assets use the default store.
 - **User-level deployment**: `[user]` section in config acts as the manifest (no `.agentfiles` in `$HOME`). Lock file at `~/.config/agentfiles/user.lock`. User layouts produce home-relative paths (`~/.claude/CLAUDE.md`, `~/AGENTS.md`, `~/.pi/skills/`). Resources not supported at user level. `apply-all` includes user deployment. Parameterized via `Options.LockFilePath` in apply/push.
@@ -45,8 +45,6 @@ Config (~/.config/agentfiles/config.toml)
 - **Agents (subagents)**: Single `.md` files in `agents/` store directory. Authored as Markdown with YAML frontmatter (canonical format). Deployed as-is (`.md`) for Claude/Cursor, converted to TOML for Codex (body → `developer_instructions`, frontmatter fields → TOML keys). Pi layouts ignore agents (`AgentEntries` returns nil). Push from Codex `.toml` converts back to `.md` in store. For "all" layout, `.md` is the primary (source of truth for push). `agents/` is optional in `store.Open` for backward compat with pre-agent stores.
 - **Agent hashing**: Lock hash is computed on the canonical (parsed → re-serialized) `.md` form, not the deployed format. This ensures hash stability across format conversions (deploy as `.toml`, push back as `.md`, hash matches).
 - **Bundle vs cherry-pick for agents**: `agents` field works in cherry-pick mode. `agents_add`/`agents_remove` work with bundle mode (same pattern as skills).
-- **Pi extensions**: `.ts` files or directories (with `index.ts`) in `pi_extensions/` store directory. Only deploy to pi layouts (project: `.pi/extensions/`, user: `~/.pi/agent/extensions/`). Claude, Cursor, Codex layouts return nil from `PiExtensionEntries` — extensions are silently skipped. No format conversion needed (unlike agents). The layout returns a base path (e.g., `.pi/extensions/<name>`); apply appends `.ts` for single-file extensions or copies the directory as-is. `pi_extensions/` is optional in `store.Open` for backward compat.
-- **Bundle vs cherry-pick for pi_extensions**: `pi_extensions` field works in cherry-pick mode. `pi_extensions_add`/`pi_extensions_remove` work with bundle mode (same pattern as agents).
 
 ## Config resolution
 

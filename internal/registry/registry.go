@@ -25,8 +25,10 @@ type Repo struct {
 	Layout       string   `toml:"layout"`
 	SkillsAdd    []string `toml:"skills_add"`
 	SkillsRemove []string `toml:"skills_remove"`
-	AgentsAdd    []string `toml:"agents_add"`
-	AgentsRemove []string `toml:"agents_remove"`
+	AgentsAdd          []string `toml:"agents_add"`
+	AgentsRemove       []string `toml:"agents_remove"`
+	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
+	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
 }
 
 func (r *Registry) validate() error {

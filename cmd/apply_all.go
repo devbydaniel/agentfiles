@@ -182,6 +182,12 @@ func writeManifest(repo registry.Repo, defaultStore string) error {
 	if len(repo.AgentsRemove) > 0 {
 		lines = append(lines, fmt.Sprintf("agents_remove = %s", tomlStringArray(repo.AgentsRemove)))
 	}
+	if len(repo.PiExtensionsAdd) > 0 {
+		lines = append(lines, fmt.Sprintf("pi_extensions_add = %s", tomlStringArray(repo.PiExtensionsAdd)))
+	}
+	if len(repo.PiExtensionsRemove) > 0 {
+		lines = append(lines, fmt.Sprintf("pi_extensions_remove = %s", tomlStringArray(repo.PiExtensionsRemove)))
+	}
 
 	content := ""
 	for _, l := range lines {
@@ -208,15 +214,18 @@ func tomlStringArray(ss []string) string {
 // userFields converts a UserConfig to manifest.UserFields.
 func userFields(u *config.UserConfig) manifest.UserFields {
 	return manifest.UserFields{
-		Bundle:       u.Bundle,
-		Layout:       u.Layout,
-		Instructions: u.Instructions,
-		Skills:       u.Skills,
-		SkillsAdd:    u.SkillsAdd,
-		SkillsRemove: u.SkillsRemove,
-		Agents:       u.Agents,
-		AgentsAdd:    u.AgentsAdd,
-		AgentsRemove: u.AgentsRemove,
+		Bundle:             u.Bundle,
+		Layout:             u.Layout,
+		Instructions:       u.Instructions,
+		Skills:             u.Skills,
+		SkillsAdd:          u.SkillsAdd,
+		SkillsRemove:       u.SkillsRemove,
+		Agents:             u.Agents,
+		AgentsAdd:          u.AgentsAdd,
+		AgentsRemove:       u.AgentsRemove,
+		PiExtensions:       u.PiExtensions,
+		PiExtensionsAdd:    u.PiExtensionsAdd,
+		PiExtensionsRemove: u.PiExtensionsRemove,
 	}
 }
 

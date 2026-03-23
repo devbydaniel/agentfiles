@@ -16,10 +16,11 @@ const FileName = ".agentfiles.lock"
 
 // Asset type constants for use with Record.
 const (
-	AssetInstructions = "instructions"
-	AssetSkills       = "skills"
-	AssetResources    = "resources"
-	AssetAgents       = "agents"
+	AssetInstructions  = "instructions"
+	AssetSkills        = "skills"
+	AssetResources     = "resources"
+	AssetAgents        = "agents"
+	AssetPiExtensions  = "pi_extensions"
 )
 
 type Entry struct {
@@ -34,6 +35,7 @@ type DeployedMap struct {
 	Skills       map[string]*Entry `toml:"skills,omitempty"`
 	Resources    map[string]*Entry `toml:"resources,omitempty"`
 	Agents       map[string]*Entry `toml:"agents,omitempty"`
+	PiExtensions map[string]*Entry `toml:"pi_extensions,omitempty"`
 }
 
 type LockFile struct {
@@ -51,6 +53,7 @@ func LoadFrom(path string) (*LockFile, error) {
 	lf.Deployed.Skills = make(map[string]*Entry)
 	lf.Deployed.Resources = make(map[string]*Entry)
 	lf.Deployed.Agents = make(map[string]*Entry)
+	lf.Deployed.PiExtensions = make(map[string]*Entry)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -71,6 +74,9 @@ func LoadFrom(path string) (*LockFile, error) {
 	}
 	if lf.Deployed.Agents == nil {
 		lf.Deployed.Agents = make(map[string]*Entry)
+	}
+	if lf.Deployed.PiExtensions == nil {
+		lf.Deployed.PiExtensions = make(map[string]*Entry)
 	}
 	return lf, nil
 }
@@ -137,6 +143,11 @@ func (lf *LockFile) Record(p RecordParams) error {
 			lf.Deployed.Agents = make(map[string]*Entry)
 		}
 		lf.Deployed.Agents[name] = entry
+	case AssetPiExtensions:
+		if lf.Deployed.PiExtensions == nil {
+			lf.Deployed.PiExtensions = make(map[string]*Entry)
+		}
+		lf.Deployed.PiExtensions[name] = entry
 	default:
 		return fmt.Errorf("unknown asset type: %q", assetType)
 	}

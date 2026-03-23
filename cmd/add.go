@@ -12,10 +12,12 @@ Subcommands:
   af add instruction <file> --name <name>   Copy an instruction file → store/instructions/<name>.md
   af add resource <dir>                     Copy a resource directory → store/resources/<dirname>/
   af add agent <file>                       Copy an agent .md file → store/agents/<filename>
+  af add pi-extension <path>                Copy a .ts file or directory → store/pi_extensions/
 
 The asset name is derived from the directory basename (skills,
-resources), from the --name flag (instructions), or from the filename
-(agents). Use --force to overwrite an existing asset in the store.`,
+resources), from the --name flag (instructions), from the filename
+(agents, pi-extensions), or from the directory name (pi-extensions).
+Use --force to overwrite an existing asset in the store.`,
 }
 
 func init() {

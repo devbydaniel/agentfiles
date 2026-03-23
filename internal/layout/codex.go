@@ -18,3 +18,6 @@ func (l CodexLayout) SkillEntries(name string) []Entry {
 func (CodexLayout) AgentEntries(name string) []Entry {
 	return []Entry{{Path: filepath.Join(".codex", "agents", name+".toml")}}
 }
+func (CodexLayout) PiExtensionEntries(name string) []Entry {
+	return nil
+}

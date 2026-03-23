@@ -988,6 +988,269 @@ func TestApplyAgentPrunesStale(t *testing.T) {
 	}
 }
 
+// --- PiExtension tests ---
+
+// addPiExtensionFileToStore writes a single .ts file into store pi_extensions dir.
+func addPiExtensionFileToStore(t *testing.T, s *store.Store, name, content string) {
+	t.Helper()
+	dir := s.PiExtensionsDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name+".ts"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// addPiExtensionDirToStore writes a directory extension with index.ts.
+func addPiExtensionDirToStore(t *testing.T, s *store.Store, name string, files map[string]string) {
+	t.Helper()
+	dir := filepath.Join(s.PiExtensionsDir(), name)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for rel, content := range files {
+		p := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestApplyPiExtensionFilePiLayout(t *testing.T) {
+	s := setupStore(t)
+	addPiExtensionFileToStore(t, s, "no-model-flag", "export default {}")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout:       "pi",
+		PiExtensions: []string{"no-model-flag"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+
+	// Should be at .pi/extensions/no-model-flag.ts
+	data, err := os.ReadFile(filepath.Join(repo, ".pi", "extensions", "no-model-flag.ts"))
+	if err != nil {
+		t.Fatalf("extension file not found: %v", err)
+	}
+	if string(data) != "export default {}" {
+		t.Errorf("content = %q", data)
+	}
+
+	// Lock should record it.
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("loading lock: %v", err)
+	}
+	entry, ok := lf.Deployed.PiExtensions["no-model-flag"]
+	if !ok {
+		t.Fatal("lock missing pi_extension 'no-model-flag'")
+	}
+	if entry.StorePath != filepath.Join("pi_extensions", "no-model-flag.ts") {
+		t.Errorf("StorePath = %q", entry.StorePath)
+	}
+	if entry.DeployedPath != ".pi/extensions/no-model-flag.ts" {
+		t.Errorf("DeployedPath = %q", entry.DeployedPath)
+	}
+	if entry.Hash == "" {
+		t.Error("hash is empty")
+	}
+}
+
+func TestApplyPiExtensionDirPiLayout(t *testing.T) {
+	s := setupStore(t)
+	addPiExtensionDirToStore(t, s, "my-ext", map[string]string{
+		"index.ts": "export default {}",
+		"util.ts":  "export const x = 1",
+	})
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout:       "pi",
+		PiExtensions: []string{"my-ext"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+
+	// Should be at .pi/extensions/my-ext/
+	data, err := os.ReadFile(filepath.Join(repo, ".pi", "extensions", "my-ext", "index.ts"))
+	if err != nil {
+		t.Fatalf("index.ts not found: %v", err)
+	}
+	if string(data) != "export default {}" {
+		t.Errorf("content = %q", data)
+	}
+
+	data, err = os.ReadFile(filepath.Join(repo, ".pi", "extensions", "my-ext", "util.ts"))
+	if err != nil {
+		t.Fatalf("util.ts not found: %v", err)
+	}
+	if string(data) != "export const x = 1" {
+		t.Errorf("content = %q", data)
+	}
+
+	// Lock should record it.
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("loading lock: %v", err)
+	}
+	entry, ok := lf.Deployed.PiExtensions["my-ext"]
+	if !ok {
+		t.Fatal("lock missing pi_extension 'my-ext'")
+	}
+	if entry.StorePath != filepath.Join("pi_extensions", "my-ext")+"/" {
+		t.Errorf("StorePath = %q", entry.StorePath)
+	}
+	if entry.DeployedPath != ".pi/extensions/my-ext" {
+		t.Errorf("DeployedPath = %q", entry.DeployedPath)
+	}
+}
+
+func TestApplyPiExtensionClaudeLayoutSkipped(t *testing.T) {
+	s := setupStore(t)
+	addPiExtensionFileToStore(t, s, "no-model-flag", "export default {}")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout:       "claude",
+		PiExtensions: []string{"no-model-flag"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	// Claude layout returns nil for PiExtensionEntries → nothing deployed.
+	if res.Deployed != 0 {
+		t.Errorf("deployed = %d, want 0", res.Deployed)
+	}
+
+	// No files should exist.
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "extensions")); err == nil {
+		t.Error("no pi extension dirs should exist for claude layout")
+	}
+
+	// Lock should NOT have pi_extensions.
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("loading lock: %v", err)
+	}
+	if len(lf.Deployed.PiExtensions) != 0 {
+		t.Errorf("lock has %d pi_extensions, want 0", len(lf.Deployed.PiExtensions))
+	}
+}
+
+func TestApplyPiExtensionAllLayout(t *testing.T) {
+	s := setupStore(t)
+	addPiExtensionFileToStore(t, s, "no-model-flag", "export default {}")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout:       "all",
+		PiExtensions: []string{"no-model-flag"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+
+	// Should be at .pi/extensions/no-model-flag.ts (only pi path in all layout).
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "no-model-flag.ts"))
+
+	// Should NOT be at claude/cursor/codex paths.
+	if _, err := os.Stat(filepath.Join(repo, ".claude", "extensions")); err == nil {
+		t.Error(".claude/extensions should not exist")
+	}
+}
+
+func TestApplyPiExtensionPrunesStale(t *testing.T) {
+	s := setupStore(t)
+	stores, defaultStore := singleStoreMap(s)
+	repo := t.TempDir()
+
+	addPiExtensionFileToStore(t, s, "alpha", "// alpha")
+	addPiExtensionFileToStore(t, s, "beta", "// beta")
+
+	m := &manifest.Manifest{
+		Layout:       "pi",
+		PiExtensions: []string{"alpha", "beta"},
+	}
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "alpha.ts"))
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "beta.ts"))
+
+	// Re-deploy with only alpha.
+	m2 := &manifest.Manifest{
+		Layout:       "pi",
+		PiExtensions: []string{"alpha"},
+	}
+	res2, err := Apply(stores, defaultStore, m2, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if res2.Removed != 1 {
+		t.Errorf("removed = %d, want 1", res2.Removed)
+	}
+
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "alpha.ts"))
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "extensions", "beta.ts")); err == nil {
+		t.Error("beta extension should have been pruned")
+	}
+}
+
+func TestApplyPiExtensionSkillOnlySkips(t *testing.T) {
+	s := setupStore(t)
+	addSkillToStore(t, s, "golang", "# Go")
+	addPiExtensionFileToStore(t, s, "no-model-flag", "export default {}")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout:       "pi",
+		Skills:       []string{"golang"},
+		PiExtensions: []string{"no-model-flag"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true, SkillOnly: "golang"}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	// Skill should be deployed.
+	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "golang", "SKILL.md"))
+
+	// Pi extension should NOT be deployed (skill-only mode).
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "extensions", "no-model-flag.ts")); err == nil {
+		t.Error("pi_extension should not be deployed with --skill flag")
+	}
+}
+
 func TestApplySkillOnlySkipsAgents(t *testing.T) {
 	s := setupStore(t)
 	addSkillToStore(t, s, "golang", "# Go")

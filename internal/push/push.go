@@ -161,6 +161,45 @@ func Push(stores map[string]*store.Store, defaultStore string, repoDir string, o
 		}
 	}
 
+	// Push pi_extensions (unless filtering by skill).
+	if opts.SkillOnly == "" {
+		for name, e := range lf.Deployed.PiExtensions {
+			s, err := entryStore(stores, defaultStore, e)
+			if err != nil {
+				return nil, fmt.Errorf("pushing pi_extension %q: %w", name, err)
+			}
+			deployed := filepath.Join(repoDir, e.DeployedPath)
+			// Determine if file or directory from the deployed path.
+			if strings.HasSuffix(e.DeployedPath, ".ts") {
+				// Single .ts file.
+				ch, err := pushFile(deployed, filepath.Join(s.Root, e.StorePath), e, name, lock.AssetPiExtensions, opts.DryRun)
+				if err != nil {
+					return nil, fmt.Errorf("pushing pi_extension %q: %w", name, err)
+				}
+				res.Checked++
+				if ch != nil {
+					res.Changes = append(res.Changes, *ch)
+					if !opts.DryRun {
+						e.Hash = ch.NewHash
+					}
+				}
+			} else {
+				// Directory extension.
+				ch, err := pushDir(deployed, filepath.Join(s.Root, e.StorePath), e, name, lock.AssetPiExtensions, opts.DryRun)
+				if err != nil {
+					return nil, fmt.Errorf("pushing pi_extension %q: %w", name, err)
+				}
+				res.Checked++
+				if ch != nil {
+					res.Changes = append(res.Changes, *ch)
+					if !opts.DryRun {
+						e.Hash = ch.NewHash
+					}
+				}
+			}
+		}
+	}
+
 	// Save updated lock file (only if not dry-run and there were changes).
 	if !opts.DryRun && len(res.Changes) > 0 {
 		var saveErr error

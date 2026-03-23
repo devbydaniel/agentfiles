@@ -23,3 +23,6 @@ func (l UserClaudeLayout) SkillEntries(name string) []Entry {
 func (UserClaudeLayout) AgentEntries(name string) []Entry {
 	return []Entry{{Path: filepath.Join(".claude", "agents", name+".md")}}
 }
+func (UserClaudeLayout) PiExtensionEntries(name string) []Entry {
+	return nil
+}

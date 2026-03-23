@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -80,6 +81,14 @@ Requires a prior "af apply" (needs .agentfiles.lock).`,
 				return err
 			}
 			items = append(items, item{"agent:" + name, sp, e.DeployedPath, e.Hash, false})
+		}
+		for name, e := range lf.Deployed.PiExtensions {
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			isDir := !strings.HasSuffix(e.DeployedPath, ".ts")
+			items = append(items, item{"pi-extension:" + name, sp, e.DeployedPath, e.Hash, isDir})
 		}
 
 		sort.Slice(items, func(i, j int) bool { return items[i].name < items[j].name })

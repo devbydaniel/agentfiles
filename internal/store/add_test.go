@@ -492,3 +492,158 @@ func TestAddSkillWithGroupForce(t *testing.T) {
 		t.Errorf("content = %q, want v2", data)
 	}
 }
+
+// --- AddPiExtension tests ---
+
+func TestAddPiExtensionSingleFile(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "no-model-flag.ts")
+	os.WriteFile(src, []byte("export default {}"), 0o644)
+
+	name, overwritten, err := s.AddPiExtension(src, false)
+	if err != nil {
+		t.Fatalf("AddPiExtension: %v", err)
+	}
+	if name != "no-model-flag" {
+		t.Errorf("name = %q, want no-model-flag", name)
+	}
+	if overwritten {
+		t.Error("expected overwritten=false")
+	}
+
+	data, err := os.ReadFile(filepath.Join(s.PiExtensionsDir(), "no-model-flag.ts"))
+	if err != nil {
+		t.Fatalf("file missing: %v", err)
+	}
+	if string(data) != "export default {}" {
+		t.Errorf("content = %q", data)
+	}
+}
+
+func TestAddPiExtensionDirectory(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "my-ext")
+	os.MkdirAll(src, 0o755)
+	os.WriteFile(filepath.Join(src, "index.ts"), []byte("export default {}"), 0o644)
+	os.WriteFile(filepath.Join(src, "util.ts"), []byte("export const x = 1"), 0o644)
+
+	name, overwritten, err := s.AddPiExtension(src, false)
+	if err != nil {
+		t.Fatalf("AddPiExtension: %v", err)
+	}
+	if name != "my-ext" {
+		t.Errorf("name = %q, want my-ext", name)
+	}
+	if overwritten {
+		t.Error("expected overwritten=false")
+	}
+
+	data, err := os.ReadFile(filepath.Join(s.PiExtensionsDir(), "my-ext", "index.ts"))
+	if err != nil {
+		t.Fatalf("index.ts missing: %v", err)
+	}
+	if string(data) != "export default {}" {
+		t.Errorf("content = %q", data)
+	}
+
+	data, err = os.ReadFile(filepath.Join(s.PiExtensionsDir(), "my-ext", "util.ts"))
+	if err != nil {
+		t.Fatalf("util.ts missing: %v", err)
+	}
+	if string(data) != "export const x = 1" {
+		t.Errorf("content = %q", data)
+	}
+}
+
+func TestAddPiExtensionDirWithoutIndexTs(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "bad-ext")
+	os.MkdirAll(src, 0o755)
+	os.WriteFile(filepath.Join(src, "main.ts"), []byte("nope"), 0o644)
+
+	_, _, err := s.AddPiExtension(src, false)
+	if err == nil {
+		t.Fatal("expected error for directory without index.ts")
+	}
+	if !strings.Contains(err.Error(), "index.ts") {
+		t.Errorf("error = %q", err)
+	}
+}
+
+func TestAddPiExtensionRejectsNonTs(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "ext.js")
+	os.WriteFile(src, []byte("module.exports = {}"), 0o644)
+
+	_, _, err := s.AddPiExtension(src, false)
+	if err == nil {
+		t.Fatal("expected error for non-.ts file")
+	}
+	if !strings.Contains(err.Error(), ".ts extension") {
+		t.Errorf("error = %q", err)
+	}
+}
+
+func TestAddPiExtensionOverwriteNoForce(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "ext.ts")
+	os.WriteFile(src, []byte("v1"), 0o644)
+
+	if _, _, err := s.AddPiExtension(src, false); err != nil {
+		t.Fatalf("first add: %v", err)
+	}
+
+	os.WriteFile(src, []byte("v2"), 0o644)
+	_, _, err := s.AddPiExtension(src, false)
+	if err == nil {
+		t.Fatal("expected error on duplicate without force")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("error = %q", err)
+	}
+}
+
+func TestAddPiExtensionOverwriteWithForce(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "ext.ts")
+	os.WriteFile(src, []byte("v1"), 0o644)
+
+	if _, _, err := s.AddPiExtension(src, false); err != nil {
+		t.Fatalf("first add: %v", err)
+	}
+
+	os.WriteFile(src, []byte("v2"), 0o644)
+	_, overwritten, err := s.AddPiExtension(src, true)
+	if err != nil {
+		t.Fatalf("AddPiExtension with force: %v", err)
+	}
+	if !overwritten {
+		t.Error("expected overwritten=true")
+	}
+
+	data, _ := os.ReadFile(filepath.Join(s.PiExtensionsDir(), "ext.ts"))
+	if string(data) != "v2" {
+		t.Errorf("content = %q, want v2", data)
+	}
+}
+
+func TestAddPiExtensionCreatesDirOnDemand(t *testing.T) {
+	s := setupStore(t)
+	os.RemoveAll(s.PiExtensionsDir())
+
+	src := filepath.Join(t.TempDir(), "ext.ts")
+	os.WriteFile(src, []byte("content"), 0o644)
+
+	name, _, err := s.AddPiExtension(src, false)
+	if err != nil {
+		t.Fatalf("AddPiExtension: %v", err)
+	}
+	if name != "ext" {
+		t.Errorf("name = %q", name)
+	}
+
+	info, err := os.Stat(s.PiExtensionsDir())
+	if err != nil || !info.IsDir() {
+		t.Error("pi_extensions/ dir was not created")
+	}
+}

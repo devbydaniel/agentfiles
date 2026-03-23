@@ -1913,6 +1913,332 @@ include = ["search"]
 	}
 }
 
+// ── Pi Extension Integration Tests ─────────────────────────────
+
+func TestIntegrationPiExtensionRoundTrip(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Init store and add a single .ts file extension.
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	extSrc := filepath.Join(tmp, "no-model-flag.ts")
+	mustWrite(t, extSrc, "// original extension\nexport default {}\n")
+	name, _, err := s.AddPiExtension(extSrc, false)
+	if err != nil {
+		t.Fatalf("add pi-extension: %v", err)
+	}
+	if name != "no-model-flag" {
+		t.Fatalf("name = %q, want no-model-flag", name)
+	}
+
+	// Create bundle with pi_extensions.
+	bundleContent := `[bundle]
+name = "test"
+
+[pi_extensions]
+include = ["no-model-flag"]
+`
+	mustWrite(t, filepath.Join(s.BundlesDir(), "test.toml"), bundleContent)
+
+	// Apply to repo1 with pi layout.
+	repo1 := filepath.Join(tmp, "repo1")
+	mustMkdir(t, repo1)
+	mustWrite(t, filepath.Join(repo1, ".agentfiles"), `bundle = "test"
+layout = "pi"
+`)
+	m, err := manifest.Load(repo1)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo1, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+
+	// Verify deployed.
+	extPath := filepath.Join(repo1, ".pi", "extensions", "no-model-flag.ts")
+	assertFileExists(t, extPath)
+	assertFileContains(t, extPath, "original extension")
+
+	// Modify deployed and push.
+	mustWrite(t, extPath, "// modified extension\nexport default {}\n")
+	pushRes, err := push.Push(stores, "default", repo1, push.Options{})
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if len(pushRes.Changes) != 1 {
+		t.Fatalf("push changes = %d, want 1", len(pushRes.Changes))
+	}
+
+	// Verify store updated.
+	assertFileContains(t, filepath.Join(s.PiExtensionsDir(), "no-model-flag.ts"), "modified extension")
+
+	// Apply to repo2 — should pick up pushed change.
+	repo2 := filepath.Join(tmp, "repo2")
+	mustMkdir(t, repo2)
+	mustWrite(t, filepath.Join(repo2, ".agentfiles"), `bundle = "test"
+layout = "pi"
+`)
+	m2, _ := manifest.Load(repo2)
+	_, err = apply.Apply(stores, "default", m2, repo2, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply repo2: %v", err)
+	}
+	assertFileContains(t, filepath.Join(repo2, ".pi", "extensions", "no-model-flag.ts"), "modified extension")
+}
+
+func TestIntegrationPiExtensionDirectory(t *testing.T) {
+	tmp := t.TempDir()
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	// Create a directory extension source.
+	extSrc := filepath.Join(tmp, "my-ext")
+	mustMkdir(t, extSrc)
+	mustWrite(t, filepath.Join(extSrc, "index.ts"), "// index\nexport default {}\n")
+	mustWrite(t, filepath.Join(extSrc, "util.ts"), "export const x = 1\n")
+
+	name, _, err := s.AddPiExtension(extSrc, false)
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if name != "my-ext" {
+		t.Fatalf("name = %q", name)
+	}
+
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), `pi_extensions = ["my-ext"]
+layout = "pi"
+`)
+	m, _ := manifest.Load(repo)
+	stores := map[string]*store.Store{"default": s}
+	_, err = apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "my-ext", "index.ts"))
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "my-ext", "util.ts"))
+
+	// Modify and push.
+	mustWrite(t, filepath.Join(repo, ".pi", "extensions", "my-ext", "index.ts"), "// modified index\n")
+	pushRes, err := push.Push(stores, "default", repo, push.Options{})
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if len(pushRes.Changes) != 1 {
+		t.Fatalf("push changes = %d, want 1", len(pushRes.Changes))
+	}
+	assertFileContains(t, filepath.Join(s.PiExtensionsDir(), "my-ext", "index.ts"), "modified index")
+}
+
+func TestIntegrationPiExtensionNonPiLayout(t *testing.T) {
+	tmp := t.TempDir()
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	extSrc := filepath.Join(tmp, "ext.ts")
+	mustWrite(t, extSrc, "export default {}")
+	s.AddPiExtension(extSrc, false)
+
+	bundleContent := `[bundle]
+name = "test"
+
+[pi_extensions]
+include = ["ext"]
+`
+	mustWrite(t, filepath.Join(s.BundlesDir(), "test.toml"), bundleContent)
+
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), `bundle = "test"
+layout = "claude"
+`)
+	m, _ := manifest.Load(repo)
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 0 {
+		t.Errorf("deployed = %d, want 0 (claude layout ignores pi_extensions)", res.Deployed)
+	}
+
+	// No extension files should exist.
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "extensions")); err == nil {
+		t.Error(".pi/extensions should not exist for claude layout")
+	}
+
+	// Lock should not have pi_extensions.
+	lf, _ := lock.Load(repo)
+	if len(lf.Deployed.PiExtensions) != 0 {
+		t.Errorf("lock has %d pi_extensions, want 0", len(lf.Deployed.PiExtensions))
+	}
+}
+
+func TestIntegrationPiExtensionAllLayout(t *testing.T) {
+	tmp := t.TempDir()
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	extSrc := filepath.Join(tmp, "ext.ts")
+	mustWrite(t, extSrc, "export default {}")
+	s.AddPiExtension(extSrc, false)
+
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), `pi_extensions = ["ext"]
+layout = "all"
+`)
+	m, _ := manifest.Load(repo)
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+
+	// Should exist at pi path.
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "ext.ts"))
+
+	// Should NOT exist at claude/cursor/codex paths.
+	for _, dir := range []string{".claude/extensions", ".cursor/extensions", ".codex/extensions"} {
+		if _, err := os.Stat(filepath.Join(repo, dir)); err == nil {
+			t.Errorf("%s should not exist", dir)
+		}
+	}
+}
+
+func TestIntegrationPiExtensionPruning(t *testing.T) {
+	tmp := t.TempDir()
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	for _, name := range []string{"alpha", "beta"} {
+		src := filepath.Join(tmp, name+".ts")
+		mustWrite(t, src, "// "+name)
+		s.AddPiExtension(src, false)
+	}
+
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	stores := map[string]*store.Store{"default": s}
+
+	// Deploy both.
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), `pi_extensions = ["alpha", "beta"]
+layout = "pi"
+`)
+	m, _ := manifest.Load(repo)
+	_, err = apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "alpha.ts"))
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "beta.ts"))
+
+	// Remove beta from manifest and re-apply.
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), `pi_extensions = ["alpha"]
+layout = "pi"
+`)
+	m2, _ := manifest.Load(repo)
+	res, err := apply.Apply(stores, "default", m2, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("re-apply: %v", err)
+	}
+	if res.Removed != 1 {
+		t.Errorf("removed = %d, want 1", res.Removed)
+	}
+	assertFileExists(t, filepath.Join(repo, ".pi", "extensions", "alpha.ts"))
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "extensions", "beta.ts")); err == nil {
+		t.Error("beta.ts should have been pruned")
+	}
+}
+
+func TestIntegrationPiExtensionUserLevel(t *testing.T) {
+	tmp := t.TempDir()
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	extSrc := filepath.Join(tmp, "my-ext.ts")
+	mustWrite(t, extSrc, "export default {}")
+	s.AddPiExtension(extSrc, false)
+
+	home := filepath.Join(tmp, "home")
+	mustMkdir(t, home)
+	lockPath := filepath.Join(tmp, "user.lock")
+
+	m, err := manifest.FromUserConfig(manifest.UserFields{
+		PiExtensions: []string{"my-ext"},
+		Layout:       "pi",
+	})
+	if err != nil {
+		t.Fatalf("FromUserConfig: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	userLay, _ := layout.GetUser("pi")
+	_, err = apply.Apply(stores, "default", m, home, apply.Options{
+		Force:        true,
+		Layout:       userLay,
+		LockFilePath: lockPath,
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	// User-level pi extension lands at ~/.pi/agent/extensions/
+	assertFileExists(t, filepath.Join(home, ".pi", "agent", "extensions", "my-ext.ts"))
+}
+
+func TestIntegrationPiExtensionCherryPick(t *testing.T) {
+	tmp := t.TempDir()
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init-store: %v", err)
+	}
+
+	extSrc := filepath.Join(tmp, "my-ext.ts")
+	mustWrite(t, extSrc, "// cherry-picked extension\n")
+	s.AddPiExtension(extSrc, false)
+
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), `pi_extensions = ["my-ext"]
+layout = "pi"
+`)
+	m, _ := manifest.Load(repo)
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+	assertFileContains(t, filepath.Join(repo, ".pi", "extensions", "my-ext.ts"), "cherry-picked extension")
+}
+
 func skillLockKeys(lf *lock.LockFile) []string {
 	keys := make([]string, 0, len(lf.Deployed.Skills))
 	for k := range lf.Deployed.Skills {

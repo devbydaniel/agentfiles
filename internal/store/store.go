@@ -12,7 +12,7 @@ import (
 var subdirs = []string{"skills", "instructions", "resources", "bundles"}
 
 // optionalSubdirs are created by Init but not required by Open (backward compat).
-var optionalSubdirs = []string{"agents"}
+var optionalSubdirs = []string{"agents", "pi_extensions"}
 
 // Store represents an opened agentfiles source store.
 type Store struct {
@@ -23,7 +23,8 @@ func (s *Store) SkillsDir() string       { return filepath.Join(s.Root, "skills"
 func (s *Store) InstructionsDir() string { return filepath.Join(s.Root, "instructions") }
 func (s *Store) ResourcesDir() string   { return filepath.Join(s.Root, "resources") }
 func (s *Store) BundlesDir() string     { return filepath.Join(s.Root, "bundles") }
-func (s *Store) AgentsDir() string      { return filepath.Join(s.Root, "agents") }
+func (s *Store) AgentsDir() string        { return filepath.Join(s.Root, "agents") }
+func (s *Store) PiExtensionsDir() string { return filepath.Join(s.Root, "pi_extensions") }
 
 // Open validates that path is a valid agentfiles store and returns a Store.
 func Open(path string) (*Store, error) {
@@ -157,6 +158,51 @@ func (s *Store) ListAgents() ([]AgentInfo, error) {
 		})
 	}
 	return agents, nil
+}
+
+// PiExtensionInfo describes a pi extension found in the store.
+type PiExtensionInfo struct {
+	Name  string // Name without .ts extension for files, or directory name.
+	IsDir bool   // True if this is a directory extension (contains index.ts).
+}
+
+// ListPiExtensions walks pi_extensions/ and returns entries.
+// Single .ts files and directories containing index.ts are both valid.
+// Returns an empty slice if the pi_extensions/ directory does not exist.
+func (s *Store) ListPiExtensions() ([]PiExtensionInfo, error) {
+	dir := s.PiExtensionsDir()
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("listing pi_extensions: %w", err)
+	}
+
+	var exts []PiExtensionInfo
+	for _, e := range entries {
+		name := e.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if e.IsDir() {
+			// Directory extension: must contain index.ts.
+			indexPath := filepath.Join(dir, name, "index.ts")
+			if _, err := os.Stat(indexPath); err == nil {
+				exts = append(exts, PiExtensionInfo{Name: name, IsDir: true})
+			}
+			continue
+		}
+		// Single file: must be .ts.
+		if strings.HasSuffix(name, ".ts") {
+			exts = append(exts, PiExtensionInfo{
+				Name:  strings.TrimSuffix(name, ".ts"),
+				IsDir: false,
+			})
+		}
+	}
+	return exts, nil
 }
 
 // SkillInfo describes a skill found in the store.

@@ -21,3 +21,6 @@ func (l UserCodexLayout) SkillEntries(name string) []Entry {
 func (UserCodexLayout) AgentEntries(name string) []Entry {
 	return []Entry{{Path: filepath.Join(".codex", "agents", name+".toml")}}
 }
+func (UserCodexLayout) PiExtensionEntries(name string) []Entry {
+	return nil
+}

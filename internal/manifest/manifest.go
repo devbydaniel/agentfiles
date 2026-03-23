@@ -10,17 +10,20 @@ import (
 
 // Manifest represents a parsed .agentfiles TOML file.
 type Manifest struct {
-	Store        string   `toml:"store"`
-	Bundle       string   `toml:"bundle"`
-	Layout       string   `toml:"layout"`
-	Instructions string   `toml:"instructions"`
-	Skills       []string `toml:"skills"`
-	Resources    []string `toml:"resources"`
-	Agents       []string `toml:"agents"`
-	SkillsAdd    []string `toml:"skills_add"`
-	SkillsRemove []string `toml:"skills_remove"`
-	AgentsAdd    []string `toml:"agents_add"`
-	AgentsRemove []string `toml:"agents_remove"`
+	Store              string   `toml:"store"`
+	Bundle             string   `toml:"bundle"`
+	Layout             string   `toml:"layout"`
+	Instructions       string   `toml:"instructions"`
+	Skills             []string `toml:"skills"`
+	Resources          []string `toml:"resources"`
+	Agents             []string `toml:"agents"`
+	PiExtensions       []string `toml:"pi_extensions"`
+	SkillsAdd          []string `toml:"skills_add"`
+	SkillsRemove       []string `toml:"skills_remove"`
+	AgentsAdd          []string `toml:"agents_add"`
+	AgentsRemove       []string `toml:"agents_remove"`
+	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
+	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
 }
 
 // Load reads and parses an .agentfiles manifest from the given directory.
@@ -51,30 +54,36 @@ func Load(dir string) (*Manifest, error) {
 // UserFields holds the manifest-equivalent fields from a user-level config.
 // This avoids importing the config package (which would be circular).
 type UserFields struct {
-	Bundle       string
-	Layout       string
-	Instructions string
-	Skills       []string
-	Agents       []string
-	SkillsAdd    []string
-	SkillsRemove []string
-	AgentsAdd    []string
-	AgentsRemove []string
+	Bundle             string
+	Layout             string
+	Instructions       string
+	Skills             []string
+	Agents             []string
+	PiExtensions       []string
+	SkillsAdd          []string
+	SkillsRemove       []string
+	AgentsAdd          []string
+	AgentsRemove       []string
+	PiExtensionsAdd    []string
+	PiExtensionsRemove []string
 }
 
 // FromUserConfig constructs a Manifest from user config fields.
 // It applies defaults (layout defaults to "all" for user-level) and validates.
 func FromUserConfig(u UserFields) (*Manifest, error) {
 	m := &Manifest{
-		Bundle:       u.Bundle,
-		Layout:       u.Layout,
-		Instructions: u.Instructions,
-		Skills:       u.Skills,
-		Agents:       u.Agents,
-		SkillsAdd:    u.SkillsAdd,
-		SkillsRemove: u.SkillsRemove,
-		AgentsAdd:    u.AgentsAdd,
-		AgentsRemove: u.AgentsRemove,
+		Bundle:             u.Bundle,
+		Layout:             u.Layout,
+		Instructions:       u.Instructions,
+		Skills:             u.Skills,
+		Agents:             u.Agents,
+		PiExtensions:       u.PiExtensions,
+		SkillsAdd:          u.SkillsAdd,
+		SkillsRemove:       u.SkillsRemove,
+		AgentsAdd:          u.AgentsAdd,
+		AgentsRemove:       u.AgentsRemove,
+		PiExtensionsAdd:    u.PiExtensionsAdd,
+		PiExtensionsRemove: u.PiExtensionsRemove,
 	}
 
 	if m.Layout == "" {
@@ -90,13 +99,13 @@ func FromUserConfig(u UserFields) (*Manifest, error) {
 
 func (m *Manifest) validate() error {
 	hasBundle := m.Bundle != ""
-	hasCherryPick := m.Instructions != "" || len(m.Skills) > 0 || len(m.Resources) > 0 || len(m.Agents) > 0
+	hasCherryPick := m.Instructions != "" || len(m.Skills) > 0 || len(m.Resources) > 0 || len(m.Agents) > 0 || len(m.PiExtensions) > 0
 
 	if !hasBundle && !hasCherryPick {
-		return fmt.Errorf("manifest must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'resources', 'agents')")
+		return fmt.Errorf("manifest must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'resources', 'agents', 'pi_extensions')")
 	}
 	if hasBundle && hasCherryPick {
-		return fmt.Errorf("manifest cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'resources', 'agents')")
+		return fmt.Errorf("manifest cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'resources', 'agents', 'pi_extensions')")
 	}
 
 	if !hasBundle && (len(m.SkillsAdd) > 0 || len(m.SkillsRemove) > 0) {
@@ -105,6 +114,10 @@ func (m *Manifest) validate() error {
 
 	if !hasBundle && (len(m.AgentsAdd) > 0 || len(m.AgentsRemove) > 0) {
 		return fmt.Errorf("'agents_add' and 'agents_remove' require 'bundle' to be set")
+	}
+
+	if !hasBundle && (len(m.PiExtensionsAdd) > 0 || len(m.PiExtensionsRemove) > 0) {
+		return fmt.Errorf("'pi_extensions_add' and 'pi_extensions_remove' require 'bundle' to be set")
 	}
 
 	return nil

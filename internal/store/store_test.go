@@ -596,3 +596,126 @@ func TestExpandSkillGlobEmptyStore(t *testing.T) {
 		t.Fatal("expected error for empty store glob")
 	}
 }
+
+// --- PiExtension tests ---
+
+func TestInitCreatesPiExtensionsDir(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Init(filepath.Join(dir, "store"))
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	info, err := os.Stat(s.PiExtensionsDir())
+	if err != nil || !info.IsDir() {
+		t.Errorf("pi_extensions/ directory missing after Init")
+	}
+}
+
+func TestOpenWithoutPiExtensionsDir(t *testing.T) {
+	dir := t.TempDir()
+	storePath := filepath.Join(dir, "store")
+	s, err := Init(storePath)
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	os.RemoveAll(s.PiExtensionsDir())
+
+	s2, err := Open(storePath)
+	if err != nil {
+		t.Fatalf("Open should succeed without pi_extensions/: %v", err)
+	}
+	if s2 == nil {
+		t.Fatal("Open returned nil store")
+	}
+}
+
+func TestListPiExtensionsEmpty(t *testing.T) {
+	s := setupStore(t)
+	exts, err := s.ListPiExtensions()
+	if err != nil {
+		t.Fatalf("ListPiExtensions: %v", err)
+	}
+	if len(exts) != 0 {
+		t.Errorf("expected 0 pi_extensions, got %d", len(exts))
+	}
+}
+
+func TestListPiExtensionsNoDir(t *testing.T) {
+	s := setupStore(t)
+	os.RemoveAll(s.PiExtensionsDir())
+	exts, err := s.ListPiExtensions()
+	if err != nil {
+		t.Fatalf("ListPiExtensions: %v", err)
+	}
+	if len(exts) != 0 {
+		t.Errorf("expected 0 pi_extensions, got %d", len(exts))
+	}
+}
+
+func TestListPiExtensionsSingleFile(t *testing.T) {
+	s := setupStore(t)
+	os.WriteFile(filepath.Join(s.PiExtensionsDir(), "no-model-flag.ts"), []byte("export default {}"), 0o644)
+
+	exts, err := s.ListPiExtensions()
+	if err != nil {
+		t.Fatalf("ListPiExtensions: %v", err)
+	}
+	if len(exts) != 1 {
+		t.Fatalf("expected 1 pi_extension, got %d", len(exts))
+	}
+	if exts[0].Name != "no-model-flag" || exts[0].IsDir {
+		t.Errorf("got %+v, want {Name:no-model-flag IsDir:false}", exts[0])
+	}
+}
+
+func TestListPiExtensionsDirectory(t *testing.T) {
+	s := setupStore(t)
+	extDir := filepath.Join(s.PiExtensionsDir(), "my-ext")
+	os.MkdirAll(extDir, 0o755)
+	os.WriteFile(filepath.Join(extDir, "index.ts"), []byte("export default {}"), 0o644)
+
+	exts, err := s.ListPiExtensions()
+	if err != nil {
+		t.Fatalf("ListPiExtensions: %v", err)
+	}
+	if len(exts) != 1 {
+		t.Fatalf("expected 1 pi_extension, got %d", len(exts))
+	}
+	if exts[0].Name != "my-ext" || !exts[0].IsDir {
+		t.Errorf("got %+v, want {Name:my-ext IsDir:true}", exts[0])
+	}
+}
+
+func TestListPiExtensionsMixed(t *testing.T) {
+	s := setupStore(t)
+	// Single file extension.
+	os.WriteFile(filepath.Join(s.PiExtensionsDir(), "simple.ts"), []byte("export default {}"), 0o644)
+	// Directory extension.
+	extDir := filepath.Join(s.PiExtensionsDir(), "complex")
+	os.MkdirAll(extDir, 0o755)
+	os.WriteFile(filepath.Join(extDir, "index.ts"), []byte("export default {}"), 0o644)
+	// Directory without index.ts — should be ignored.
+	badDir := filepath.Join(s.PiExtensionsDir(), "incomplete")
+	os.MkdirAll(badDir, 0o755)
+	os.WriteFile(filepath.Join(badDir, "main.ts"), []byte("nope"), 0o644)
+	// Non-.ts file — should be ignored.
+	os.WriteFile(filepath.Join(s.PiExtensionsDir(), "readme.md"), []byte("docs"), 0o644)
+	// Hidden file — should be ignored.
+	os.WriteFile(filepath.Join(s.PiExtensionsDir(), ".hidden.ts"), []byte("hidden"), 0o644)
+
+	exts, err := s.ListPiExtensions()
+	if err != nil {
+		t.Fatalf("ListPiExtensions: %v", err)
+	}
+	if len(exts) != 2 {
+		t.Fatalf("expected 2 pi_extensions, got %d: %+v", len(exts), exts)
+	}
+
+	names := map[string]bool{}
+	for _, e := range exts {
+		names[e.Name] = true
+	}
+	if !names["simple"] || !names["complex"] {
+		t.Errorf("unexpected extensions: %+v", exts)
+	}
+}

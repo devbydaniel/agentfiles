@@ -26,29 +26,34 @@ type Config struct {
 // It mirrors the manifest fields but lives in the central config
 // (no .agentfiles file in $HOME).
 type UserConfig struct {
-	Store        string   `toml:"store"`
-	Bundle       string   `toml:"bundle"`
-	Layout       string   `toml:"layout"`
-	Instructions string   `toml:"instructions"`
-	Skills       []string `toml:"skills"`
-	SkillsAdd    []string `toml:"skills_add"`
-	SkillsRemove []string `toml:"skills_remove"`
-	Agents       []string `toml:"agents"`
-	AgentsAdd    []string `toml:"agents_add"`
-	AgentsRemove []string `toml:"agents_remove"`
+	Store              string   `toml:"store"`
+	Bundle             string   `toml:"bundle"`
+	Layout             string   `toml:"layout"`
+	Instructions       string   `toml:"instructions"`
+	Skills             []string `toml:"skills"`
+	SkillsAdd          []string `toml:"skills_add"`
+	SkillsRemove       []string `toml:"skills_remove"`
+	Agents             []string `toml:"agents"`
+	AgentsAdd          []string `toml:"agents_add"`
+	AgentsRemove       []string `toml:"agents_remove"`
+	PiExtensions       []string `toml:"pi_extensions"`
+	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
+	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
 }
 
 // Repo is a single repo entry in the config.
 type Repo struct {
-	Name         string   `toml:"name"`
-	Path         string   `toml:"path"`
-	Store        string   `toml:"store"`
-	Bundle       string   `toml:"bundle"`
-	Layout       string   `toml:"layout"`
-	SkillsAdd    []string `toml:"skills_add"`
-	SkillsRemove []string `toml:"skills_remove"`
-	AgentsAdd    []string `toml:"agents_add"`
-	AgentsRemove []string `toml:"agents_remove"`
+	Name               string   `toml:"name"`
+	Path               string   `toml:"path"`
+	Store              string   `toml:"store"`
+	Bundle             string   `toml:"bundle"`
+	Layout             string   `toml:"layout"`
+	SkillsAdd          []string `toml:"skills_add"`
+	SkillsRemove       []string `toml:"skills_remove"`
+	AgentsAdd          []string `toml:"agents_add"`
+	AgentsRemove       []string `toml:"agents_remove"`
+	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
+	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
 }
 
 // DefaultConfigPath returns the default config file path:
@@ -152,19 +157,22 @@ func Load(path string) (*Config, error) {
 // validate checks that the user config has valid manifest-style fields.
 func (u *UserConfig) validate() error {
 	hasBundle := u.Bundle != ""
-	hasCherryPick := u.Instructions != "" || len(u.Skills) > 0 || len(u.Agents) > 0
+	hasCherryPick := u.Instructions != "" || len(u.Skills) > 0 || len(u.Agents) > 0 || len(u.PiExtensions) > 0
 
 	if !hasBundle && !hasCherryPick {
-		return fmt.Errorf("must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'agents')")
+		return fmt.Errorf("must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'agents', 'pi_extensions')")
 	}
 	if hasBundle && hasCherryPick {
-		return fmt.Errorf("cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'agents')")
+		return fmt.Errorf("cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'agents', 'pi_extensions')")
 	}
 	if !hasBundle && (len(u.SkillsAdd) > 0 || len(u.SkillsRemove) > 0) {
 		return fmt.Errorf("'skills_add' and 'skills_remove' require 'bundle' to be set")
 	}
 	if !hasBundle && (len(u.AgentsAdd) > 0 || len(u.AgentsRemove) > 0) {
 		return fmt.Errorf("'agents_add' and 'agents_remove' require 'bundle' to be set")
+	}
+	if !hasBundle && (len(u.PiExtensionsAdd) > 0 || len(u.PiExtensionsRemove) > 0) {
+		return fmt.Errorf("'pi_extensions_add' and 'pi_extensions_remove' require 'bundle' to be set")
 	}
 	return nil
 }

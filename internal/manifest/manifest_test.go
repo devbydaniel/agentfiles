@@ -792,6 +792,264 @@ agents = ["code-reviewer", "work:debugger"]
 	}
 }
 
+// --- PiExtensions manifest tests ---
+
+func TestLoadCherryPickWithPiExtensions(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+pi_extensions = ["no-model-flag", "custom-tool"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(m.PiExtensions) != 2 {
+		t.Errorf("PiExtensions len = %d, want 2", len(m.PiExtensions))
+	}
+}
+
+func TestLoadBundleAndPiExtensionsConflict(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "core"
+pi_extensions = ["no-model-flag"]
+`), 0o644)
+
+	_, err := manifest.Load(dir)
+	if err == nil {
+		t.Fatal("expected error for bundle+pi_extensions conflict, got nil")
+	}
+}
+
+func TestLoadPiExtensionsAddWithoutBundleError(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+pi_extensions = ["no-model-flag"]
+pi_extensions_add = ["extra"]
+`), 0o644)
+
+	_, err := manifest.Load(dir)
+	if err == nil {
+		t.Fatal("expected error for pi_extensions_add without bundle, got nil")
+	}
+}
+
+func TestLoadPiExtensionsRemoveWithoutBundleError(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+pi_extensions = ["no-model-flag"]
+pi_extensions_remove = ["no-model-flag"]
+`), 0o644)
+
+	_, err := manifest.Load(dir)
+	if err == nil {
+		t.Fatal("expected error for pi_extensions_remove without bundle, got nil")
+	}
+}
+
+func TestResolveCherryPickPiExtensions(t *testing.T) {
+	s := setupStore(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+pi_extensions = ["no-model-flag", "custom-tool"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.PiExtensions) != 2 {
+		t.Fatalf("PiExtensions len = %d, want 2; got %v", len(r.PiExtensions), assetNames(r.PiExtensions))
+	}
+	if r.PiExtensions[0].Name != "no-model-flag" || r.PiExtensions[1].Name != "custom-tool" {
+		t.Errorf("PiExtensions = %v", assetNames(r.PiExtensions))
+	}
+}
+
+func TestResolveBundleWithPiExtensions(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "browse")
+
+	bundleContent := `
+[bundle]
+name = "test"
+instructions = "core"
+
+[skills]
+include = ["browse"]
+
+[pi_extensions]
+include = ["no-model-flag", "custom-tool"]
+exclude = ["custom-tool"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`bundle = "test"`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.PiExtensions) != 1 {
+		t.Fatalf("PiExtensions len = %d, want 1; got %v", len(r.PiExtensions), assetNames(r.PiExtensions))
+	}
+	if r.PiExtensions[0].Name != "no-model-flag" {
+		t.Errorf("PiExtensions[0] = %q, want no-model-flag", r.PiExtensions[0].Name)
+	}
+}
+
+func TestResolveBundlePiExtensionsAddRemove(t *testing.T) {
+	s := setupStore(t)
+
+	bundleContent := `
+[bundle]
+name = "test"
+instructions = "core"
+
+[pi_extensions]
+include = ["no-model-flag", "old-ext"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "test"
+pi_extensions_add = ["new-ext"]
+pi_extensions_remove = ["old-ext"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.PiExtensions) != 2 {
+		t.Fatalf("PiExtensions len = %d, want 2; got %v", len(r.PiExtensions), assetNames(r.PiExtensions))
+	}
+	names := map[string]bool{}
+	for _, e := range r.PiExtensions {
+		names[e.Name] = true
+	}
+	if !names["no-model-flag"] {
+		t.Error("expected no-model-flag")
+	}
+	if !names["new-ext"] {
+		t.Error("expected new-ext")
+	}
+	if names["old-ext"] {
+		t.Error("old-ext should have been removed")
+	}
+}
+
+func TestResolveCrossStorePiExtensions(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+pi_extensions = ["no-model-flag", "work:custom-tool"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	r, err := manifest.Resolve(m, stores, "personal")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.PiExtensions) != 2 {
+		t.Fatalf("PiExtensions len = %d, want 2", len(r.PiExtensions))
+	}
+	if r.PiExtensions[0].Name != "no-model-flag" || r.PiExtensions[0].Store != "personal" {
+		t.Errorf("PiExtensions[0] = %+v", r.PiExtensions[0])
+	}
+	if r.PiExtensions[1].Name != "custom-tool" || r.PiExtensions[1].Store != "work" {
+		t.Errorf("PiExtensions[1] = %+v", r.PiExtensions[1])
+	}
+}
+
+func TestResolvePiExtensionNameCollisionCrossStore(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+pi_extensions = ["no-model-flag", "work:no-model-flag"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	_, err = manifest.Resolve(m, stores, "personal")
+	if err == nil {
+		t.Fatal("expected pi_extension name collision error")
+	}
+	if !strings.Contains(err.Error(), "pi_extension") {
+		t.Errorf("error = %q, should mention pi_extension", err)
+	}
+}
+
+func TestFromUserConfigWithPiExtensions(t *testing.T) {
+	m, err := manifest.FromUserConfig(manifest.UserFields{
+		PiExtensions: []string{"no-model-flag"},
+	})
+	if err != nil {
+		t.Fatalf("FromUserConfig: %v", err)
+	}
+	if len(m.PiExtensions) != 1 || m.PiExtensions[0] != "no-model-flag" {
+		t.Errorf("PiExtensions = %v, want [no-model-flag]", m.PiExtensions)
+	}
+	if m.Layout != "all" {
+		t.Errorf("Layout = %q, want all", m.Layout)
+	}
+}
+
+func TestFromUserConfigPiExtensionsAddWithoutBundleError(t *testing.T) {
+	_, err := manifest.FromUserConfig(manifest.UserFields{
+		Instructions:    "core",
+		PiExtensionsAdd: []string{"extra"},
+	})
+	if err == nil {
+		t.Fatal("expected error for pi_extensions_add without bundle, got nil")
+	}
+}
+
 // assetNames extracts names from a slice of ResolvedAssets for test output.
 func assetNames(assets []manifest.ResolvedAsset) []string {
 	names := make([]string, len(assets))

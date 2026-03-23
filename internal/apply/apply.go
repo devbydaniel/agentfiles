@@ -77,6 +77,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 	lf.Deployed.Skills = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
 	lf.Deployed.Agents = make(map[string]*lock.Entry)
+	lf.Deployed.PiExtensions = make(map[string]*lock.Entry)
 
 	res := &ApplyResult{}
 
@@ -271,6 +272,92 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		}
 	}
 
+	// Deploy pi_extensions (unless skill-only filter is set).
+	if opts.SkillOnly == "" {
+		for _, ext := range resolved.PiExtensions {
+			entries := lay.PiExtensionEntries(ext.Name)
+			if len(entries) == 0 {
+				continue // layout doesn't support pi extensions (e.g., claude, cursor, codex)
+			}
+			s, err := store.LookupStore(stores, ext.Store)
+			if err != nil {
+				return nil, fmt.Errorf("pi_extension %q: %w", ext.Name, err)
+			}
+
+			// Detect whether this is a single .ts file or a directory extension.
+			fileSrc := filepath.Join(s.PiExtensionsDir(), ext.Name+".ts")
+			dirSrc := filepath.Join(s.PiExtensionsDir(), ext.Name)
+
+			isDir := false
+			if info, err := os.Stat(dirSrc); err == nil && info.IsDir() {
+				isDir = true
+			} else if _, err := os.Stat(fileSrc); err != nil {
+				return nil, fmt.Errorf("pi_extension %q not found in store %q", ext.Name, ext.Store)
+			}
+
+			allSkipped := true
+			for _, e := range entries {
+				if isDir {
+					// Directory extension: deploy to <entry.Path>/
+					skipped, warn, err := deployEntry(repoDir, e, dirSrc, opts.Force)
+					if err != nil {
+						return nil, fmt.Errorf("deploying pi_extension %q to %s: %w", ext.Name, e.Path, err)
+					}
+					if warn != "" {
+						res.Warnings = append(res.Warnings, warn)
+					}
+					if !skipped {
+						allSkipped = false
+					}
+				} else {
+					// Single .ts file: deploy to <entry.Path>.ts
+					data, err := os.ReadFile(fileSrc)
+					if err != nil {
+						return nil, fmt.Errorf("reading pi_extension %q: %w", ext.Name, err)
+					}
+					skipped, warn, err := deployFile(filepath.Join(repoDir, e.Path+".ts"), data, opts.Force)
+					if err != nil {
+						return nil, fmt.Errorf("deploying pi_extension %q to %s.ts: %w", ext.Name, e.Path, err)
+					}
+					if warn != "" {
+						res.Warnings = append(res.Warnings, warn)
+					}
+					if !skipped {
+						allSkipped = false
+					}
+				}
+			}
+
+			var h string
+			var relSource string
+			var deployedPath string
+			if isDir {
+				h, err = lock.HashDir(dirSrc)
+				if err != nil {
+					return nil, fmt.Errorf("hashing pi_extension %q: %w", ext.Name, err)
+				}
+				relSource = filepath.Join("pi_extensions", ext.Name) + "/"
+				deployedPath = primaryPath(entries)
+			} else {
+				h, err = lock.Hash(fileSrc)
+				if err != nil {
+					return nil, fmt.Errorf("hashing pi_extension %q: %w", ext.Name, err)
+				}
+				relSource = filepath.Join("pi_extensions", ext.Name+".ts")
+				deployedPath = primaryPath(entries) + ".ts"
+			}
+			lk := lockKey(ext.Name, ext.Store, defaultStore)
+			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetPiExtensions, Name: lk, StoreName: ext.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+				return nil, err
+			}
+			if allSkipped {
+				res.Skipped++
+			} else {
+				res.Deployed++
+			}
+		}
+	}
+
 	// Clean up assets that were in the old lock but not in the new one.
 	// Skip cleanup when deploying a single skill (partial deploy).
 	if opts.SkillOnly == "" {
@@ -309,6 +396,9 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 	for _, e := range newLF.Deployed.Agents {
 		newPaths[e.DeployedPath] = true
 	}
+	for _, e := range newLF.Deployed.PiExtensions {
+		newPaths[e.DeployedPath] = true
+	}
 
 	// Remove old instructions if no longer present.
 	if oldLF.Deployed.Instructions != nil && !newPaths[oldLF.Deployed.Instructions.DeployedPath] {
@@ -337,6 +427,15 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 
 	// Remove old agents.
 	for _, e := range oldLF.Deployed.Agents {
+		if !newPaths[e.DeployedPath] {
+			if removeDeployed(repoDir, e.DeployedPath) {
+				removed++
+			}
+		}
+	}
+
+	// Remove old pi_extensions.
+	for _, e := range oldLF.Deployed.PiExtensions {
 		if !newPaths[e.DeployedPath] {
 			if removeDeployed(repoDir, e.DeployedPath) {
 				removed++

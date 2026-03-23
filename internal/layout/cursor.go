@@ -18,3 +18,6 @@ func (l CursorLayout) SkillEntries(name string) []Entry {
 func (CursorLayout) AgentEntries(name string) []Entry {
 	return []Entry{{Path: filepath.Join(".cursor", "agents", name+".md")}}
 }
+func (CursorLayout) PiExtensionEntries(name string) []Entry {
+	return nil
+}

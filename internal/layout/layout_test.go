@@ -252,6 +252,92 @@ func TestUserAllAgentEntries(t *testing.T) {
 	assertEntryPath(t, entries[2], ".codex/agents/reviewer.toml")
 }
 
+// --- PiExtensionEntries tests ---
+
+func TestPiPiExtensionEntries(t *testing.T) {
+	l := PiLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".pi/extensions/no-model-flag")
+}
+
+func TestClaudePiExtensionEntries(t *testing.T) {
+	l := ClaudeLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if entries != nil {
+		t.Fatalf("expected nil, got %v", entries)
+	}
+}
+
+func TestCursorPiExtensionEntries(t *testing.T) {
+	l := CursorLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if entries != nil {
+		t.Fatalf("expected nil, got %v", entries)
+	}
+}
+
+func TestCodexPiExtensionEntries(t *testing.T) {
+	l := CodexLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if entries != nil {
+		t.Fatalf("expected nil, got %v", entries)
+	}
+}
+
+func TestAllPiExtensionEntries(t *testing.T) {
+	l := AllLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".pi/extensions/no-model-flag")
+}
+
+func TestUserPiPiExtensionEntries(t *testing.T) {
+	l := UserPiLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".pi/agent/extensions/no-model-flag")
+}
+
+func TestUserClaudePiExtensionEntries(t *testing.T) {
+	l := UserClaudeLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if entries != nil {
+		t.Fatalf("expected nil, got %v", entries)
+	}
+}
+
+func TestUserCursorPiExtensionEntries(t *testing.T) {
+	l := UserCursorLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if entries != nil {
+		t.Fatalf("expected nil, got %v", entries)
+	}
+}
+
+func TestUserCodexPiExtensionEntries(t *testing.T) {
+	l := UserCodexLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if entries != nil {
+		t.Fatalf("expected nil, got %v", entries)
+	}
+}
+
+func TestUserAllPiExtensionEntries(t *testing.T) {
+	l := UserAllLayout{}
+	entries := l.PiExtensionEntries("no-model-flag")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".pi/agent/extensions/no-model-flag")
+}
+
 func assertEqual(t *testing.T, want, got string) {
 	t.Helper()
 	if got != want {

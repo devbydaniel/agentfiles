@@ -700,6 +700,165 @@ func TestPushSkillOnlySkipsAgents(t *testing.T) {
 	}
 }
 
+// --- PiExtension push tests ---
+
+func addPiExtensionFile(t *testing.T, s *store.Store, name, content string) {
+	t.Helper()
+	dir := s.PiExtensionsDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name+".ts"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func addPiExtensionDir(t *testing.T, s *store.Store, name string, files map[string]string) {
+	t.Helper()
+	dir := filepath.Join(s.PiExtensionsDir(), name)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for rel, content := range files {
+		p := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestPushModifiedPiExtensionFile(t *testing.T) {
+	s := setupStore(t)
+	addPiExtensionFile(t, s, "no-model-flag", "// original")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "pi", PiExtensions: []string{"no-model-flag"}}
+	applyToRepo(t, s, m, repo)
+
+	// Modify deployed extension.
+	deployed := filepath.Join(repo, ".pi", "extensions", "no-model-flag.ts")
+	if err := os.WriteFile(deployed, []byte("// modified"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res := pushFromRepo(t, s, repo, Options{})
+	if len(res.Changes) != 1 {
+		t.Fatalf("expected 1 change, got %d", len(res.Changes))
+	}
+	if res.Changes[0].Name != "no-model-flag" {
+		t.Errorf("change name = %q", res.Changes[0].Name)
+	}
+	if res.Changes[0].Type != lock.AssetPiExtensions {
+		t.Errorf("change type = %q", res.Changes[0].Type)
+	}
+
+	// Store should be updated.
+	data, err := os.ReadFile(filepath.Join(s.PiExtensionsDir(), "no-model-flag.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "// modified" {
+		t.Errorf("store extension = %q", data)
+	}
+
+	// Second push should find no changes.
+	res2 := pushFromRepo(t, s, repo, Options{})
+	if len(res2.Changes) != 0 {
+		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
+	}
+}
+
+func TestPushModifiedPiExtensionDir(t *testing.T) {
+	s := setupStore(t)
+	addPiExtensionDir(t, s, "my-ext", map[string]string{
+		"index.ts": "// original",
+		"util.ts":  "export const x = 1",
+	})
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "pi", PiExtensions: []string{"my-ext"}}
+	applyToRepo(t, s, m, repo)
+
+	// Modify a file in the deployed directory extension.
+	deployed := filepath.Join(repo, ".pi", "extensions", "my-ext", "index.ts")
+	if err := os.WriteFile(deployed, []byte("// modified index"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res := pushFromRepo(t, s, repo, Options{})
+	if len(res.Changes) != 1 {
+		t.Fatalf("expected 1 change, got %d", len(res.Changes))
+	}
+	if res.Changes[0].Name != "my-ext" {
+		t.Errorf("change name = %q", res.Changes[0].Name)
+	}
+
+	// Store should be updated.
+	data, err := os.ReadFile(filepath.Join(s.PiExtensionsDir(), "my-ext", "index.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "// modified index" {
+		t.Errorf("store extension = %q", data)
+	}
+
+	// Unmodified file should be preserved.
+	data, err = os.ReadFile(filepath.Join(s.PiExtensionsDir(), "my-ext", "util.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "export const x = 1" {
+		t.Errorf("store util.ts = %q", data)
+	}
+
+	// Second push should find no changes.
+	res2 := pushFromRepo(t, s, repo, Options{})
+	if len(res2.Changes) != 0 {
+		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
+	}
+}
+
+func TestPushUnmodifiedPiExtension(t *testing.T) {
+	s := setupStore(t)
+	addPiExtensionFile(t, s, "no-model-flag", "// original")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "pi", PiExtensions: []string{"no-model-flag"}}
+	applyToRepo(t, s, m, repo)
+
+	res := pushFromRepo(t, s, repo, Options{})
+	if len(res.Changes) != 0 {
+		t.Errorf("expected 0 changes, got %d", len(res.Changes))
+	}
+	if res.Checked != 1 {
+		t.Errorf("checked = %d, want 1", res.Checked)
+	}
+}
+
+func TestPushSkillOnlySkipsPiExtensions(t *testing.T) {
+	s := setupStore(t)
+	addSkill(t, s, "browse", "# Browse")
+	addPiExtensionFile(t, s, "no-model-flag", "// original")
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "pi", Skills: []string{"browse"}, PiExtensions: []string{"no-model-flag"}}
+	applyToRepo(t, s, m, repo)
+
+	// Modify the extension.
+	os.WriteFile(filepath.Join(repo, ".pi", "extensions", "no-model-flag.ts"), []byte("// modified"), 0o644)
+
+	// Push with skill-only should skip pi_extensions.
+	res := pushFromRepo(t, s, repo, Options{SkillOnly: "browse"})
+	for _, ch := range res.Changes {
+		if ch.Type == lock.AssetPiExtensions {
+			t.Errorf("pi_extension should not be pushed with skill-only: %+v", ch)
+		}
+	}
+}
+
 func TestPushUnknownStoreError(t *testing.T) {
 	s := setupStore(t)
 	addInstruction(t, s, "main", "# Agent")

@@ -11,23 +11,25 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list <skills|bundles|instructions|resources|agents>",
+	Use:   "list <skills|bundles|instructions|resources|agents|pi-extensions>",
 	Short: "List items in the agentfiles store",
 	Long: `List assets in the source store by type.
 
 Types:
-  skills        Skill directories (each containing SKILL.md)
-  instructions  Instruction files (shown without .md extension)
-  bundles       Bundle definitions (shown without .toml extension)
-  resources     Resource directories
-  agents        Agent files (shown without .md extension)
+  skills          Skill directories (each containing SKILL.md)
+  instructions    Instruction files (shown without .md extension)
+  bundles         Bundle definitions (shown without .toml extension)
+  resources       Resource directories
+  agents          Agent files (shown without .md extension)
+  pi-extensions   Pi extension files (.ts) or directories (with index.ts)
 
 Examples:
   af list skills
   af list skills --flat
   af list bundles
   af list instructions
-  af list agents`,
+  af list agents
+  af list pi-extensions`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := openStore()
@@ -116,8 +118,23 @@ Examples:
 			}
 			return nil
 
+		case "pi-extensions":
+			exts, err := s.ListPiExtensions()
+			if err != nil {
+				return err
+			}
+			var names []string
+			for _, e := range exts {
+				names = append(names, e.Name)
+			}
+			sort.Strings(names)
+			for _, n := range names {
+				fmt.Fprintln(cmd.OutOrStdout(), n)
+			}
+			return nil
+
 		default:
-			return fmt.Errorf("unknown list type %q (use skills, bundles, instructions, resources, or agents)", kind)
+			return fmt.Errorf("unknown list type %q (use skills, bundles, instructions, resources, agents, or pi-extensions)", kind)
 		}
 	},
 }

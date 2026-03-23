@@ -47,3 +47,15 @@ func (a UserAllLayout) AgentEntries(name string) []Entry {
 	}
 	return dedup(all)
 }
+
+// PiExtensionEntries returns entries for a pi extension across all user layouts.
+// Only user-pi returns non-nil, so the result is just user-pi's entries.
+func (a UserAllLayout) PiExtensionEntries(name string) []Entry {
+	var all []Entry
+	for _, sub := range []Layout{a.pi, a.claude, a.cursor, a.codex} {
+		if entries := sub.PiExtensionEntries(name); entries != nil {
+			all = append(all, entries...)
+		}
+	}
+	return dedup(all)
+}

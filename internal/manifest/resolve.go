@@ -23,6 +23,7 @@ type ResolvedManifest struct {
 	Skills       []ResolvedAsset
 	Resources    []ResolvedAsset
 	Agents       []ResolvedAsset
+	PiExtensions []ResolvedAsset
 }
 
 // Resolve expands a Manifest (possibly referencing a bundle) into a
@@ -70,6 +71,7 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 
 		r.Resources = toResolvedAssets(filterExcluded(b.Resources.Include, b.Resources.Exclude), defaultStore)
 		r.Agents = toResolvedAssets(filterExcluded(b.Agents.Include, b.Agents.Exclude), defaultStore)
+		r.PiExtensions = toResolvedAssets(filterExcluded(b.PiExtensions.Include, b.PiExtensions.Exclude), defaultStore)
 	} else {
 		if m.Instructions != "" {
 			storeName, name := parseStorePrefix(m.Instructions, defaultStore)
@@ -94,6 +96,7 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 
 		r.Resources = parseResolvedAssets(m.Resources, defaultStore)
 		r.Agents = parseResolvedAssets(m.Agents, defaultStore)
+		r.PiExtensions = parseResolvedAssets(m.PiExtensions, defaultStore)
 	}
 
 	// Apply overrides: expand globs in skills_add and skills_remove.
@@ -163,6 +166,28 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		r.Agents = filterExcludedAssets(r.Agents, m.AgentsRemove)
 	}
 
+	// Apply pi_extensions overrides.
+	if len(m.PiExtensionsAdd) > 0 {
+		for _, raw := range m.PiExtensionsAdd {
+			storeName, name := parseStorePrefix(raw, defaultStore)
+			if _, err := store.LookupStore(stores, storeName); err != nil {
+				return nil, fmt.Errorf("pi_extensions_add %q: %w", raw, err)
+			}
+			if !containsAsset(r.PiExtensions, name, storeName) {
+				r.PiExtensions = append(r.PiExtensions, ResolvedAsset{Name: name, Store: storeName})
+			}
+		}
+	}
+	if len(m.PiExtensionsRemove) > 0 {
+		for _, raw := range m.PiExtensionsRemove {
+			storeName, _ := parseStorePrefix(raw, defaultStore)
+			if _, err := store.LookupStore(stores, storeName); err != nil {
+				return nil, fmt.Errorf("pi_extensions_remove %q: %w", raw, err)
+			}
+		}
+		r.PiExtensions = filterExcludedAssets(r.PiExtensions, m.PiExtensionsRemove)
+	}
+
 	// Resolve each skill ref via store.ResolveSkill to get SkillInfo.
 	for _, ref := range skillRefs {
 		s, err := store.LookupStore(stores, ref.storeName)
@@ -188,6 +213,7 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 	allAssets = append(allAssets, r.Skills...)
 	allAssets = append(allAssets, r.Resources...)
 	allAssets = append(allAssets, r.Agents...)
+	allAssets = append(allAssets, r.PiExtensions...)
 	for _, a := range allAssets {
 		if _, ok := stores[a.Store]; !ok {
 			return nil, fmt.Errorf("store %q not found (referenced by asset %q)", a.Store, a.Name)
@@ -202,6 +228,9 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		return nil, err
 	}
 	if err := checkNameCollisions("agent", r.Agents); err != nil {
+		return nil, err
+	}
+	if err := checkNameCollisions("pi_extension", r.PiExtensions); err != nil {
 		return nil, err
 	}
 
