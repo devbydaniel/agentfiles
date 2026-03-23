@@ -50,3 +50,14 @@ func (a AllLayout) SkillEntries(name string) []Entry {
 		{Path: a.codex.SkillPath(name)},
 	})
 }
+
+// AgentEntries returns entries for an agent across all layouts that support agents.
+func (a AllLayout) AgentEntries(name string) []Entry {
+	var all []Entry
+	for _, sub := range []Layout{a.pi, a.claude, a.cursor, a.codex} {
+		if entries := sub.AgentEntries(name); entries != nil {
+			all = append(all, entries...)
+		}
+	}
+	return dedup(all)
+}

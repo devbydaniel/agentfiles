@@ -176,6 +176,12 @@ func writeManifest(repo registry.Repo, defaultStore string) error {
 	if len(repo.SkillsRemove) > 0 {
 		lines = append(lines, fmt.Sprintf("skills_remove = %s", tomlStringArray(repo.SkillsRemove)))
 	}
+	if len(repo.AgentsAdd) > 0 {
+		lines = append(lines, fmt.Sprintf("agents_add = %s", tomlStringArray(repo.AgentsAdd)))
+	}
+	if len(repo.AgentsRemove) > 0 {
+		lines = append(lines, fmt.Sprintf("agents_remove = %s", tomlStringArray(repo.AgentsRemove)))
+	}
 
 	content := ""
 	for _, l := range lines {
@@ -208,6 +214,9 @@ func userFields(u *config.UserConfig) manifest.UserFields {
 		Skills:       u.Skills,
 		SkillsAdd:    u.SkillsAdd,
 		SkillsRemove: u.SkillsRemove,
+		Agents:       u.Agents,
+		AgentsAdd:    u.AgentsAdd,
+		AgentsRemove: u.AgentsRemove,
 	}
 }
 

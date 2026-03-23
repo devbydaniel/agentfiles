@@ -9,14 +9,17 @@ Go CLI (`af`) using cobra. Entry: `main.go` → `cmd/root.go`. All commands in `
 ```
 Config (~/.config/agentfiles/config.toml)
   → Named stores (personal = "~/.agentfiles", work = "~/.agentfiles-work")
+    Stores contain: instructions/, skills/, resources/, bundles/, agents/
   → Manifest (.agentfiles per repo) or Config repos ([[repos]] entries)
     OR [user] section for user-level deployment
-  → manifest.Resolve(m, stores, defaultStore) expands bundle refs + skill overrides
+  → manifest.Resolve(m, stores, defaultStore) expands bundle refs + skill/agent overrides
     into flat ResolvedAsset lists (each carries Name + Store provenance)
   → layout.Get() or layout.GetUser() determines file paths per tool
   → apply.Apply(stores, defaultStore, ...) copies files from correct stores
+    + converts agents to tool-specific formats (e.g., .md → .toml for Codex)
     + writes .agentfiles.lock (repo) or user.lock (user-level)
   → push.Push(stores, defaultStore, ...) diffs deployed files against lock hashes,
+    converts back to canonical format if needed (e.g., .toml → .md for agents),
     routes changes back to the correct store per lock entry
 ```
 
@@ -39,6 +42,9 @@ Config (~/.config/agentfiles/config.toml)
 - **Backward compat**: Single-store setups work with `--store <path>` flag. Lock files without store fields default to the default store. The `storename:` prefix is optional — unprefixed assets use the default store.
 - **User-level deployment**: `[user]` section in config acts as the manifest (no `.agentfiles` in `$HOME`). Lock file at `~/.config/agentfiles/user.lock`. User layouts produce home-relative paths (`~/.claude/CLAUDE.md`, `~/AGENTS.md`, `~/.pi/skills/`). Resources not supported at user level. `apply-all` includes user deployment. Parameterized via `Options.LockFilePath` in apply/push.
 - **User layout variants**: `layout.GetUser()` returns user-level layouts (`internal/layout/user_*.go`). Same tool names (pi/claude/cursor/all) but different paths (home-relative instead of repo-relative).
+- **Agents (subagents)**: Single `.md` files in `agents/` store directory. Authored as Markdown with YAML frontmatter (canonical format). Deployed as-is (`.md`) for Claude/Cursor, converted to TOML for Codex (body → `developer_instructions`, frontmatter fields → TOML keys). Pi layouts ignore agents (`AgentEntries` returns nil). Push from Codex `.toml` converts back to `.md` in store. For "all" layout, `.md` is the primary (source of truth for push). `agents/` is optional in `store.Open` for backward compat with pre-agent stores.
+- **Agent hashing**: Lock hash is computed on the canonical (parsed → re-serialized) `.md` form, not the deployed format. This ensures hash stability across format conversions (deploy as `.toml`, push back as `.md`, hash matches).
+- **Bundle vs cherry-pick for agents**: `agents` field works in cherry-pick mode. `agents_add`/`agents_remove` work with bundle mode (same pattern as skills).
 
 ## Config resolution
 

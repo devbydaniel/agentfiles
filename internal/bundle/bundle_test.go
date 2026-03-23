@@ -63,6 +63,39 @@ include = ["cursor-config", "shared-scripts"]
 	}
 }
 
+func TestLoadBundleWithAgents(t *testing.T) {
+	s := setupStore(t)
+
+	content := `
+[bundle]
+name = "with-agents"
+instructions = "core"
+
+[skills]
+include = ["browse"]
+
+[agents]
+include = ["code-reviewer", "debugger"]
+exclude = ["debugger"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "with-agents.toml"), []byte(content), 0o644)
+
+	b, err := bundle.Load(s, "with-agents")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if len(b.Agents.Include) != 2 {
+		t.Errorf("Agents.Include len = %d, want 2", len(b.Agents.Include))
+	}
+	if len(b.Agents.Exclude) != 1 {
+		t.Errorf("Agents.Exclude len = %d, want 1", len(b.Agents.Exclude))
+	}
+	if b.Agents.Include[0] != "code-reviewer" {
+		t.Errorf("Agents.Include[0] = %q, want code-reviewer", b.Agents.Include[0])
+	}
+}
+
 func TestLoadBundleMissing(t *testing.T) {
 	s := setupStore(t)
 

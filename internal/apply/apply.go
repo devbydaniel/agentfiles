@@ -6,7 +6,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/devbydaniel/agentfiles/internal/agent"
 	"github.com/devbydaniel/agentfiles/internal/layout"
 	"github.com/devbydaniel/agentfiles/internal/lock"
 	"github.com/devbydaniel/agentfiles/internal/manifest"
@@ -74,6 +76,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 	lf := &lock.LockFile{}
 	lf.Deployed.Skills = make(map[string]*lock.Entry)
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
+	lf.Deployed.Agents = make(map[string]*lock.Entry)
 
 	res := &ApplyResult{}
 
@@ -209,6 +212,65 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		}
 	}
 
+	// Deploy agents (unless skill-only filter is set).
+	if opts.SkillOnly == "" {
+		for _, ag := range resolved.Agents {
+			entries := lay.AgentEntries(ag.Name)
+			if len(entries) == 0 {
+				continue // layout doesn't support agents (e.g., pi)
+			}
+			s, err := store.LookupStore(stores, ag.Store)
+			if err != nil {
+				return nil, fmt.Errorf("agent %q: %w", ag.Name, err)
+			}
+			src := filepath.Join(s.AgentsDir(), ag.Name+".md")
+			srcData, err := os.ReadFile(src)
+			if err != nil {
+				return nil, fmt.Errorf("agent %q not found in store %q", ag.Name, ag.Store)
+			}
+			allSkipped := true
+			for _, e := range entries {
+				data, err := agentDataForEntry(e, srcData)
+				if err != nil {
+					return nil, fmt.Errorf("converting agent %q for %s: %w", ag.Name, e.Path, err)
+				}
+				skipped, warn, deployErr := deployFile(filepath.Join(repoDir, e.Path), data, opts.Force)
+				if deployErr != nil {
+					return nil, fmt.Errorf("deploying agent %q to %s: %w", ag.Name, e.Path, deployErr)
+				}
+				if warn != "" {
+					res.Warnings = append(res.Warnings, warn)
+				}
+				if !skipped {
+					allSkipped = false
+				}
+			}
+			// Hash the canonical (parsed→re-serialized) form so that the lock
+			// hash matches what push computes after round-tripping through
+			// format conversions (e.g., Codex TOML → MD).
+			fm, body, parseErr := agent.Parse(srcData)
+			if parseErr != nil {
+				return nil, fmt.Errorf("parsing agent %q for hashing: %w", ag.Name, parseErr)
+			}
+			canonical, canonErr := agent.ToMarkdown(fm, body)
+			if canonErr != nil {
+				return nil, fmt.Errorf("canonicalizing agent %q for hashing: %w", ag.Name, canonErr)
+			}
+			h := lock.HashBytes(canonical)
+			relSource := filepath.Join("agents", ag.Name+".md")
+			deployedPath := primaryPath(entries)
+			lk := lockKey(ag.Name, ag.Store, defaultStore)
+			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetAgents, Name: lk, StoreName: ag.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+				return nil, err
+			}
+			if allSkipped {
+				res.Skipped++
+			} else {
+				res.Deployed++
+			}
+		}
+	}
+
 	// Clean up assets that were in the old lock but not in the new one.
 	// Skip cleanup when deploying a single skill (partial deploy).
 	if opts.SkillOnly == "" {
@@ -244,6 +306,9 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 	for _, e := range newLF.Deployed.Resources {
 		newPaths[e.DeployedPath] = true
 	}
+	for _, e := range newLF.Deployed.Agents {
+		newPaths[e.DeployedPath] = true
+	}
 
 	// Remove old instructions if no longer present.
 	if oldLF.Deployed.Instructions != nil && !newPaths[oldLF.Deployed.Instructions.DeployedPath] {
@@ -263,6 +328,15 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 
 	// Remove old resources.
 	for _, e := range oldLF.Deployed.Resources {
+		if !newPaths[e.DeployedPath] {
+			if removeDeployed(repoDir, e.DeployedPath) {
+				removed++
+			}
+		}
+	}
+
+	// Remove old agents.
+	for _, e := range oldLF.Deployed.Agents {
 		if !newPaths[e.DeployedPath] {
 			if removeDeployed(repoDir, e.DeployedPath) {
 				removed++
@@ -366,6 +440,21 @@ func copyDir(dest, src string, force bool) (bool, string, error) {
 // deployResource copies the contents of a resource directory to repo root.
 func deployResource(repoDir, srcDir string, force bool) (bool, string, error) {
 	return copyDir(repoDir, srcDir, force)
+}
+
+// agentDataForEntry returns the data to write for an agent entry.
+// If the entry path ends with ".toml", the source Markdown is converted to
+// Codex TOML format. Otherwise, the source is parsed and re-serialized to
+// canonical Markdown so deployed files always match the lock hash.
+func agentDataForEntry(e layout.Entry, srcData []byte) ([]byte, error) {
+	fm, body, err := agent.Parse(srcData)
+	if err != nil {
+		return nil, err
+	}
+	if strings.HasSuffix(e.Path, ".toml") {
+		return agent.ToCodexTOML(fm, body)
+	}
+	return agent.ToMarkdown(fm, body)
 }
 
 // primaryPath returns the Path of the first entry.

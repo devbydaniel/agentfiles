@@ -11,15 +11,19 @@ import (
 
 var subdirs = []string{"skills", "instructions", "resources", "bundles"}
 
+// optionalSubdirs are created by Init but not required by Open (backward compat).
+var optionalSubdirs = []string{"agents"}
+
 // Store represents an opened agentfiles source store.
 type Store struct {
 	Root string
 }
 
-func (s *Store) SkillsDir() string    { return filepath.Join(s.Root, "skills") }
+func (s *Store) SkillsDir() string       { return filepath.Join(s.Root, "skills") }
 func (s *Store) InstructionsDir() string { return filepath.Join(s.Root, "instructions") }
-func (s *Store) ResourcesDir() string { return filepath.Join(s.Root, "resources") }
-func (s *Store) BundlesDir() string   { return filepath.Join(s.Root, "bundles") }
+func (s *Store) ResourcesDir() string   { return filepath.Join(s.Root, "resources") }
+func (s *Store) BundlesDir() string     { return filepath.Join(s.Root, "bundles") }
+func (s *Store) AgentsDir() string      { return filepath.Join(s.Root, "agents") }
 
 // Open validates that path is a valid agentfiles store and returns a Store.
 func Open(path string) (*Store, error) {
@@ -62,7 +66,7 @@ func Init(path string) (*Store, error) {
 		return nil, fmt.Errorf("resolving store path: %w", err)
 	}
 
-	for _, sub := range subdirs {
+	for _, sub := range append(subdirs, optionalSubdirs...) {
 		p := filepath.Join(abs, sub)
 		if err := os.MkdirAll(p, 0o755); err != nil {
 			return nil, fmt.Errorf("creating %q: %w", p, err)
@@ -116,6 +120,43 @@ func LookupStore(stores map[string]*Store, name string) (*Store, error) {
 		return nil, fmt.Errorf("store %q not found", name)
 	}
 	return s, nil
+}
+
+// AgentInfo describes an agent found in the store.
+type AgentInfo struct {
+	Name string // Filename without .md extension.
+}
+
+// ListAgents walks agents/ for .md files and returns their names.
+// Returns an empty slice if the agents/ directory does not exist.
+func (s *Store) ListAgents() ([]AgentInfo, error) {
+	agentsDir := s.AgentsDir()
+	if _, err := os.Stat(agentsDir); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	entries, err := os.ReadDir(agentsDir)
+	if err != nil {
+		return nil, fmt.Errorf("listing agents: %w", err)
+	}
+
+	var agents []AgentInfo
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if !strings.HasSuffix(name, ".md") {
+			continue
+		}
+		agents = append(agents, AgentInfo{
+			Name: strings.TrimSuffix(name, ".md"),
+		})
+	}
+	return agents, nil
 }
 
 // SkillInfo describes a skill found in the store.

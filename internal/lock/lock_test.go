@@ -276,6 +276,100 @@ func TestLoadFromSaveTo(t *testing.T) {
 	}
 }
 
+func TestAgentRecordAndLoad(t *testing.T) {
+	dir := t.TempDir()
+
+	lf := &LockFile{}
+	lf.Deployed.Skills = make(map[string]*Entry)
+	lf.Deployed.Resources = make(map[string]*Entry)
+	lf.Deployed.Agents = make(map[string]*Entry)
+	mustRecord(t, lf, AssetAgents, "code-reviewer", "agents/code-reviewer.md", ".claude/agents/code-reviewer.md", "aaa111")
+	mustRecord(t, lf, AssetAgents, "debugger", "agents/debugger.md", ".codex/agents/debugger.toml", "bbb222")
+
+	if err := Save(dir, lf); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if len(got.Deployed.Agents) != 2 {
+		t.Fatalf("Agents len = %d, want 2", len(got.Deployed.Agents))
+	}
+
+	e := got.Deployed.Agents["code-reviewer"]
+	if e == nil {
+		t.Fatal("code-reviewer agent missing")
+	}
+	if e.StorePath != "agents/code-reviewer.md" || e.Hash != "aaa111" {
+		t.Errorf("code-reviewer mismatch: %+v", e)
+	}
+	if e.DeployedPath != ".claude/agents/code-reviewer.md" {
+		t.Errorf("code-reviewer DeployedPath = %q, want .claude/agents/code-reviewer.md", e.DeployedPath)
+	}
+
+	e2 := got.Deployed.Agents["debugger"]
+	if e2 == nil {
+		t.Fatal("debugger agent missing")
+	}
+	if e2.StorePath != "agents/debugger.md" || e2.Hash != "bbb222" {
+		t.Errorf("debugger mismatch: %+v", e2)
+	}
+}
+
+func TestAgentStoreFieldRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+
+	lf := &LockFile{}
+	lf.Deployed.Skills = make(map[string]*Entry)
+	lf.Deployed.Resources = make(map[string]*Entry)
+	lf.Deployed.Agents = make(map[string]*Entry)
+	if err := lf.Record(RecordParams{AssetType: AssetAgents, Name: "my-agent", StoreName: "work", SourcePath: "agents/my-agent.md", DeployedPath: ".claude/agents/my-agent.md", Hash: "ccc333"}); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	if err := Save(dir, lf); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	e := got.Deployed.Agents["my-agent"]
+	if e == nil {
+		t.Fatal("my-agent missing")
+	}
+	if e.Store != "work" {
+		t.Errorf("Store = %q, want work", e.Store)
+	}
+}
+
+func TestLegacyLockNoAgentsField(t *testing.T) {
+	dir := t.TempDir()
+
+	// Write a lock file without the agents section (legacy format).
+	legacy := `[deployed]
+[deployed.skills.browse]
+source = "skills/browse/"
+path = ".pi/skills/browse"
+hash = "def456"
+`
+	os.WriteFile(filepath.Join(dir, FileName), []byte(legacy), 0644)
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if len(got.Deployed.Agents) != 0 {
+		t.Errorf("Agents should be empty for legacy lock, got %d entries", len(got.Deployed.Agents))
+	}
+}
+
 func TestLoadFromNonexistent(t *testing.T) {
 	lf, err := LoadFrom("/nonexistent/path/lock.toml")
 	if err != nil {

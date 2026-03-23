@@ -25,6 +25,8 @@ type Repo struct {
 	Layout       string   `toml:"layout"`
 	SkillsAdd    []string `toml:"skills_add"`
 	SkillsRemove []string `toml:"skills_remove"`
+	AgentsAdd    []string `toml:"agents_add"`
+	AgentsRemove []string `toml:"agents_remove"`
 }
 
 func (r *Registry) validate() error {
@@ -63,6 +65,8 @@ func LoadFromConfig(cfg *config.Config) (*Registry, error) {
 			Layout:       cr.Layout,
 			SkillsAdd:    cr.SkillsAdd,
 			SkillsRemove: cr.SkillsRemove,
+			AgentsAdd:    cr.AgentsAdd,
+			AgentsRemove: cr.AgentsRemove,
 		})
 	}
 

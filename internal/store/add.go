@@ -92,6 +92,66 @@ func (s *Store) AddResource(srcPath string, force bool) (string, bool, error) {
 	return s.addDir(srcPath, s.ResourcesDir(), force)
 }
 
+// AddAgent copies an agent .md file into store/agents/<name>.md.
+// The name is derived from the source filename (minus .md extension).
+// Creates the agents/ directory on demand if missing.
+// Returns the derived name and whether an existing agent was overwritten.
+func (s *Store) AddAgent(srcPath string, force bool) (string, bool, error) {
+	abs, err := filepath.Abs(srcPath)
+	if err != nil {
+		return "", false, fmt.Errorf("resolving source path: %w", err)
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return "", false, fmt.Errorf("source path %q does not exist", srcPath)
+	}
+	if info.IsDir() {
+		return "", false, fmt.Errorf("source path %q is a directory, expected a .md file", srcPath)
+	}
+
+	base := filepath.Base(abs)
+	if !strings.HasSuffix(base, ".md") {
+		return "", false, fmt.Errorf("agent file must have .md extension, got %q", base)
+	}
+	name := strings.TrimSuffix(base, ".md")
+
+	// Validate name: reject path separators and traversal.
+	if strings.ContainsAny(name, `/\`) || strings.Contains(name, "..") {
+		return "", false, fmt.Errorf("invalid agent name %q: must not contain path separators or '..'", name)
+	}
+
+	// Ensure agents/ directory exists.
+	agentsDir := s.AgentsDir()
+	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+		return "", false, fmt.Errorf("creating agents directory: %w", err)
+	}
+
+	dest := filepath.Join(agentsDir, base)
+
+	// Ensure the resolved dest is still inside AgentsDir.
+	cleanDest, err := filepath.Abs(dest)
+	if err != nil {
+		return "", false, fmt.Errorf("resolving dest path: %w", err)
+	}
+	if !strings.HasPrefix(cleanDest, agentsDir+string(filepath.Separator)) && cleanDest != agentsDir {
+		return "", false, fmt.Errorf("invalid agent name %q: resolved path escapes agents directory", name)
+	}
+
+	overwritten := false
+	if _, err := os.Stat(dest); err == nil {
+		if !force {
+			return "", false, fmt.Errorf("agent %q already exists in store (use --force to overwrite)", name)
+		}
+		overwritten = true
+	}
+
+	data, err := os.ReadFile(abs)
+	if err != nil {
+		return "", false, fmt.Errorf("reading source: %w", err)
+	}
+	return name, overwritten, os.WriteFile(dest, data, 0o644)
+}
+
 // addDir copies srcPath (must be a directory) into parentDir/<basename>/.
 // Returns the derived name and whether an existing entry was overwritten.
 func (s *Store) addDir(srcPath, parentDir string, force bool) (string, bool, error) {

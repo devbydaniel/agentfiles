@@ -547,6 +547,251 @@ func TestFromUserConfigSkillsAddWithoutBundleError(t *testing.T) {
 	}
 }
 
+// createAgent creates a minimal agent .md file in the store.
+func createAgent(t *testing.T, s *store.Store, name string) {
+	t.Helper()
+	dir := filepath.Join(s.Root, "agents")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, name+".md"), []byte("---\nname: "+name+"\n---\nHello"), 0o644)
+}
+
+// --- Agent manifest tests ---
+
+func TestLoadCherryPickWithAgents(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+agents = ["code-reviewer", "debugger"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(m.Agents) != 2 {
+		t.Errorf("Agents len = %d, want 2", len(m.Agents))
+	}
+}
+
+func TestLoadAgentsAddWithoutBundleError(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+agents = ["code-reviewer"]
+agents_add = ["debugger"]
+`), 0o644)
+
+	_, err := manifest.Load(dir)
+	if err == nil {
+		t.Fatal("expected error for agents_add without bundle, got nil")
+	}
+}
+
+func TestLoadAgentsRemoveWithoutBundleError(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+agents = ["code-reviewer"]
+agents_remove = ["code-reviewer"]
+`), 0o644)
+
+	_, err := manifest.Load(dir)
+	if err == nil {
+		t.Fatal("expected error for agents_remove without bundle, got nil")
+	}
+}
+
+func TestLoadBundleAndAgentsConflict(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "core"
+agents = ["code-reviewer"]
+`), 0o644)
+
+	_, err := manifest.Load(dir)
+	if err == nil {
+		t.Fatal("expected error for bundle+agents conflict, got nil")
+	}
+}
+
+func TestResolveCherryPickAgents(t *testing.T) {
+	s := setupStore(t)
+	createAgent(t, s, "code-reviewer")
+	createAgent(t, s, "debugger")
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+agents = ["code-reviewer", "debugger"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Agents) != 2 {
+		t.Fatalf("Agents len = %d, want 2; got %v", len(r.Agents), assetNames(r.Agents))
+	}
+	if r.Agents[0].Name != "code-reviewer" || r.Agents[1].Name != "debugger" {
+		t.Errorf("Agents = %v, want [code-reviewer, debugger]", assetNames(r.Agents))
+	}
+}
+
+func TestResolveBundleWithAgents(t *testing.T) {
+	s := setupStore(t)
+	createSkill(t, s, "browse")
+
+	bundleContent := `
+[bundle]
+name = "test"
+instructions = "core"
+
+[skills]
+include = ["browse"]
+
+[agents]
+include = ["code-reviewer", "debugger"]
+exclude = ["debugger"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`bundle = "test"`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Agents) != 1 {
+		t.Fatalf("Agents len = %d, want 1; got %v", len(r.Agents), assetNames(r.Agents))
+	}
+	if r.Agents[0].Name != "code-reviewer" {
+		t.Errorf("Agents[0] = %q, want code-reviewer", r.Agents[0].Name)
+	}
+}
+
+func TestResolveBundleAgentsAddRemove(t *testing.T) {
+	s := setupStore(t)
+
+	bundleContent := `
+[bundle]
+name = "test"
+instructions = "core"
+
+[agents]
+include = ["code-reviewer", "debugger"]
+`
+	os.WriteFile(filepath.Join(s.BundlesDir(), "test.toml"), []byte(bundleContent), 0o644)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+bundle = "test"
+agents_add = ["security-auditor"]
+agents_remove = ["debugger"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	r, err := manifest.Resolve(m, stores, defaultStore)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	// Should have: code-reviewer, security-auditor
+	// Should NOT have: debugger
+	if len(r.Agents) != 2 {
+		t.Fatalf("Agents len = %d, want 2; got %v", len(r.Agents), assetNames(r.Agents))
+	}
+	names := map[string]bool{}
+	for _, a := range r.Agents {
+		names[a.Name] = true
+	}
+	if !names["code-reviewer"] {
+		t.Error("expected code-reviewer")
+	}
+	if !names["security-auditor"] {
+		t.Error("expected security-auditor")
+	}
+	if names["debugger"] {
+		t.Error("debugger should have been removed")
+	}
+}
+
+func TestResolveAgentNameCollisionCrossStore(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+agents = ["code-reviewer", "work:code-reviewer"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	_, err = manifest.Resolve(m, stores, "personal")
+	if err == nil {
+		t.Fatal("expected agent name collision error")
+	}
+	if !strings.Contains(err.Error(), "agent") {
+		t.Errorf("error = %q, should mention agent", err)
+	}
+}
+
+func TestResolveCrossStoreAgents(t *testing.T) {
+	personal := setupStore(t)
+	work := setupStore(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".agentfiles"), []byte(`
+agents = ["code-reviewer", "work:debugger"]
+`), 0o644)
+
+	m, err := manifest.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	stores := map[string]*store.Store{
+		"personal": personal,
+		"work":     work,
+	}
+	r, err := manifest.Resolve(m, stores, "personal")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	if len(r.Agents) != 2 {
+		t.Fatalf("Agents len = %d, want 2", len(r.Agents))
+	}
+	if r.Agents[0].Name != "code-reviewer" || r.Agents[0].Store != "personal" {
+		t.Errorf("Agents[0] = %+v, want {Name:code-reviewer Store:personal}", r.Agents[0])
+	}
+	if r.Agents[1].Name != "debugger" || r.Agents[1].Store != "work" {
+		t.Errorf("Agents[1] = %+v, want {Name:debugger Store:work}", r.Agents[1])
+	}
+}
+
 // assetNames extracts names from a slice of ResolvedAssets for test output.
 func assetNames(assets []manifest.ResolvedAsset) []string {
 	names := make([]string, len(assets))

@@ -67,6 +67,13 @@ or what's changed in the store since your last "af apply".`,
 			}
 			entries = append(entries, entryInfo{"resource:" + name, sp, e.DeployedPath})
 		}
+		for name, e := range lf.Deployed.Agents {
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			entries = append(entries, entryInfo{"agent:" + name, sp, e.DeployedPath})
+		}
 
 		for _, ei := range entries {
 			srcInfo, srcErr := os.Stat(ei.storePath)

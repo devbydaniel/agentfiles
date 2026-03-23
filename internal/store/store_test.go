@@ -491,6 +491,103 @@ func TestExpandSkillGlobNoMatch(t *testing.T) {
 	}
 }
 
+// --- Agent tests ---
+
+func TestInitCreatesAgentsDir(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Init(filepath.Join(dir, "store"))
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	info, err := os.Stat(s.AgentsDir())
+	if err != nil || !info.IsDir() {
+		t.Errorf("agents/ directory missing after Init")
+	}
+}
+
+func TestOpenWithoutAgentsDir(t *testing.T) {
+	// Create a store, then remove agents/ — Open should still work.
+	dir := t.TempDir()
+	storePath := filepath.Join(dir, "store")
+	s, err := Init(storePath)
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	os.RemoveAll(s.AgentsDir())
+
+	s2, err := Open(storePath)
+	if err != nil {
+		t.Fatalf("Open should succeed without agents/: %v", err)
+	}
+	if s2 == nil {
+		t.Fatal("Open returned nil store")
+	}
+}
+
+func TestListAgentsEmpty(t *testing.T) {
+	s := setupStore(t)
+	agents, err := s.ListAgents()
+	if err != nil {
+		t.Fatalf("ListAgents: %v", err)
+	}
+	if len(agents) != 0 {
+		t.Errorf("expected 0 agents, got %d", len(agents))
+	}
+}
+
+func TestListAgentsNoDir(t *testing.T) {
+	s := setupStore(t)
+	os.RemoveAll(s.AgentsDir())
+	agents, err := s.ListAgents()
+	if err != nil {
+		t.Fatalf("ListAgents: %v", err)
+	}
+	if len(agents) != 0 {
+		t.Errorf("expected 0 agents, got %d", len(agents))
+	}
+}
+
+func TestListAgentsMultiple(t *testing.T) {
+	s := setupStore(t)
+	os.WriteFile(filepath.Join(s.AgentsDir(), "reviewer.md"), []byte("# Reviewer"), 0o644)
+	os.WriteFile(filepath.Join(s.AgentsDir(), "debugger.md"), []byte("# Debugger"), 0o644)
+
+	agents, err := s.ListAgents()
+	if err != nil {
+		t.Fatalf("ListAgents: %v", err)
+	}
+	if len(agents) != 2 {
+		t.Fatalf("expected 2 agents, got %d", len(agents))
+	}
+
+	names := map[string]bool{}
+	for _, a := range agents {
+		names[a.Name] = true
+	}
+	if !names["reviewer"] || !names["debugger"] {
+		t.Errorf("unexpected agents: %v", agents)
+	}
+}
+
+func TestListAgentsIgnoresNonMD(t *testing.T) {
+	s := setupStore(t)
+	os.WriteFile(filepath.Join(s.AgentsDir(), "reviewer.md"), []byte("# Reviewer"), 0o644)
+	os.WriteFile(filepath.Join(s.AgentsDir(), "notes.txt"), []byte("notes"), 0o644)
+	os.WriteFile(filepath.Join(s.AgentsDir(), ".hidden.md"), []byte("hidden"), 0o644)
+	os.MkdirAll(filepath.Join(s.AgentsDir(), "subdir"), 0o755)
+
+	agents, err := s.ListAgents()
+	if err != nil {
+		t.Fatalf("ListAgents: %v", err)
+	}
+	if len(agents) != 1 {
+		t.Fatalf("expected 1 agent, got %d", len(agents))
+	}
+	if agents[0].Name != "reviewer" {
+		t.Errorf("name = %q, want reviewer", agents[0].Name)
+	}
+}
+
 func TestExpandSkillGlobEmptyStore(t *testing.T) {
 	s := setupStore(t)
 

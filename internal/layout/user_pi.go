@@ -18,3 +18,6 @@ func (l UserPiLayout) InstructionMdEntries() []Entry {
 func (l UserPiLayout) SkillEntries(name string) []Entry {
 	return []Entry{{Path: l.SkillPath(name)}}
 }
+func (UserPiLayout) AgentEntries(name string) []Entry {
+	return nil
+}

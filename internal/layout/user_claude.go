@@ -20,3 +20,6 @@ func (l UserClaudeLayout) InstructionMdEntries() []Entry {
 func (l UserClaudeLayout) SkillEntries(name string) []Entry {
 	return []Entry{{Path: l.SkillPath(name)}}
 }
+func (UserClaudeLayout) AgentEntries(name string) []Entry {
+	return []Entry{{Path: filepath.Join(".claude", "agents", name+".md")}}
+}

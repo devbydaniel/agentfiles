@@ -21,3 +21,6 @@ func (l UserCursorLayout) InstructionMdEntries() []Entry {
 func (l UserCursorLayout) SkillEntries(name string) []Entry {
 	return []Entry{{Path: l.SkillPath(name)}}
 }
+func (UserCursorLayout) AgentEntries(name string) []Entry {
+	return []Entry{{Path: filepath.Join(".cursor", "agents", name+".md")}}
+}

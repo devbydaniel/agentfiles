@@ -157,6 +157,101 @@ func TestUserAllLayoutSkillEntries(t *testing.T) {
 	assertEntryPath(t, entries[3], ".agents/browse")
 }
 
+// --- AgentEntries tests ---
+
+func TestClaudeAgentEntries(t *testing.T) {
+	l := ClaudeLayout{}
+	entries := l.AgentEntries("reviewer")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".claude/agents/reviewer.md")
+}
+
+func TestCursorAgentEntries(t *testing.T) {
+	l := CursorLayout{}
+	entries := l.AgentEntries("reviewer")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".cursor/agents/reviewer.md")
+}
+
+func TestCodexAgentEntries(t *testing.T) {
+	l := CodexLayout{}
+	entries := l.AgentEntries("reviewer")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".codex/agents/reviewer.toml")
+}
+
+func TestPiAgentEntries(t *testing.T) {
+	l := PiLayout{}
+	entries := l.AgentEntries("reviewer")
+	if entries != nil {
+		t.Fatalf("expected nil, got %v", entries)
+	}
+}
+
+func TestAllAgentEntries(t *testing.T) {
+	l := AllLayout{}
+	entries := l.AgentEntries("reviewer")
+	// Claude (.md), Cursor (.md), Codex (.toml) — all different dirs, no dedup.
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d: %v", len(entries), entries)
+	}
+	assertEntryPath(t, entries[0], ".claude/agents/reviewer.md")
+	assertEntryPath(t, entries[1], ".cursor/agents/reviewer.md")
+	assertEntryPath(t, entries[2], ".codex/agents/reviewer.toml")
+}
+
+func TestUserClaudeAgentEntries(t *testing.T) {
+	l := UserClaudeLayout{}
+	entries := l.AgentEntries("reviewer")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".claude/agents/reviewer.md")
+}
+
+func TestUserCursorAgentEntries(t *testing.T) {
+	l := UserCursorLayout{}
+	entries := l.AgentEntries("reviewer")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".cursor/agents/reviewer.md")
+}
+
+func TestUserCodexAgentEntries(t *testing.T) {
+	l := UserCodexLayout{}
+	entries := l.AgentEntries("reviewer")
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	assertEntryPath(t, entries[0], ".codex/agents/reviewer.toml")
+}
+
+func TestUserPiAgentEntries(t *testing.T) {
+	l := UserPiLayout{}
+	entries := l.AgentEntries("reviewer")
+	if entries != nil {
+		t.Fatalf("expected nil, got %v", entries)
+	}
+}
+
+func TestUserAllAgentEntries(t *testing.T) {
+	l := UserAllLayout{}
+	entries := l.AgentEntries("reviewer")
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d: %v", len(entries), entries)
+	}
+	assertEntryPath(t, entries[0], ".claude/agents/reviewer.md")
+	assertEntryPath(t, entries[1], ".cursor/agents/reviewer.md")
+	assertEntryPath(t, entries[2], ".codex/agents/reviewer.toml")
+}
+
 func assertEqual(t *testing.T, want, got string) {
 	t.Helper()
 	if got != want {

@@ -27,10 +27,23 @@ func singleStoreMap(s *store.Store) (map[string]*store.Store, string) {
 	return map[string]*store.Store{"default": s}, "default"
 }
 
+// addInstructionToStore writes a .md file into the store instructions dir.
+func addInstructionToStore(t *testing.T, s *store.Store, name, content string) {
+	t.Helper()
+	p := filepath.Join(s.InstructionsDir(), name+".md")
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // addAgentToStore writes a .md file into the store agents dir.
 func addAgentToStore(t *testing.T, s *store.Store, name, content string) {
 	t.Helper()
-	p := filepath.Join(s.InstructionsDir(), name+".md")
+	dir := s.AgentsDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(dir, name+".md")
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +78,7 @@ func addResourceToStore(t *testing.T, s *store.Store, name string, files map[str
 
 func TestApplyPiLayout(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# Agent instructions")
+	addInstructionToStore(t, s, "main", "# Agent instructions")
 	addSkillToStore(t, s, "golang", "# Go skill")
 
 	repo := t.TempDir()
@@ -101,7 +114,7 @@ func TestApplyPiLayout(t *testing.T) {
 
 func TestApplyClaudeLayout(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# Claude instructions")
+	addInstructionToStore(t, s, "main", "# Claude instructions")
 	addSkillToStore(t, s, "testing", "# Test skill")
 
 	repo := t.TempDir()
@@ -135,7 +148,7 @@ func TestApplyClaudeLayout(t *testing.T) {
 
 func TestApplyCursorLayout(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# Cursor instructions")
+	addInstructionToStore(t, s, "main", "# Cursor instructions")
 	addSkillToStore(t, s, "refactor", "# Refactor skill")
 
 	repo := t.TempDir()
@@ -175,7 +188,7 @@ func TestApplyCursorLayout(t *testing.T) {
 
 func TestApplyAllLayout(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# All instructions")
+	addInstructionToStore(t, s, "main", "# All instructions")
 	addSkillToStore(t, s, "debug", "# Debug skill")
 
 	repo := t.TempDir()
@@ -230,7 +243,7 @@ func TestApplyAllLayout(t *testing.T) {
 
 func TestApplyResources(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# Agent")
+	addInstructionToStore(t, s, "main", "# Agent")
 	addResourceToStore(t, s, "configs", map[string]string{
 		"config.yaml":       "key: value",
 		"sub/dir/notes.txt": "hello",
@@ -267,7 +280,7 @@ func TestApplyResources(t *testing.T) {
 
 func TestApplyWritesLockFile(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# Agent")
+	addInstructionToStore(t, s, "main", "# Agent")
 	addSkillToStore(t, s, "golang", "# Go")
 
 	repo := t.TempDir()
@@ -317,7 +330,7 @@ func TestApplyWritesLockFile(t *testing.T) {
 
 func TestApplyWritesLockForResources(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# Agent")
+	addInstructionToStore(t, s, "main", "# Agent")
 	addResourceToStore(t, s, "myresource", map[string]string{
 		"data.txt": "hello",
 	})
@@ -353,7 +366,7 @@ func TestApplyWritesLockForResources(t *testing.T) {
 
 func TestApplySkillOnly(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# Agent")
+	addInstructionToStore(t, s, "main", "# Agent")
 	addSkillToStore(t, s, "golang", "# Go")
 	addSkillToStore(t, s, "python", "# Python")
 
@@ -387,7 +400,7 @@ func TestApplySkillOnly(t *testing.T) {
 
 func TestApplySkillNotInManifest(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# Agent")
+	addInstructionToStore(t, s, "main", "# Agent")
 	addSkillToStore(t, s, "golang", "# Go")
 
 	repo := t.TempDir()
@@ -409,7 +422,7 @@ func TestApplySkillNotInManifest(t *testing.T) {
 
 func TestApplySkillNotInStore(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# Agent")
+	addInstructionToStore(t, s, "main", "# Agent")
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
@@ -430,7 +443,7 @@ func TestApplySkillNotInStore(t *testing.T) {
 
 func TestApplyNoForceSkipsExisting(t *testing.T) {
 	s := setupStore(t)
-	addAgentToStore(t, s, "main", "# New content")
+	addInstructionToStore(t, s, "main", "# New content")
 
 	repo := t.TempDir()
 	// Pre-create the file
@@ -483,7 +496,7 @@ func TestApplyMultiStore(t *testing.T) {
 	// Add skill to each store
 	addSkillToStore(t, work, "backend", "# Backend skill")
 	addSkillToStore(t, personal, "my-utils", "# My utils")
-	addAgentToStore(t, work, "main", "# Agent")
+	addInstructionToStore(t, work, "main", "# Agent")
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
@@ -791,4 +804,212 @@ func lockKeys(m map[string]*lock.Entry) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// --- Subagent tests ---
+
+const testAgentMd = `---
+name: code-reviewer
+description: Reviews code
+---
+You are a code reviewer.
+`
+
+func TestApplyAgentClaudeLayout(t *testing.T) {
+	s := setupStore(t)
+	addAgentToStore(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "claude",
+		Agents: []string{"code-reviewer"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+
+	// Should be deployed as canonical .md (parsed and re-serialized).
+	data, err := os.ReadFile(filepath.Join(repo, ".claude", "agents", "code-reviewer.md"))
+	if err != nil {
+		t.Fatalf("agent not found: %v", err)
+	}
+	// yaml.Marshal alphabetizes keys, so frontmatter order may differ from source.
+	if !strings.Contains(string(data), "name: code-reviewer") {
+		t.Errorf("agent content missing name: %q", data)
+	}
+	if !strings.Contains(string(data), "You are a code reviewer.") {
+		t.Errorf("agent content missing body: %q", data)
+	}
+
+	// Lock should record the agent.
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("loading lock: %v", err)
+	}
+	entry, ok := lf.Deployed.Agents["code-reviewer"]
+	if !ok {
+		t.Fatal("lock missing agent 'code-reviewer'")
+	}
+	if entry.StorePath != filepath.Join("agents", "code-reviewer.md") {
+		t.Errorf("agent StorePath = %q", entry.StorePath)
+	}
+	if entry.DeployedPath != ".claude/agents/code-reviewer.md" {
+		t.Errorf("agent DeployedPath = %q", entry.DeployedPath)
+	}
+}
+
+func TestApplyAgentCodexLayout(t *testing.T) {
+	s := setupStore(t)
+	addAgentToStore(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "codex",
+		Agents: []string{"code-reviewer"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+
+	// Should be deployed as .toml (converted).
+	data, err := os.ReadFile(filepath.Join(repo, ".codex", "agents", "code-reviewer.toml"))
+	if err != nil {
+		t.Fatalf("agent not found: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "code-reviewer") {
+		t.Errorf("TOML missing name: %s", content)
+	}
+	if !strings.Contains(content, "You are a code reviewer.") {
+		t.Errorf("TOML missing developer_instructions: %s", content)
+	}
+}
+
+func TestApplyAgentAllLayout(t *testing.T) {
+	s := setupStore(t)
+	addAgentToStore(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "all",
+		Agents: []string{"code-reviewer"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if res.Deployed != 1 {
+		t.Errorf("deployed = %d, want 1", res.Deployed)
+	}
+
+	// Claude .md should exist.
+	assertFileExists(t, filepath.Join(repo, ".claude", "agents", "code-reviewer.md"))
+	// Cursor .md should exist.
+	assertFileExists(t, filepath.Join(repo, ".cursor", "agents", "code-reviewer.md"))
+	// Codex .toml should exist.
+	assertFileExists(t, filepath.Join(repo, ".codex", "agents", "code-reviewer.toml"))
+}
+
+func TestApplyAgentPiLayout(t *testing.T) {
+	s := setupStore(t)
+	addAgentToStore(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "pi",
+		Agents: []string{"code-reviewer"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	// Pi layout returns nil for AgentEntries, so nothing deployed for agents.
+	if res.Deployed != 0 {
+		t.Errorf("deployed = %d, want 0", res.Deployed)
+	}
+
+	// No agent files should exist.
+	if _, err := os.Stat(filepath.Join(repo, ".claude", "agents")); err == nil {
+		t.Error("no agent dirs should exist for pi layout")
+	}
+}
+
+func TestApplyAgentPrunesStale(t *testing.T) {
+	s := setupStore(t)
+	stores, defaultStore := singleStoreMap(s)
+	repo := t.TempDir()
+
+	addAgentToStore(t, s, "alpha", "---\nname: alpha\n---\nalpha body\n")
+	addAgentToStore(t, s, "beta", "---\nname: beta\n---\nbeta body\n")
+
+	m := &manifest.Manifest{
+		Layout: "claude",
+		Agents: []string{"alpha", "beta"},
+	}
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+
+	assertFileExists(t, filepath.Join(repo, ".claude", "agents", "alpha.md"))
+	assertFileExists(t, filepath.Join(repo, ".claude", "agents", "beta.md"))
+
+	// Re-deploy with only alpha.
+	m2 := &manifest.Manifest{
+		Layout: "claude",
+		Agents: []string{"alpha"},
+	}
+	res2, err := Apply(stores, defaultStore, m2, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if res2.Removed != 1 {
+		t.Errorf("removed = %d, want 1", res2.Removed)
+	}
+
+	assertFileExists(t, filepath.Join(repo, ".claude", "agents", "alpha.md"))
+	if _, err := os.Stat(filepath.Join(repo, ".claude", "agents", "beta.md")); err == nil {
+		t.Error("beta agent should have been pruned")
+	}
+}
+
+func TestApplySkillOnlySkipsAgents(t *testing.T) {
+	s := setupStore(t)
+	addSkillToStore(t, s, "golang", "# Go")
+	addAgentToStore(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{
+		Layout: "claude",
+		Skills: []string{"golang"},
+		Agents: []string{"code-reviewer"},
+	}
+
+	stores, defaultStore := singleStoreMap(s)
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true, SkillOnly: "golang"}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	// Skill should be deployed.
+	assertFileExists(t, filepath.Join(repo, ".claude", "skills", "golang", "SKILL.md"))
+
+	// Agent should NOT be deployed.
+	if _, err := os.Stat(filepath.Join(repo, ".claude", "agents", "code-reviewer.md")); err == nil {
+		t.Error("agent should not be deployed with --skill flag")
+	}
 }

@@ -74,6 +74,13 @@ Requires a prior "af apply" (needs .agentfiles.lock).`,
 			isDir := info != nil && info.IsDir()
 			items = append(items, item{"resource:" + name, sp, e.DeployedPath, e.Hash, isDir})
 		}
+		for name, e := range lf.Deployed.Agents {
+			sp, err := entrySourcePath(e, stores, defaultStore)
+			if err != nil {
+				return err
+			}
+			items = append(items, item{"agent:" + name, sp, e.DeployedPath, e.Hash, false})
+		}
 
 		sort.Slice(items, func(i, j int) bool { return items[i].name < items[j].name })
 

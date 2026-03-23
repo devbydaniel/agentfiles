@@ -18,3 +18,6 @@ func (l UserCodexLayout) InstructionMdEntries() []Entry {
 func (l UserCodexLayout) SkillEntries(name string) []Entry {
 	return []Entry{{Path: l.SkillPath(name)}}
 }
+func (UserCodexLayout) AgentEntries(name string) []Entry {
+	return []Entry{{Path: filepath.Join(".codex", "agents", name+".toml")}}
+}

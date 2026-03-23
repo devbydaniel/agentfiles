@@ -18,14 +18,16 @@ type ResolvedAsset struct {
 // ResolvedManifest contains the fully expanded lists after resolving
 // bundle references and applying overrides.
 type ResolvedManifest struct {
-	Layout    string
+	Layout       string
 	Instructions ResolvedAsset
-	Skills    []ResolvedAsset
-	Resources []ResolvedAsset
+	Skills       []ResolvedAsset
+	Resources    []ResolvedAsset
+	Agents       []ResolvedAsset
 }
 
 // Resolve expands a Manifest (possibly referencing a bundle) into a
-// flat ResolvedManifest. It applies SkillsAdd and SkillsRemove overrides.
+// flat ResolvedManifest. It applies SkillsAdd/SkillsRemove and
+// AgentsAdd/AgentsRemove overrides.
 //
 // stores maps store names to open Store instances. defaultStore is the name
 // used when an asset has no "storename:" prefix. Bundle resolution always
@@ -67,6 +69,7 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		}
 
 		r.Resources = toResolvedAssets(filterExcluded(b.Resources.Include, b.Resources.Exclude), defaultStore)
+		r.Agents = toResolvedAssets(filterExcluded(b.Agents.Include, b.Agents.Exclude), defaultStore)
 	} else {
 		if m.Instructions != "" {
 			storeName, name := parseStorePrefix(m.Instructions, defaultStore)
@@ -90,6 +93,7 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		}
 
 		r.Resources = parseResolvedAssets(m.Resources, defaultStore)
+		r.Agents = parseResolvedAssets(m.Agents, defaultStore)
 	}
 
 	// Apply overrides: expand globs in skills_add and skills_remove.
@@ -137,6 +141,28 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		skillRefs = filterExcludedRefs(skillRefs, expandedRemove, defaultStore)
 	}
 
+	// Apply agents overrides.
+	if len(m.AgentsAdd) > 0 {
+		for _, raw := range m.AgentsAdd {
+			storeName, name := parseStorePrefix(raw, defaultStore)
+			if _, err := store.LookupStore(stores, storeName); err != nil {
+				return nil, fmt.Errorf("agents_add %q: %w", raw, err)
+			}
+			if !containsAsset(r.Agents, name, storeName) {
+				r.Agents = append(r.Agents, ResolvedAsset{Name: name, Store: storeName})
+			}
+		}
+	}
+	if len(m.AgentsRemove) > 0 {
+		for _, raw := range m.AgentsRemove {
+			storeName, _ := parseStorePrefix(raw, defaultStore)
+			if _, err := store.LookupStore(stores, storeName); err != nil {
+				return nil, fmt.Errorf("agents_remove %q: %w", raw, err)
+			}
+		}
+		r.Agents = filterExcludedAssets(r.Agents, m.AgentsRemove)
+	}
+
 	// Resolve each skill ref via store.ResolveSkill to get SkillInfo.
 	for _, ref := range skillRefs {
 		s, err := store.LookupStore(stores, ref.storeName)
@@ -161,6 +187,7 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 	}
 	allAssets = append(allAssets, r.Skills...)
 	allAssets = append(allAssets, r.Resources...)
+	allAssets = append(allAssets, r.Agents...)
 	for _, a := range allAssets {
 		if _, ok := stores[a.Store]; !ok {
 			return nil, fmt.Errorf("store %q not found (referenced by asset %q)", a.Store, a.Name)
@@ -172,6 +199,9 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		return nil, err
 	}
 	if err := checkNameCollisions("resource", r.Resources); err != nil {
+		return nil, err
+	}
+	if err := checkNameCollisions("agent", r.Agents); err != nil {
 		return nil, err
 	}
 

@@ -22,7 +22,7 @@ func setupStore(t *testing.T) *store.Store {
 	return s
 }
 
-func addAgent(t *testing.T, s *store.Store, name, content string) {
+func addInstruction(t *testing.T, s *store.Store, name, content string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(s.InstructionsDir(), name+".md"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func pushFromRepo(t *testing.T, s *store.Store, repo string, opts Options) *Resu
 
 func TestPushModifiedSkill(t *testing.T) {
 	s := setupStore(t)
-	addAgent(t, s, "main", "# Agent")
+	addInstruction(t, s, "main", "# Agent")
 	addSkill(t, s, "browse", "# Browse skill")
 
 	repo := t.TempDir()
@@ -114,7 +114,7 @@ func TestPushModifiedSkill(t *testing.T) {
 
 func TestPushUnmodifiedNoop(t *testing.T) {
 	s := setupStore(t)
-	addAgent(t, s, "main", "# Agent")
+	addInstruction(t, s, "main", "# Agent")
 	addSkill(t, s, "browse", "# Browse skill")
 
 	repo := t.TempDir()
@@ -132,7 +132,7 @@ func TestPushUnmodifiedNoop(t *testing.T) {
 
 func TestPushDryRun(t *testing.T) {
 	s := setupStore(t)
-	addAgent(t, s, "main", "# Agent")
+	addInstruction(t, s, "main", "# Agent")
 	addSkill(t, s, "browse", "# Browse skill")
 
 	repo := t.TempDir()
@@ -176,7 +176,7 @@ func TestPushDryRun(t *testing.T) {
 
 func TestPushSkillFilter(t *testing.T) {
 	s := setupStore(t)
-	addAgent(t, s, "main", "# Agent")
+	addInstruction(t, s, "main", "# Agent")
 	addSkill(t, s, "browse", "# Browse")
 	addSkill(t, s, "git", "# Git")
 
@@ -230,7 +230,7 @@ func TestPushNoLockFile(t *testing.T) {
 
 func TestPushModifiedResource(t *testing.T) {
 	s := setupStore(t)
-	addAgent(t, s, "main", "# Agent")
+	addInstruction(t, s, "main", "# Agent")
 	addResource(t, s, "configs", map[string]string{
 		"config.yaml":       "key: value",
 		"sub/dir/notes.txt": "hello",
@@ -292,7 +292,7 @@ func TestPushModifiedResource(t *testing.T) {
 
 func TestPushUnmodifiedResource(t *testing.T) {
 	s := setupStore(t)
-	addAgent(t, s, "main", "# Agent")
+	addInstruction(t, s, "main", "# Agent")
 	addResource(t, s, "configs", map[string]string{"config.yaml": "key: value"})
 
 	repo := t.TempDir()
@@ -305,9 +305,9 @@ func TestPushUnmodifiedResource(t *testing.T) {
 	}
 }
 
-func TestPushModifiedAgentMd(t *testing.T) {
+func TestPushModifiedInstructionMd(t *testing.T) {
 	s := setupStore(t)
-	addAgent(t, s, "main", "# Original agent")
+	addInstruction(t, s, "main", "# Original agent")
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{Layout: "pi", Instructions: "main"}
@@ -342,7 +342,7 @@ func TestPushMultiStore(t *testing.T) {
 	personalStore := setupStore(t)
 
 	// Add an agent and skill to the work store (default).
-	addAgent(t, workStore, "main", "# Work Agent")
+	addInstruction(t, workStore, "main", "# Work Agent")
 	addSkill(t, workStore, "backend", "# Backend skill")
 
 	// Add a skill to the personal store.
@@ -531,9 +531,178 @@ func TestPushGroupedSkillOnlyByLeafName(t *testing.T) {
 	}
 }
 
+// --- Subagent push tests ---
+
+const testAgentMd = `---
+name: code-reviewer
+description: Reviews code
+---
+You are a code reviewer.
+`
+
+func addAgent(t *testing.T, s *store.Store, name, content string) {
+	t.Helper()
+	dir := s.AgentsDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name+".md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPushModifiedAgentMdFile(t *testing.T) {
+	s := setupStore(t)
+	addAgent(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "claude", Agents: []string{"code-reviewer"}}
+	applyToRepo(t, s, m, repo)
+
+	// Modify deployed agent.
+	deployed := filepath.Join(repo, ".claude", "agents", "code-reviewer.md")
+	newContent := `---
+name: code-reviewer
+description: Reviews code thoroughly
+---
+You are a thorough code reviewer.
+`
+	if err := os.WriteFile(deployed, []byte(newContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res := pushFromRepo(t, s, repo, Options{})
+	if len(res.Changes) != 1 {
+		t.Fatalf("expected 1 change, got %d", len(res.Changes))
+	}
+	if res.Changes[0].Name != "code-reviewer" {
+		t.Errorf("change name = %q", res.Changes[0].Name)
+	}
+	if res.Changes[0].Type != lock.AssetAgents {
+		t.Errorf("change type = %q", res.Changes[0].Type)
+	}
+
+	// Store should be updated.
+	data, err := os.ReadFile(filepath.Join(s.AgentsDir(), "code-reviewer.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Store should contain the canonical form (YAML keys sorted alphabetically).
+	wantCanonical := "---\ndescription: Reviews code thoroughly\nname: code-reviewer\n---\nYou are a thorough code reviewer.\n"
+	if string(data) != wantCanonical {
+		t.Errorf("store agent = %q, want %q", data, wantCanonical)
+	}
+
+	// Second push should be no-op.
+	res2 := pushFromRepo(t, s, repo, Options{})
+	if len(res2.Changes) != 0 {
+		t.Errorf("expected 0 changes on 2nd push, got %d", len(res2.Changes))
+	}
+}
+
+func TestPushModifiedAgentToml(t *testing.T) {
+	s := setupStore(t)
+	addAgent(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "codex", Agents: []string{"code-reviewer"}}
+	applyToRepo(t, s, m, repo)
+
+	// Verify the TOML was deployed.
+	deployed := filepath.Join(repo, ".codex", "agents", "code-reviewer.toml")
+	if _, err := os.Stat(deployed); err != nil {
+		t.Fatalf("deployed TOML not found: %v", err)
+	}
+
+	// Modify the deployed TOML (change developer_instructions).
+	newToml := `description = "Reviews code thoroughly"
+developer_instructions = "You are a thorough code reviewer.\n"
+name = "code-reviewer"
+`
+	if err := os.WriteFile(deployed, []byte(newToml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res := pushFromRepo(t, s, repo, Options{})
+	if len(res.Changes) != 1 {
+		t.Fatalf("expected 1 change, got %d", len(res.Changes))
+	}
+
+	// Store should have the converted .md.
+	data, err := os.ReadFile(filepath.Join(s.AgentsDir(), "code-reviewer.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "thorough code reviewer") {
+		t.Errorf("store agent doesn't contain updated content: %s", content)
+	}
+	if !strings.Contains(content, "---") {
+		t.Errorf("store agent missing frontmatter: %s", content)
+	}
+}
+
+func TestPushUnmodifiedAgent(t *testing.T) {
+	s := setupStore(t)
+	addAgent(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "claude", Agents: []string{"code-reviewer"}}
+	applyToRepo(t, s, m, repo)
+
+	res := pushFromRepo(t, s, repo, Options{})
+	// Should find no agent changes.
+	for _, ch := range res.Changes {
+		if ch.Type == lock.AssetAgents {
+			t.Errorf("unexpected agent change: %+v", ch)
+		}
+	}
+}
+
+func TestPushUnmodifiedAgentCodex(t *testing.T) {
+	s := setupStore(t)
+	addAgent(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "codex", Agents: []string{"code-reviewer"}}
+	applyToRepo(t, s, m, repo)
+
+	// Push immediately — should find zero changes since the lock hash uses
+	// the canonical (parsed→re-serialized) form that survives round-tripping
+	// through Codex TOML.
+	res := pushFromRepo(t, s, repo, Options{})
+	for _, ch := range res.Changes {
+		if ch.Type == lock.AssetAgents {
+			t.Errorf("unexpected agent change after unmodified codex deploy: %+v", ch)
+		}
+	}
+}
+
+func TestPushSkillOnlySkipsAgents(t *testing.T) {
+	s := setupStore(t)
+	addSkill(t, s, "browse", "# Browse")
+	addAgent(t, s, "code-reviewer", testAgentMd)
+
+	repo := t.TempDir()
+	m := &manifest.Manifest{Layout: "claude", Skills: []string{"browse"}, Agents: []string{"code-reviewer"}}
+	applyToRepo(t, s, m, repo)
+
+	// Modify the deployed agent.
+	deployed := filepath.Join(repo, ".claude", "agents", "code-reviewer.md")
+	os.WriteFile(deployed, []byte("# Modified"), 0o644)
+
+	// Push with skill-only should skip agents.
+	res := pushFromRepo(t, s, repo, Options{SkillOnly: "browse"})
+	for _, ch := range res.Changes {
+		if ch.Type == lock.AssetAgents {
+			t.Errorf("agent should not be pushed with skill-only: %+v", ch)
+		}
+	}
+}
+
 func TestPushUnknownStoreError(t *testing.T) {
 	s := setupStore(t)
-	addAgent(t, s, "main", "# Agent")
+	addInstruction(t, s, "main", "# Agent")
 	addSkill(t, s, "browse", "# Browse")
 
 	repo := t.TempDir()

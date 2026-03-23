@@ -76,6 +76,19 @@ func TestIntegrationRoundTrip(t *testing.T) {
 		t.Fatalf("expected resource name 'configs', got %q", rname)
 	}
 
+	// subagent: create a source agent .md file
+	subagentSrc := filepath.Join(tmp, "src-subagent", "reviewer.md")
+	mustMkdir(t, filepath.Dir(subagentSrc))
+	mustWrite(t, subagentSrc, "---\nname: reviewer\ndescription: Code reviewer\n---\nReview all PRs carefully.\n")
+
+	saName, _, err := s.AddAgent(subagentSrc, false)
+	if err != nil {
+		t.Fatalf("add subagent: %v", err)
+	}
+	if saName != "reviewer" {
+		t.Fatalf("expected agent name 'reviewer', got %q", saName)
+	}
+
 	// ── 3. create bundle TOML ──────────────────────────────────────
 	bundleTOML := `[bundle]
 name = "test-bundle"
@@ -86,6 +99,9 @@ include = ["my-skill"]
 
 [resources]
 include = ["configs"]
+
+[agents]
+include = ["reviewer"]
 `
 	mustWrite(t, filepath.Join(s.BundlesDir(), "test-bundle.toml"), bundleTOML)
 
@@ -1187,6 +1203,491 @@ func assertFileContains(t *testing.T, path, substr string) {
 	}
 	if !strings.Contains(string(data), substr) {
 		t.Fatalf("file %s does not contain %q; got: %s", path, substr, string(data))
+	}
+}
+
+// TestIntegrationAgentRoundTrip exercises agents (subagents) in the lifecycle:
+//  1. Create store with an agent .md file.
+//  2. Create bundle including the agent.
+//  3. Apply with claude layout — verify .md passthrough.
+//  4. Modify the deployed .md agent, push back, verify store updated.
+//  5. Apply to second repo — verify pushed change propagates.
+func TestIntegrationAgentRoundTrip(t *testing.T) {
+	tmp := t.TempDir()
+
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+
+	// Add agent (subagent) .md file.
+	agentSrc := filepath.Join(tmp, "reviewer.md")
+	mustWrite(t, agentSrc, "---\nname: reviewer\ndescription: Code reviewer\n---\nReview all PRs carefully.\n")
+	if _, _, err := s.AddAgent(agentSrc, false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+
+	// Add instructions (AGENTS.md) and skill for the bundle.
+	instrSrc := filepath.Join(tmp, "instr.md")
+	mustWrite(t, instrSrc, "# Instructions\n")
+	if _, err := s.AddInstruction(instrSrc, "default", false); err != nil {
+		t.Fatalf("add instruction: %v", err)
+	}
+
+	skillSrc := filepath.Join(tmp, "src-skill", "browse")
+	mustMkdir(t, skillSrc)
+	mustWrite(t, filepath.Join(skillSrc, "SKILL.md"), "# Browse\n")
+	if _, _, err := s.AddSkill(skillSrc, "", false); err != nil {
+		t.Fatalf("add skill: %v", err)
+	}
+
+	// Bundle with agent.
+	bundleTOML := `[bundle]
+name = "agent-test"
+instructions = "default"
+
+[skills]
+include = ["browse"]
+
+[agents]
+include = ["reviewer"]
+`
+	mustWrite(t, filepath.Join(s.BundlesDir(), "agent-test.toml"), bundleTOML)
+
+	// Create repo with claude layout.
+	repo1 := filepath.Join(tmp, "repo1")
+	mustMkdir(t, repo1)
+	mustWrite(t, filepath.Join(repo1, ".agentfiles"), "bundle = \"agent-test\"\nlayout = \"claude\"\n")
+
+	m, err := manifest.Load(repo1)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo1, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	// instructions + skill + agent = 3
+	if res.Deployed != 3 {
+		t.Fatalf("deployed = %d, want 3", res.Deployed)
+	}
+
+	// Verify agent deployed as .md at claude path.
+	agentDeployed := filepath.Join(repo1, ".claude", "agents", "reviewer.md")
+	assertFileContains(t, agentDeployed, "Review all PRs carefully.")
+	assertFileContains(t, agentDeployed, "name: reviewer")
+
+	// Verify lock has agent entry.
+	lf, err := lock.Load(repo1)
+	if err != nil {
+		t.Fatalf("load lock: %v", err)
+	}
+	agentEntry, ok := lf.Deployed.Agents["reviewer"]
+	if !ok {
+		t.Fatal("lock missing agent 'reviewer'")
+	}
+	hashBefore := agentEntry.Hash
+
+	// Modify the deployed agent.
+	mustWrite(t, agentDeployed, "---\nname: reviewer\ndescription: Code reviewer\n---\nReview all PRs VERY carefully.\n")
+
+	// Push — verify change goes to store.
+	pushRes, err := push.Push(stores, "default", repo1, push.Options{})
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if len(pushRes.Changes) == 0 {
+		t.Fatal("push reported no changes after modifying agent")
+	}
+	foundAgentChange := false
+	for _, ch := range pushRes.Changes {
+		if ch.Name == "reviewer" && ch.Type == lock.AssetAgents {
+			foundAgentChange = true
+		}
+	}
+	if !foundAgentChange {
+		t.Fatal("push did not report agent change")
+	}
+
+	// Store should have the updated content.
+	assertFileContains(t, filepath.Join(s.AgentsDir(), "reviewer.md"), "VERY carefully")
+
+	// Lock hash should have changed.
+	lfAfter, err := lock.Load(repo1)
+	if err != nil {
+		t.Fatalf("load lock after push: %v", err)
+	}
+	if lfAfter.Deployed.Agents["reviewer"].Hash == hashBefore {
+		t.Fatal("agent hash not updated after push")
+	}
+
+	// Apply to second repo — verify pushed change propagates.
+	repo2 := filepath.Join(tmp, "repo2")
+	mustMkdir(t, repo2)
+	mustWrite(t, filepath.Join(repo2, ".agentfiles"), "bundle = \"agent-test\"\nlayout = \"claude\"\n")
+
+	m2, err := manifest.Load(repo2)
+	if err != nil {
+		t.Fatalf("load manifest repo2: %v", err)
+	}
+	res2, err := apply.Apply(stores, "default", m2, repo2, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply repo2: %v", err)
+	}
+	if res2.Deployed != 3 {
+		t.Fatalf("repo2 deployed = %d, want 3", res2.Deployed)
+	}
+	assertFileContains(t, filepath.Join(repo2, ".claude", "agents", "reviewer.md"), "VERY carefully")
+
+	// Push from repo2 should show no changes.
+	pushRes2, err := push.Push(stores, "default", repo2, push.Options{})
+	if err != nil {
+		t.Fatalf("push repo2: %v", err)
+	}
+	if len(pushRes2.Changes) != 0 {
+		t.Fatalf("expected 0 changes from repo2 push, got %d", len(pushRes2.Changes))
+	}
+}
+
+// TestIntegrationAgentCodexConversion tests Codex layout: deploy → .toml conversion,
+// modify .toml, push → .md conversion back to store.
+func TestIntegrationAgentCodexConversion(t *testing.T) {
+	tmp := t.TempDir()
+
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+
+	// Agent with frontmatter.
+	agentSrc := filepath.Join(tmp, "planner.md")
+	mustWrite(t, agentSrc, "---\nname: planner\ndescription: Plans tasks\nmodel: o3\n---\nPlan everything step by step.\n")
+	if _, _, err := s.AddAgent(agentSrc, false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+
+	instrSrc := filepath.Join(tmp, "instr.md")
+	mustWrite(t, instrSrc, "# Instructions\n")
+	if _, err := s.AddInstruction(instrSrc, "default", false); err != nil {
+		t.Fatalf("add instruction: %v", err)
+	}
+
+	bundleTOML := `[bundle]
+name = "codex-test"
+instructions = "default"
+
+[agents]
+include = ["planner"]
+`
+	mustWrite(t, filepath.Join(s.BundlesDir(), "codex-test.toml"), bundleTOML)
+
+	// Create repo with codex layout.
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), "bundle = \"codex-test\"\nlayout = \"codex\"\n")
+
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 2 { // instructions + agent
+		t.Fatalf("deployed = %d, want 2", res.Deployed)
+	}
+
+	// Verify agent deployed as .toml.
+	agentDeployed := filepath.Join(repo, ".codex", "agents", "planner.toml")
+	assertFileExists(t, agentDeployed)
+	data, err := os.ReadFile(agentDeployed)
+	if err != nil {
+		t.Fatalf("read deployed toml: %v", err)
+	}
+	tomlContent := string(data)
+	if !strings.Contains(tomlContent, "developer_instructions") {
+		t.Fatal("deployed TOML should contain developer_instructions")
+	}
+	if !strings.Contains(tomlContent, "planner") {
+		t.Fatal("deployed TOML should contain agent name")
+	}
+	if !strings.Contains(tomlContent, "o3") {
+		t.Fatal("deployed TOML should contain model field")
+	}
+
+	// Modify the deployed TOML.
+	modified := strings.Replace(tomlContent, "Plans tasks", "Plans everything", 1)
+	mustWrite(t, agentDeployed, modified)
+
+	// Push — should convert TOML back to .md in store.
+	pushRes, err := push.Push(stores, "default", repo, push.Options{})
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if len(pushRes.Changes) == 0 {
+		t.Fatal("push reported no changes after modifying codex agent")
+	}
+
+	// Store should have .md with the updated description.
+	storeAgent := filepath.Join(s.AgentsDir(), "planner.md")
+	assertFileContains(t, storeAgent, "Plans everything")
+	// Should still be .md format (not TOML).
+	assertFileContains(t, storeAgent, "---")
+}
+
+// TestIntegrationAgentAllLayout tests "all" layout deploys agents as both .md and .toml.
+func TestIntegrationAgentAllLayout(t *testing.T) {
+	tmp := t.TempDir()
+
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+
+	agentSrc := filepath.Join(tmp, "helper.md")
+	mustWrite(t, agentSrc, "---\nname: helper\ndescription: Helps\n---\nBe helpful.\n")
+	if _, _, err := s.AddAgent(agentSrc, false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+
+	instrSrc := filepath.Join(tmp, "instr.md")
+	mustWrite(t, instrSrc, "# Instructions\n")
+	if _, err := s.AddInstruction(instrSrc, "default", false); err != nil {
+		t.Fatalf("add instruction: %v", err)
+	}
+
+	bundleTOML := `[bundle]
+name = "all-agent"
+instructions = "default"
+
+[agents]
+include = ["helper"]
+`
+	mustWrite(t, filepath.Join(s.BundlesDir(), "all-agent.toml"), bundleTOML)
+
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), "bundle = \"all-agent\"\nlayout = \"all\"\n")
+
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 2 { // instructions + agent
+		t.Fatalf("deployed = %d, want 2", res.Deployed)
+	}
+
+	// Claude: .md
+	assertFileContains(t, filepath.Join(repo, ".claude", "agents", "helper.md"), "Be helpful.")
+	// Cursor: .md
+	assertFileContains(t, filepath.Join(repo, ".cursor", "agents", "helper.md"), "Be helpful.")
+	// Codex: .toml
+	codexAgent := filepath.Join(repo, ".codex", "agents", "helper.toml")
+	assertFileExists(t, codexAgent)
+	codexData, _ := os.ReadFile(codexAgent)
+	if !strings.Contains(string(codexData), "developer_instructions") {
+		t.Fatal("codex agent should contain developer_instructions")
+	}
+	// Pi: nothing
+	if _, err := os.Stat(filepath.Join(repo, ".pi", "agents")); !os.IsNotExist(err) {
+		t.Fatal("pi layout should not deploy agents")
+	}
+}
+
+// TestIntegrationAgentPiLayout verifies pi layout does not deploy agents.
+func TestIntegrationAgentPiLayout(t *testing.T) {
+	tmp := t.TempDir()
+
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+
+	agentSrc := filepath.Join(tmp, "helper.md")
+	mustWrite(t, agentSrc, "---\nname: helper\n---\nBe helpful.\n")
+	if _, _, err := s.AddAgent(agentSrc, false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+
+	instrSrc := filepath.Join(tmp, "instr.md")
+	mustWrite(t, instrSrc, "# Instructions\n")
+	if _, err := s.AddInstruction(instrSrc, "default", false); err != nil {
+		t.Fatalf("add instruction: %v", err)
+	}
+
+	bundleTOML := `[bundle]
+name = "pi-agent"
+instructions = "default"
+
+[agents]
+include = ["helper"]
+`
+	mustWrite(t, filepath.Join(s.BundlesDir(), "pi-agent.toml"), bundleTOML)
+
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), "bundle = \"pi-agent\"\nlayout = \"pi\"\n")
+
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	// Only instructions deployed (agent skipped for pi layout).
+	if res.Deployed != 1 {
+		t.Fatalf("deployed = %d, want 1 (instructions only)", res.Deployed)
+	}
+
+	// No agent files should exist.
+	for _, p := range []string{
+		filepath.Join(repo, ".pi", "agents"),
+		filepath.Join(repo, ".claude", "agents"),
+		filepath.Join(repo, ".cursor", "agents"),
+		filepath.Join(repo, ".codex", "agents"),
+	} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Fatalf("expected no agent dir at %s", p)
+		}
+	}
+
+	// Lock should NOT have agent entries (pi doesn't deploy them).
+	lf, err := lock.Load(repo)
+	if err != nil {
+		t.Fatalf("load lock: %v", err)
+	}
+	if len(lf.Deployed.Agents) != 0 {
+		t.Fatalf("expected 0 agent lock entries for pi layout, got %d", len(lf.Deployed.Agents))
+	}
+}
+
+// TestIntegrationAgentCherryPick exercises agents in cherry-pick mode (no bundle).
+func TestIntegrationAgentCherryPick(t *testing.T) {
+	tmp := t.TempDir()
+
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+
+	// Add two agents.
+	mustWrite(t, filepath.Join(tmp, "reviewer.md"), "---\nname: reviewer\n---\nReview code.\n")
+	if _, _, err := s.AddAgent(filepath.Join(tmp, "reviewer.md"), false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+	mustWrite(t, filepath.Join(tmp, "planner.md"), "---\nname: planner\n---\nPlan tasks.\n")
+	if _, _, err := s.AddAgent(filepath.Join(tmp, "planner.md"), false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+
+	instrSrc := filepath.Join(tmp, "instr.md")
+	mustWrite(t, instrSrc, "# Instructions\n")
+	if _, err := s.AddInstruction(instrSrc, "default", false); err != nil {
+		t.Fatalf("add instruction: %v", err)
+	}
+
+	// Cherry-pick only reviewer.
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), "layout = \"claude\"\ninstructions = \"default\"\nagents = [\"reviewer\"]\n")
+
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+
+	stores := map[string]*store.Store{"default": s}
+	res, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Deployed != 2 { // instructions + reviewer
+		t.Fatalf("deployed = %d, want 2", res.Deployed)
+	}
+
+	// reviewer deployed, planner not.
+	assertFileContains(t, filepath.Join(repo, ".claude", "agents", "reviewer.md"), "Review code.")
+	if _, err := os.Stat(filepath.Join(repo, ".claude", "agents", "planner.md")); !os.IsNotExist(err) {
+		t.Fatal("planner should not be deployed in cherry-pick mode")
+	}
+}
+
+// TestIntegrationAgentPruning verifies stale agents are removed when removed from manifest.
+func TestIntegrationAgentPruning(t *testing.T) {
+	tmp := t.TempDir()
+
+	s, err := store.Init(filepath.Join(tmp, "store"))
+	if err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+
+	mustWrite(t, filepath.Join(tmp, "reviewer.md"), "---\nname: reviewer\n---\nReview code.\n")
+	if _, _, err := s.AddAgent(filepath.Join(tmp, "reviewer.md"), false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+	mustWrite(t, filepath.Join(tmp, "planner.md"), "---\nname: planner\n---\nPlan tasks.\n")
+	if _, _, err := s.AddAgent(filepath.Join(tmp, "planner.md"), false); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+
+	instrSrc := filepath.Join(tmp, "instr.md")
+	mustWrite(t, instrSrc, "# Instructions\n")
+	if _, err := s.AddInstruction(instrSrc, "default", false); err != nil {
+		t.Fatalf("add instruction: %v", err)
+	}
+
+	// First apply with both agents.
+	repo := filepath.Join(tmp, "repo")
+	mustMkdir(t, repo)
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), "layout = \"claude\"\ninstructions = \"default\"\nagents = [\"reviewer\", \"planner\"]\n")
+
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	stores := map[string]*store.Store{"default": s}
+	if _, err := apply.Apply(stores, "default", m, repo, apply.Options{Force: true}); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	// Both agents deployed.
+	assertFileExists(t, filepath.Join(repo, ".claude", "agents", "reviewer.md"))
+	assertFileExists(t, filepath.Join(repo, ".claude", "agents", "planner.md"))
+
+	// Remove planner from manifest and re-apply.
+	mustWrite(t, filepath.Join(repo, ".agentfiles"), "layout = \"claude\"\ninstructions = \"default\"\nagents = [\"reviewer\"]\n")
+
+	m2, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatalf("load manifest 2: %v", err)
+	}
+	res2, err := apply.Apply(stores, "default", m2, repo, apply.Options{Force: true})
+	if err != nil {
+		t.Fatalf("apply 2: %v", err)
+	}
+	if res2.Removed != 1 {
+		t.Fatalf("removed = %d, want 1", res2.Removed)
+	}
+
+	// reviewer still exists, planner pruned.
+	assertFileExists(t, filepath.Join(repo, ".claude", "agents", "reviewer.md"))
+	if _, err := os.Stat(filepath.Join(repo, ".claude", "agents", "planner.md")); !os.IsNotExist(err) {
+		t.Fatal("planner should have been pruned")
 	}
 }
 

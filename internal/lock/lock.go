@@ -17,8 +17,9 @@ const FileName = ".agentfiles.lock"
 // Asset type constants for use with Record.
 const (
 	AssetInstructions = "instructions"
-	AssetSkills    = "skills"
-	AssetResources = "resources"
+	AssetSkills       = "skills"
+	AssetResources    = "resources"
+	AssetAgents       = "agents"
 )
 
 type Entry struct {
@@ -30,8 +31,9 @@ type Entry struct {
 
 type DeployedMap struct {
 	Instructions *Entry            `toml:"instructions,omitempty"`
-	Skills    map[string]*Entry `toml:"skills,omitempty"`
-	Resources map[string]*Entry `toml:"resources,omitempty"`
+	Skills       map[string]*Entry `toml:"skills,omitempty"`
+	Resources    map[string]*Entry `toml:"resources,omitempty"`
+	Agents       map[string]*Entry `toml:"agents,omitempty"`
 }
 
 type LockFile struct {
@@ -48,6 +50,7 @@ func LoadFrom(path string) (*LockFile, error) {
 	lf := &LockFile{}
 	lf.Deployed.Skills = make(map[string]*Entry)
 	lf.Deployed.Resources = make(map[string]*Entry)
+	lf.Deployed.Agents = make(map[string]*Entry)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -65,6 +68,9 @@ func LoadFrom(path string) (*LockFile, error) {
 	}
 	if lf.Deployed.Resources == nil {
 		lf.Deployed.Resources = make(map[string]*Entry)
+	}
+	if lf.Deployed.Agents == nil {
+		lf.Deployed.Agents = make(map[string]*Entry)
 	}
 	return lf, nil
 }
@@ -126,10 +132,21 @@ func (lf *LockFile) Record(p RecordParams) error {
 			lf.Deployed.Resources = make(map[string]*Entry)
 		}
 		lf.Deployed.Resources[name] = entry
+	case AssetAgents:
+		if lf.Deployed.Agents == nil {
+			lf.Deployed.Agents = make(map[string]*Entry)
+		}
+		lf.Deployed.Agents[name] = entry
 	default:
 		return fmt.Errorf("unknown asset type: %q", assetType)
 	}
 	return nil
+}
+
+// HashBytes computes a SHA-256 hash of raw bytes.
+func HashBytes(data []byte) string {
+	h := sha256.Sum256(data)
+	return fmt.Sprintf("%x", h[:])
 }
 
 func Hash(filePath string) (string, error) {

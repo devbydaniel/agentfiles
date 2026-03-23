@@ -11,7 +11,7 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list <skills|bundles|instructions|resources>",
+	Use:   "list <skills|bundles|instructions|resources|agents>",
 	Short: "List items in the agentfiles store",
 	Long: `List assets in the source store by type.
 
@@ -20,12 +20,14 @@ Types:
   instructions  Instruction files (shown without .md extension)
   bundles       Bundle definitions (shown without .toml extension)
   resources     Resource directories
+  agents        Agent files (shown without .md extension)
 
 Examples:
   af list skills
   af list skills --flat
   af list bundles
-  af list instructions`,
+  af list instructions
+  af list agents`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := openStore()
@@ -99,8 +101,23 @@ Examples:
 			}
 			return nil
 
+		case "agents":
+			agents, err := s.ListAgents()
+			if err != nil {
+				return err
+			}
+			var names []string
+			for _, a := range agents {
+				names = append(names, a.Name)
+			}
+			sort.Strings(names)
+			for _, n := range names {
+				fmt.Fprintln(cmd.OutOrStdout(), n)
+			}
+			return nil
+
 		default:
-			return fmt.Errorf("unknown list type %q (use skills, bundles, instructions, or resources)", kind)
+			return fmt.Errorf("unknown list type %q (use skills, bundles, instructions, resources, or agents)", kind)
 		}
 	},
 }

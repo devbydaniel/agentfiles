@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/devbydaniel/agentfiles/internal/agent"
 	"github.com/devbydaniel/agentfiles/internal/fsutil"
 	"github.com/devbydaniel/agentfiles/internal/lock"
 	"github.com/devbydaniel/agentfiles/internal/store"
@@ -138,6 +139,28 @@ func Push(stores map[string]*store.Store, defaultStore string, repoDir string, o
 		}
 	}
 
+	// Push agents (unless filtering by skill).
+	if opts.SkillOnly == "" {
+		for name, e := range lf.Deployed.Agents {
+			s, err := entryStore(stores, defaultStore, e)
+			if err != nil {
+				return nil, fmt.Errorf("pushing agent %q: %w", name, err)
+			}
+			deployed := filepath.Join(repoDir, e.DeployedPath)
+			ch, err := pushAgent(deployed, filepath.Join(s.Root, e.StorePath), e, name, opts.DryRun)
+			if err != nil {
+				return nil, fmt.Errorf("pushing agent %q: %w", name, err)
+			}
+			res.Checked++
+			if ch != nil {
+				res.Changes = append(res.Changes, *ch)
+				if !opts.DryRun {
+					e.Hash = ch.NewHash
+				}
+			}
+		}
+	}
+
 	// Save updated lock file (only if not dry-run and there were changes).
 	if !opts.DryRun && len(res.Changes) > 0 {
 		var saveErr error
@@ -257,6 +280,68 @@ func matchSkillKey(lockKey, filter string) bool {
 	// Match by leaf name (last path component).
 	leaf := filepath.Base(qualifiedName)
 	return leaf == filter || qualifiedName == filter
+}
+
+// pushAgent checks a deployed agent file against its lock hash.
+// If the deployed file is a .toml (Codex), it converts back to canonical .md
+// before hashing and pushing to the store. The hash is always computed on the
+// canonical .md form (after conversion) to match what apply records.
+func pushAgent(deployedPath, storeDest string, e *lock.Entry, name string, dryRun bool) (*Change, error) {
+	// For agents, the lock hash is of the source .md file, not the deployed
+	// file (which might be .toml). We need to:
+	// 1. Read the deployed file
+	// 2. If it's .toml, convert to .md
+	// 3. Hash the converted .md (to compare with the lock hash of the source)
+	// 4. If changed, write converted .md to store
+
+	deployedData, err := os.ReadFile(deployedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &Change{Name: name, Type: lock.AssetAgents, OldHash: e.Hash, NewHash: "(deleted)"}, nil
+		}
+		return nil, err
+	}
+
+	// Convert to canonical .md if needed.
+	var mdData []byte
+	if strings.HasSuffix(deployedPath, ".toml") {
+		fm, body, err := agent.FromCodexTOML(deployedData)
+		if err != nil {
+			return nil, fmt.Errorf("converting from Codex TOML: %w", err)
+		}
+		mdData, err = agent.ToMarkdown(fm, body)
+		if err != nil {
+			return nil, fmt.Errorf("converting to Markdown: %w", err)
+		}
+	} else {
+		fm, body, err := agent.Parse(deployedData)
+		if err != nil {
+			return nil, err
+		}
+		mdData, err = agent.ToMarkdown(fm, body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Hash the canonical .md data and compare to the lock hash (which was
+	// computed from the source .md file).
+	newHash := lock.HashBytes(mdData)
+	if newHash == e.Hash {
+		return nil, nil
+	}
+
+	ch := &Change{Name: name, Type: lock.AssetAgents, OldHash: e.Hash, NewHash: newHash}
+	if !dryRun {
+		// Write the canonical .md to the store path.
+		if err := os.MkdirAll(filepath.Dir(storeDest), 0o755); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(storeDest, mdData, 0o644); err != nil {
+			return nil, err
+		}
+	}
+	return ch, nil
 }
 
 // syncResourceToStore copies each deployed resource file from repoDir back

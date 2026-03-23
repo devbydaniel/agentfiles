@@ -65,7 +65,7 @@ func TestAddSkillCopiesDir(t *testing.T) {
 	}
 }
 
-func TestAddAgentCopiesFile(t *testing.T) {
+func TestAddInstructionCopiesFile(t *testing.T) {
 	s := setupStore(t)
 
 	src := filepath.Join(t.TempDir(), "AGENTS.md")
@@ -88,7 +88,7 @@ func TestAddAgentCopiesFile(t *testing.T) {
 	}
 }
 
-func TestAddAgentAlreadyExistsNoForce(t *testing.T) {
+func TestAddInstructionAlreadyExistsNoForce(t *testing.T) {
 	s := setupStore(t)
 
 	src := filepath.Join(t.TempDir(), "agent.md")
@@ -114,7 +114,7 @@ func TestAddAgentAlreadyExistsNoForce(t *testing.T) {
 	}
 }
 
-func TestAddAgentAlreadyExistsWithForce(t *testing.T) {
+func TestAddInstructionAlreadyExistsWithForce(t *testing.T) {
 	s := setupStore(t)
 
 	src := filepath.Join(t.TempDir(), "agent.md")
@@ -139,7 +139,7 @@ func TestAddAgentAlreadyExistsWithForce(t *testing.T) {
 	}
 }
 
-func TestAddAgentRejectsDirectory(t *testing.T) {
+func TestAddInstructionRejectsDirectory(t *testing.T) {
 	s := setupStore(t)
 
 	src := t.TempDir()
@@ -152,7 +152,7 @@ func TestAddAgentRejectsDirectory(t *testing.T) {
 	}
 }
 
-func TestAddAgentRejectsPathTraversal(t *testing.T) {
+func TestAddInstructionRejectsPathTraversal(t *testing.T) {
 	s := setupStore(t)
 
 	src := filepath.Join(t.TempDir(), "agent.md")
@@ -348,6 +348,122 @@ func TestAddSkillWithGroupInvalidTraversal(t *testing.T) {
 		if err == nil {
 			t.Errorf("expected error for group %q", bad)
 		}
+	}
+}
+
+// --- AddAgent tests ---
+
+func TestAddAgentFileCopy(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "reviewer.md")
+	os.WriteFile(src, []byte("---\nname: reviewer\n---\nReview code."), 0o644)
+
+	name, overwritten, err := s.AddAgent(src, false)
+	if err != nil {
+		t.Fatalf("AddAgent: %v", err)
+	}
+	if name != "reviewer" {
+		t.Errorf("name = %q, want reviewer", name)
+	}
+	if overwritten {
+		t.Error("expected overwritten=false")
+	}
+
+	data, err := os.ReadFile(filepath.Join(s.AgentsDir(), "reviewer.md"))
+	if err != nil {
+		t.Fatalf("agent file missing: %v", err)
+	}
+	if !strings.Contains(string(data), "Review code.") {
+		t.Errorf("content = %q", data)
+	}
+}
+
+func TestAddAgentOverwriteNoForce(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "reviewer.md")
+	os.WriteFile(src, []byte("v1"), 0o644)
+
+	if _, _, err := s.AddAgent(src, false); err != nil {
+		t.Fatalf("first AddAgent: %v", err)
+	}
+
+	os.WriteFile(src, []byte("v2"), 0o644)
+	_, _, err := s.AddAgent(src, false)
+	if err == nil {
+		t.Fatal("expected error on duplicate without force")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("error = %q", err)
+	}
+}
+
+func TestAddAgentOverwriteWithForce(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "reviewer.md")
+	os.WriteFile(src, []byte("v1"), 0o644)
+
+	if _, _, err := s.AddAgent(src, false); err != nil {
+		t.Fatalf("first AddAgent: %v", err)
+	}
+
+	os.WriteFile(src, []byte("v2"), 0o644)
+	_, overwritten, err := s.AddAgent(src, true)
+	if err != nil {
+		t.Fatalf("AddAgent with force: %v", err)
+	}
+	if !overwritten {
+		t.Error("expected overwritten=true")
+	}
+
+	data, _ := os.ReadFile(filepath.Join(s.AgentsDir(), "reviewer.md"))
+	if string(data) != "v2" {
+		t.Errorf("content = %q, want v2", data)
+	}
+}
+
+func TestAddAgentFileRejectsDirectory(t *testing.T) {
+	s := setupStore(t)
+	_, _, err := s.AddAgent(t.TempDir(), false)
+	if err == nil {
+		t.Fatal("expected error for directory source")
+	}
+	if !strings.Contains(err.Error(), "directory") {
+		t.Errorf("error = %q", err)
+	}
+}
+
+func TestAddAgentRejectsNonMD(t *testing.T) {
+	s := setupStore(t)
+	src := filepath.Join(t.TempDir(), "agent.toml")
+	os.WriteFile(src, []byte("name = 'test'"), 0o644)
+
+	_, _, err := s.AddAgent(src, false)
+	if err == nil {
+		t.Fatal("expected error for non-.md file")
+	}
+	if !strings.Contains(err.Error(), ".md extension") {
+		t.Errorf("error = %q", err)
+	}
+}
+
+func TestAddAgentCreatesAgentsDirOnDemand(t *testing.T) {
+	s := setupStore(t)
+	os.RemoveAll(s.AgentsDir())
+
+	src := filepath.Join(t.TempDir(), "reviewer.md")
+	os.WriteFile(src, []byte("content"), 0o644)
+
+	name, _, err := s.AddAgent(src, false)
+	if err != nil {
+		t.Fatalf("AddAgent: %v", err)
+	}
+	if name != "reviewer" {
+		t.Errorf("name = %q", name)
+	}
+
+	info, err := os.Stat(s.AgentsDir())
+	if err != nil || !info.IsDir() {
+		t.Error("agents/ dir was not created")
 	}
 }
 

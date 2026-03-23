@@ -15,6 +15,7 @@ type Bundle struct {
 	BundleMeta bundleMeta `toml:"bundle"`
 	Skills     ItemList   `toml:"skills"`
 	Resources  ItemList   `toml:"resources"`
+	Agents     ItemList   `toml:"agents"`
 }
 
 type bundleMeta struct {

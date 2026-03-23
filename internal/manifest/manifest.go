@@ -13,11 +13,14 @@ type Manifest struct {
 	Store        string   `toml:"store"`
 	Bundle       string   `toml:"bundle"`
 	Layout       string   `toml:"layout"`
-	Instructions string  `toml:"instructions"`
+	Instructions string   `toml:"instructions"`
 	Skills       []string `toml:"skills"`
 	Resources    []string `toml:"resources"`
+	Agents       []string `toml:"agents"`
 	SkillsAdd    []string `toml:"skills_add"`
 	SkillsRemove []string `toml:"skills_remove"`
+	AgentsAdd    []string `toml:"agents_add"`
+	AgentsRemove []string `toml:"agents_remove"`
 }
 
 // Load reads and parses an .agentfiles manifest from the given directory.
@@ -52,8 +55,11 @@ type UserFields struct {
 	Layout       string
 	Instructions string
 	Skills       []string
+	Agents       []string
 	SkillsAdd    []string
 	SkillsRemove []string
+	AgentsAdd    []string
+	AgentsRemove []string
 }
 
 // FromUserConfig constructs a Manifest from user config fields.
@@ -64,8 +70,11 @@ func FromUserConfig(u UserFields) (*Manifest, error) {
 		Layout:       u.Layout,
 		Instructions: u.Instructions,
 		Skills:       u.Skills,
+		Agents:       u.Agents,
 		SkillsAdd:    u.SkillsAdd,
 		SkillsRemove: u.SkillsRemove,
+		AgentsAdd:    u.AgentsAdd,
+		AgentsRemove: u.AgentsRemove,
 	}
 
 	if m.Layout == "" {
@@ -81,17 +90,21 @@ func FromUserConfig(u UserFields) (*Manifest, error) {
 
 func (m *Manifest) validate() error {
 	hasBundle := m.Bundle != ""
-	hasCherryPick := m.Instructions != "" || len(m.Skills) > 0 || len(m.Resources) > 0
+	hasCherryPick := m.Instructions != "" || len(m.Skills) > 0 || len(m.Resources) > 0 || len(m.Agents) > 0
 
 	if !hasBundle && !hasCherryPick {
-		return fmt.Errorf("manifest must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'resources')")
+		return fmt.Errorf("manifest must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'resources', 'agents')")
 	}
 	if hasBundle && hasCherryPick {
-		return fmt.Errorf("manifest cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'resources')")
+		return fmt.Errorf("manifest cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'resources', 'agents')")
 	}
 
 	if !hasBundle && (len(m.SkillsAdd) > 0 || len(m.SkillsRemove) > 0) {
 		return fmt.Errorf("'skills_add' and 'skills_remove' require 'bundle' to be set")
+	}
+
+	if !hasBundle && (len(m.AgentsAdd) > 0 || len(m.AgentsRemove) > 0) {
+		return fmt.Errorf("'agents_add' and 'agents_remove' require 'bundle' to be set")
 	}
 
 	return nil

@@ -18,4 +18,7 @@ type Layout interface {
 	InstructionMdEntries() []Entry
 	// SkillEntries returns entries for a named skill.
 	SkillEntries(name string) []Entry
+	// AgentEntries returns entries for a named agent.
+	// Returns nil for tools that don't support agents (e.g., pi).
+	AgentEntries(name string) []Entry
 }
