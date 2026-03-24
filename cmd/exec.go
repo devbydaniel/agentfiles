@@ -104,10 +104,15 @@ Examples:
 			return fmt.Errorf("repo directory %q does not exist (run 'af apply-all' first)", repo.Path)
 		}
 
+		// Prepend exec_args from config before user-provided args.
+		var allArgs []string
+		allArgs = append(allArgs, repo.ExecArgs...)
+		allArgs = append(allArgs, agentArgs...)
+
 		fmt.Fprintf(cmd.OutOrStdout(), "→ %s in %s (layout=%s)\n", agent, repo.Path, repo.Layout)
 
 		// Exec into the agent process, replacing this process.
-		c := exec.Command(agentPath, agentArgs...)
+		c := exec.Command(agentPath, allArgs...)
 		c.Dir = repo.Path
 		c.Stdin = os.Stdin
 		c.Stdout = os.Stdout

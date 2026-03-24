@@ -29,6 +29,7 @@ type Repo struct {
 	AgentsRemove       []string `toml:"agents_remove"`
 	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
 	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
+	ExecArgs           []string `toml:"exec_args"`
 }
 
 func (r *Registry) validate() error {
@@ -67,8 +68,11 @@ func LoadFromConfig(cfg *config.Config) (*Registry, error) {
 			Layout:       cr.Layout,
 			SkillsAdd:    cr.SkillsAdd,
 			SkillsRemove: cr.SkillsRemove,
-			AgentsAdd:    cr.AgentsAdd,
-			AgentsRemove: cr.AgentsRemove,
+			AgentsAdd:          cr.AgentsAdd,
+			AgentsRemove:       cr.AgentsRemove,
+			PiExtensionsAdd:    cr.PiExtensionsAdd,
+			PiExtensionsRemove: cr.PiExtensionsRemove,
+			ExecArgs:           cr.ExecArgs,
 		})
 	}
 

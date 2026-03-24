@@ -54,6 +54,7 @@ type Repo struct {
 	AgentsRemove       []string `toml:"agents_remove"`
 	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
 	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
+	ExecArgs           []string `toml:"exec_args"`
 }
 
 // DefaultConfigPath returns the default config file path:

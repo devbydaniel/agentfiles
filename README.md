@@ -154,9 +154,10 @@ name = "web-app"
 bundle = "frontend"
 layout = "all"
 skills_add = ["personal:browse"]  # cross-store: prefix with storename:
+exec_args = ["--model", "gpt-5.4"]  # default args for af exec
 ```
 
-Each repo can specify a `store` to target a specific named store (defaults to `default_store`).
+Each repo can specify a `store` to target a specific named store (defaults to `default_store`). The optional `exec_args` field provides default arguments that are prepended when launching the agent via `af exec`.
 
 The registry is **additive** to the per-repo workflow. Repos can still have their own `.agentfiles` managed manually — the registry simply provides a central view and batch operations. When `af apply-all` runs, it writes/updates the `.agentfiles` manifest in each registered repo to keep it in sync with the config.
 
@@ -467,6 +468,18 @@ af exec api-server --agent claude           # override agent choice
 ```
 
 Looks up by name first, then falls back to matching the basename of the repo path.
+
+**Default arguments:** Repos can specify `exec_args` in the config to provide default arguments that are always prepended when launching the agent:
+
+```toml
+[[repos]]
+name = "api-server"
+bundle = "backend"
+layout = "pi"
+exec_args = ["--model", "gpt-5.4"]
+```
+
+With this config, `af exec api-server -- -p "fix tests"` runs `pi --model gpt-5.4 -p "fix tests"`. Arguments passed after `--` on the command line come after the configured defaults.
 
 ### `af push`
 
@@ -822,4 +835,5 @@ bundle = "backend"
 store = "work"
 layout = "pi"
 skills_add = ["personal:browse"]
+exec_args = ["--model", "gpt-5.4"]  # prepended to af exec args
 ```
