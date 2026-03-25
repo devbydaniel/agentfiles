@@ -16,11 +16,11 @@ const FileName = ".agentfiles.lock"
 
 // Asset type constants for use with Record.
 const (
-	AssetInstructions  = "instructions"
-	AssetSkills        = "skills"
-	AssetResources     = "resources"
-	AssetAgents        = "agents"
-	AssetPiExtensions  = "pi_extensions"
+	AssetInstructions = "instructions"
+	AssetSkills       = "skills"
+	AssetResources    = "resources"
+	AssetAgents       = "agents"
+	AssetPiExtensions = "pi_extensions"
 )
 
 type Entry struct {

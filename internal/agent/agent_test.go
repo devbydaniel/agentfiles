@@ -162,7 +162,7 @@ func TestToCodexTOML(t *testing.T) {
 
 func TestToCodexTOMLCodexSpecificFields(t *testing.T) {
 	fm := map[string]any{
-		"name":                    "debugger",
+		"name":                   "debugger",
 		"description":            "Debugs code",
 		"sandbox_mode":           "full",
 		"model_reasoning_effort": "high",

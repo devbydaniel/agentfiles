@@ -20,7 +20,7 @@ type Bundle struct {
 }
 
 type bundleMeta struct {
-	Name     string `toml:"name"`
+	Name         string `toml:"name"`
 	Instructions string `toml:"instructions"`
 }
 

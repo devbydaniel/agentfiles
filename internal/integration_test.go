@@ -847,8 +847,8 @@ func TestIntegrationUserLevelCherryPick(t *testing.T) {
 	// Cherry-pick manifest with claude layout.
 	m, err := manifest.FromUserConfig(manifest.UserFields{
 		Instructions: "cherry",
-		Skills:   []string{"git"},
-		Layout:   "claude",
+		Skills:       []string{"git"},
+		Layout:       "claude",
 	})
 	if err != nil {
 		t.Fatalf("FromUserConfig: %v", err)

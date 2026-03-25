@@ -116,10 +116,10 @@ func TestOpenNonexistent(t *testing.T) {
 func TestDirMethods(t *testing.T) {
 	s := &Store{Root: "/tmp/store"}
 	checks := map[string]string{
-		"skills":    s.SkillsDir(),
-		"instructions":    s.InstructionsDir(),
-		"resources": s.ResourcesDir(),
-		"bundles":   s.BundlesDir(),
+		"skills":       s.SkillsDir(),
+		"instructions": s.InstructionsDir(),
+		"resources":    s.ResourcesDir(),
+		"bundles":      s.BundlesDir(),
 	}
 	for name, got := range checks {
 		want := filepath.Join("/tmp/store", name)

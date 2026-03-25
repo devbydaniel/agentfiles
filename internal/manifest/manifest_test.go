@@ -491,7 +491,7 @@ func TestFromUserConfigBundle(t *testing.T) {
 func TestFromUserConfigCherryPick(t *testing.T) {
 	m, err := manifest.FromUserConfig(manifest.UserFields{
 		Instructions: "my-agent",
-		Skills:   []string{"browse", "git"},
+		Skills:       []string{"browse", "git"},
 	})
 	if err != nil {
 		t.Fatalf("FromUserConfig: %v", err)
@@ -539,8 +539,8 @@ func TestFromUserConfigEmptyError(t *testing.T) {
 
 func TestFromUserConfigSkillsAddWithoutBundleError(t *testing.T) {
 	_, err := manifest.FromUserConfig(manifest.UserFields{
-		Instructions:  "core",
-		SkillsAdd: []string{"extra"},
+		Instructions: "core",
+		SkillsAdd:    []string{"extra"},
 	})
 	if err == nil {
 		t.Fatal("expected error for skills_add without bundle, got nil")

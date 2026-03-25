@@ -83,9 +83,9 @@ func TestApplyPiLayout(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:   "pi",
+		Layout:       "pi",
 		Instructions: "main",
-		Skills:   []string{"golang"},
+		Skills:       []string{"golang"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -119,9 +119,9 @@ func TestApplyClaudeLayout(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:   "claude",
+		Layout:       "claude",
 		Instructions: "main",
-		Skills:   []string{"testing"},
+		Skills:       []string{"testing"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -153,9 +153,9 @@ func TestApplyCursorLayout(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:   "cursor",
+		Layout:       "cursor",
 		Instructions: "main",
-		Skills:   []string{"refactor"},
+		Skills:       []string{"refactor"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -193,9 +193,9 @@ func TestApplyAllLayout(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:   "all",
+		Layout:       "all",
 		Instructions: "main",
-		Skills:   []string{"debug"},
+		Skills:       []string{"debug"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -251,9 +251,9 @@ func TestApplyResources(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:    "pi",
-		Instructions:  "main",
-		Resources: []string{"configs"},
+		Layout:       "pi",
+		Instructions: "main",
+		Resources:    []string{"configs"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -285,9 +285,9 @@ func TestApplyWritesLockFile(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:   "pi",
+		Layout:       "pi",
 		Instructions: "main",
-		Skills:   []string{"golang"},
+		Skills:       []string{"golang"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -337,9 +337,9 @@ func TestApplyWritesLockForResources(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:    "pi",
-		Instructions:  "main",
-		Resources: []string{"myresource"},
+		Layout:       "pi",
+		Instructions: "main",
+		Resources:    []string{"myresource"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -372,9 +372,9 @@ func TestApplySkillOnly(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:   "pi",
+		Layout:       "pi",
 		Instructions: "main",
-		Skills:   []string{"golang", "python"},
+		Skills:       []string{"golang", "python"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -405,9 +405,9 @@ func TestApplySkillNotInManifest(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:   "pi",
+		Layout:       "pi",
 		Instructions: "main",
-		Skills:   []string{"golang"},
+		Skills:       []string{"golang"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -426,9 +426,9 @@ func TestApplySkillNotInStore(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:   "pi",
+		Layout:       "pi",
 		Instructions: "main",
-		Skills:   []string{"nonexistent"},
+		Skills:       []string{"nonexistent"},
 	}
 
 	stores, defaultStore := singleStoreMap(s)
@@ -452,7 +452,7 @@ func TestApplyNoForceSkipsExisting(t *testing.T) {
 	}
 
 	m := &manifest.Manifest{
-		Layout:   "pi",
+		Layout:       "pi",
 		Instructions: "main",
 	}
 
@@ -500,9 +500,9 @@ func TestApplyMultiStore(t *testing.T) {
 
 	repo := t.TempDir()
 	m := &manifest.Manifest{
-		Layout:   "pi",
+		Layout:       "pi",
 		Instructions: "main",
-		Skills:   []string{"backend", "personal:my-utils"},
+		Skills:       []string{"backend", "personal:my-utils"},
 	}
 
 	stores := map[string]*store.Store{

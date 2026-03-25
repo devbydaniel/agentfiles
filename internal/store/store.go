@@ -21,9 +21,9 @@ type Store struct {
 
 func (s *Store) SkillsDir() string       { return filepath.Join(s.Root, "skills") }
 func (s *Store) InstructionsDir() string { return filepath.Join(s.Root, "instructions") }
-func (s *Store) ResourcesDir() string   { return filepath.Join(s.Root, "resources") }
-func (s *Store) BundlesDir() string     { return filepath.Join(s.Root, "bundles") }
-func (s *Store) AgentsDir() string        { return filepath.Join(s.Root, "agents") }
+func (s *Store) ResourcesDir() string    { return filepath.Join(s.Root, "resources") }
+func (s *Store) BundlesDir() string      { return filepath.Join(s.Root, "bundles") }
+func (s *Store) AgentsDir() string       { return filepath.Join(s.Root, "agents") }
 func (s *Store) PiExtensionsDir() string { return filepath.Join(s.Root, "pi_extensions") }
 
 // Open validates that path is a valid agentfiles store and returns a Store.

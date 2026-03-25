@@ -9,5 +9,11 @@
 *.swo
 *~
 
+# AI tool working dirs (deployed by af)
+.claude/
+.pi/
+CLAUDE.md
+AGENTS.md
+
 # OS
 .DS_Store

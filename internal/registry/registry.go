@@ -20,11 +20,11 @@ type Repo struct {
 	Name string `toml:"name"`
 	Path string `toml:"path"`
 	// Store is the name of the store to use for this repo.
-	Store        string   `toml:"store"`
-	Bundle       string   `toml:"bundle"`
-	Layout       string   `toml:"layout"`
-	SkillsAdd    []string `toml:"skills_add"`
-	SkillsRemove []string `toml:"skills_remove"`
+	Store              string   `toml:"store"`
+	Bundle             string   `toml:"bundle"`
+	Layout             string   `toml:"layout"`
+	SkillsAdd          []string `toml:"skills_add"`
+	SkillsRemove       []string `toml:"skills_remove"`
 	AgentsAdd          []string `toml:"agents_add"`
 	AgentsRemove       []string `toml:"agents_remove"`
 	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
@@ -61,13 +61,13 @@ func LoadFromConfig(cfg *config.Config) (*Registry, error) {
 	reg := &Registry{}
 	for _, cr := range cfg.Repos {
 		reg.Repos = append(reg.Repos, Repo{
-			Name:         cr.Name,
-			Path:         cr.Path,
-			Store:        cr.Store,
-			Bundle:       cr.Bundle,
-			Layout:       cr.Layout,
-			SkillsAdd:    cr.SkillsAdd,
-			SkillsRemove: cr.SkillsRemove,
+			Name:               cr.Name,
+			Path:               cr.Path,
+			Store:              cr.Store,
+			Bundle:             cr.Bundle,
+			Layout:             cr.Layout,
+			SkillsAdd:          cr.SkillsAdd,
+			SkillsRemove:       cr.SkillsRemove,
 			AgentsAdd:          cr.AgentsAdd,
 			AgentsRemove:       cr.AgentsRemove,
 			PiExtensionsAdd:    cr.PiExtensionsAdd,
