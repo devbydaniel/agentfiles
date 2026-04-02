@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/devbydaniel/agentfiles/compare/v0.3.0...v0.4.0) (2026-03-25)
+
+
+### Features
+
+* add codex layout (AGENTS.md + .agents/ skills) ([df45f1e](https://github.com/devbydaniel/agentfiles/commit/df45f1e82567b0e94947a88f23697c9a100d78c5))
+* add exec_args config field for default af exec arguments ([15b514c](https://github.com/devbydaniel/agentfiles/commit/15b514c4dd147269588ab3d9db19f98073ec7bbc))
+* add grouped skills ([6856605](https://github.com/devbydaniel/agentfiles/commit/6856605e36aac2e8b1193eb8645703757452017b))
+* add pi extensions ([286ce29](https://github.com/devbydaniel/agentfiles/commit/286ce29441952c8413dd5b5998aed2533073826b))
+* add subagent support (store, deploy, push, CLI) ([b639194](https://github.com/devbydaniel/agentfiles/commit/b639194fbc82742313b823e346c3053f1cfd5651))
+* support store field in manifest for multi-store repos ([c15b5de](https://github.com/devbydaniel/agentfiles/commit/c15b5de3789a309f29fc427b227114a8fbaf10a1))
+
+
+### Bug Fixes
+
+* fix cursor AGENTS.md ([8d65eb7](https://github.com/devbydaniel/agentfiles/commit/8d65eb7944214de5e3b224e2dcb6a82a97b6215a))
+
 ## [0.3.0](https://github.com/devbydaniel/agentfiles/compare/v0.2.0...v0.3.0) (2026-03-10)
 
 
