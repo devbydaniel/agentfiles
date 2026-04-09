@@ -193,13 +193,13 @@ Bundle mode and cherry-pick mode are **mutually exclusive**. The `layout` field 
 
 Layouts control where files land in the repo. Different AI tools expect different directory structures:
 
-| Layout | Instruction file | Skills |
-|--------|-----------|--------|
-| `pi` | `AGENTS.md` | `.agents/skills/<name>/` |
-| `claude` | `CLAUDE.md` | `.claude/skills/<name>/` |
-| `cursor` | `AGENTS.md` | `.agents/skills/<name>/` |
-| `codex` | `AGENTS.md` | `.agents/skills/<name>/` |
-| `all` | All of the above | All of the above |
+| Layout | Instruction file | Skills | Agents |
+|--------|-----------|--------|--------|
+| `pi` | `AGENTS.md` | `.agents/skills/<name>/` | not supported |
+| `claude` | `CLAUDE.md` | `.claude/skills/<name>/` | `.claude/agents/<name>.md` |
+| `cursor` | `AGENTS.md` | `.agents/skills/<name>/` | `.cursor/agents/<name>.md` |
+| `codex` | `AGENTS.md` | `.agents/skills/<name>/` | `.codex/agents/<name>.toml` |
+| `all` | All of the above | All of the above | All supported agent paths above |
 
 **Resources** are layout-independent — always copied to repo root regardless of layout.
 
@@ -209,13 +209,13 @@ The **`all` layout** deploys for every tool simultaneously — all entries are f
 
 When deploying to user-level paths (via `[user]` config or `af apply-user`), layouts produce home-relative paths:
 
-| Layout | Instruction file | Skills |
-|--------|-----------|--------|
-| `pi` | `~/AGENTS.md` | `~/.agents/skills/<name>/` |
-| `claude` | `~/.claude/CLAUDE.md` | `~/.claude/skills/<name>/` |
-| `cursor` | `~/.cursor/rules/agentfiles.md` | `~/.cursor/skills/<name>/` |
-| `codex` | `~/AGENTS.md` | `~/.agents/skills/<name>/` |
-| `all` | All of the above | All of the above |
+| Layout | Instruction file | Skills | Agents |
+|--------|-----------|--------|--------|
+| `pi` | `~/AGENTS.md` | `~/.agents/skills/<name>/` | not supported |
+| `claude` | `~/.claude/CLAUDE.md` | `~/.claude/skills/<name>/` | `~/.claude/agents/<name>.md` |
+| `cursor` | `~/.cursor/rules/agentfiles.md` | `~/.cursor/skills/<name>/` | `~/.cursor/agents/<name>.md` |
+| `codex` | `~/AGENTS.md` | `~/.agents/skills/<name>/` | `~/.codex/agents/<name>.toml` |
+| `all` | All of the above | All of the above | All supported agent paths above |
 
 The lock file for user-level deployments lives at `~/.config/agentfiles/user.lock`.
 
@@ -423,12 +423,11 @@ This is the fastest way to propagate store changes (new skills, updated instruct
 
 ### `af apply-user`
 
-Deploy instruction files to user-level paths (e.g. `~/.claude/`, `~/.pi/`). Reads the `[user]` section from the config file.
+Deploy agent files to user-level paths (e.g. `~/.claude/`, `~/.pi/`). Reads the `[user]` section from the config file.
 
 ```bash
 af apply-user               # deploy user-level files
 af apply-user --force       # overwrite existing files
-af apply-user --dry-run     # show what would be done
 ```
 
 Requires a `[user]` section in `~/.config/agentfiles/config.toml`:
@@ -439,11 +438,11 @@ bundle = "personal-base"
 layout = "all"
 ```
 
-The `[user]` section supports the same fields as a manifest: `bundle`, `layout`, `instructions`, `skills`, `skills_add`, `skills_remove`. Resources are not supported at user level.
+The `[user]` section supports the same fields as a manifest except `resources`: `bundle`, `layout`, `instructions`, `skills`, `skills_add`, `skills_remove`, `agents`, `agents_add`, `agents_remove`, `pi_extensions`, `pi_extensions_add`, `pi_extensions_remove`.
 
 ### `af push-user`
 
-Push locally modified user-level instruction files back to the source store.
+Push locally modified user-level files back to the source store.
 
 ```bash
 af push-user               # push all user-level changes
@@ -641,7 +640,7 @@ af apply   # deploys from both stores
 af push    # modified personal skills go to personal store
 ```
 
-### Deploying global/user-level instruction files
+### Deploying global/user-level agent files
 
 ```bash
 # Add a [user] section to your config
@@ -651,6 +650,7 @@ cat >> ~/.config/agentfiles/config.toml << 'EOF'
 bundle = "personal-base"
 layout = "all"
 skills_add = ["work:git-workflow"]
+agents_add = ["reviewer"]
 EOF
 
 # Deploy to ~/.claude/, ~/.pi/, ~/AGENTS.md, etc.
@@ -829,11 +829,12 @@ default_store = "work"
 personal = "~/.agentfiles"
 work = "~/.agentfiles-work"
 
-# Optional: user-level deployment (global instruction files)
+# Optional: user-level deployment (global agent files)
 [user]
 bundle = "personal-base"
 layout = "all"
 skills_add = ["work:git-workflow"]
+agents_add = ["reviewer"]
 
 # Optional: repo registry for af apply-all
 [[repos]]
