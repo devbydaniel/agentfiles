@@ -7,7 +7,7 @@ type PiLayout struct{}
 
 func (PiLayout) Name() string                 { return "pi" }
 func (PiLayout) InstructionMdPath() string    { return "AGENTS.md" }
-func (PiLayout) SkillPath(name string) string { return filepath.Join(".pi", "skills", name) }
+func (PiLayout) SkillPath(name string) string { return filepath.Join(".agents", "skills", name) }
 
 func (l PiLayout) InstructionMdEntries() []Entry {
 	return []Entry{{Path: l.InstructionMdPath()}}

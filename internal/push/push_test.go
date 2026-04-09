@@ -82,7 +82,7 @@ func TestPushModifiedSkill(t *testing.T) {
 	applyToRepo(t, s, m, repo)
 
 	// Modify the deployed SKILL.md.
-	deployed := filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md")
+	deployed := filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md")
 	if err := os.WriteFile(deployed, []byte("# Browse skill MODIFIED"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestPushDryRun(t *testing.T) {
 	applyToRepo(t, s, m, repo)
 
 	// Modify deployed file.
-	deployed := filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md")
+	deployed := filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md")
 	if err := os.WriteFile(deployed, []byte("# MODIFIED"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -185,8 +185,8 @@ func TestPushSkillFilter(t *testing.T) {
 	applyToRepo(t, s, m, repo)
 
 	// Modify both skills.
-	os.WriteFile(filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), []byte("# Browse MOD"), 0o644)
-	os.WriteFile(filepath.Join(repo, ".pi", "skills", "git", "SKILL.md"), []byte("# Git MOD"), 0o644)
+	os.WriteFile(filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"), []byte("# Browse MOD"), 0o644)
+	os.WriteFile(filepath.Join(repo, ".agents", "skills", "git", "SKILL.md"), []byte("# Git MOD"), 0o644)
 
 	res := pushFromRepo(t, s, repo, Options{SkillOnly: "browse"})
 	if len(res.Changes) != 1 {
@@ -361,7 +361,7 @@ func TestPushMultiStore(t *testing.T) {
 	}
 
 	// Now manually deploy golang skill from personal store and record it.
-	golangDeployed := filepath.Join(repo2, ".pi", "skills", "golang")
+	golangDeployed := filepath.Join(repo2, ".agents", "skills", "golang")
 	if err := os.MkdirAll(golangDeployed, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +380,7 @@ func TestPushMultiStore(t *testing.T) {
 	lf2.Deployed.Skills["golang"] = &lock.Entry{
 		Store:        "personal",
 		StorePath:    "skills/golang",
-		DeployedPath: ".pi/skills/golang",
+		DeployedPath: ".agents/skills/golang",
 		Hash:         golangHash,
 	}
 	if err := lock.Save(repo2, lf2); err != nil {
@@ -388,10 +388,10 @@ func TestPushMultiStore(t *testing.T) {
 	}
 
 	// Modify both deployed skills.
-	if err := os.WriteFile(filepath.Join(repo2, ".pi", "skills", "backend", "SKILL.md"), []byte("# Backend MODIFIED"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo2, ".agents", "skills", "backend", "SKILL.md"), []byte("# Backend MODIFIED"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repo2, ".pi", "skills", "golang", "SKILL.md"), []byte("# Golang MODIFIED"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo2, ".agents", "skills", "golang", "SKILL.md"), []byte("# Golang MODIFIED"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -448,7 +448,7 @@ func TestPushGroupedSkill(t *testing.T) {
 	applyToRepo(t, s, m, repo)
 
 	// Modify the deployed skill (deployed at leaf name path).
-	deployed := filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md")
+	deployed := filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md")
 	if err := os.WriteFile(deployed, []byte("# Browse MODIFIED"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -484,8 +484,8 @@ func TestPushGroupedSkillOnlyByStorePath(t *testing.T) {
 	applyToRepo(t, s, m, repo)
 
 	// Modify both.
-	os.WriteFile(filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), []byte("# Browse MOD"), 0o644)
-	os.WriteFile(filepath.Join(repo, ".pi", "skills", "search", "SKILL.md"), []byte("# Search MOD"), 0o644)
+	os.WriteFile(filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"), []byte("# Browse MOD"), 0o644)
+	os.WriteFile(filepath.Join(repo, ".agents", "skills", "search", "SKILL.md"), []byte("# Search MOD"), 0o644)
 
 	// Push only tooling/browse by StorePath.
 	res := pushFromRepo(t, s, repo, Options{SkillOnly: "tooling/browse"})
@@ -516,7 +516,7 @@ func TestPushGroupedSkillOnlyByLeafName(t *testing.T) {
 	applyToRepo(t, s, m, repo)
 
 	// Modify browse.
-	os.WriteFile(filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), []byte("# Browse MOD"), 0o644)
+	os.WriteFile(filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"), []byte("# Browse MOD"), 0o644)
 
 	// Push by leaf name "browse".
 	res := pushFromRepo(t, s, repo, Options{SkillOnly: "browse"})

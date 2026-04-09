@@ -127,12 +127,12 @@ include = ["reviewer"]
 	// Verify AGENTS.md
 	assertFileContains(t, filepath.Join(repo1, "AGENTS.md"), "Agent Instructions")
 
-	// Verify .pi/skills/my-skill/SKILL.md
-	skillDeployed := filepath.Join(repo1, ".pi", "skills", "my-skill", "SKILL.md")
+	// Verify .agents/skills/my-skill/SKILL.md
+	skillDeployed := filepath.Join(repo1, ".agents", "skills", "my-skill", "SKILL.md")
 	assertFileContains(t, skillDeployed, "Original content")
 
-	// Verify .pi/skills/my-skill/helper.sh
-	assertFileExists(t, filepath.Join(repo1, ".pi", "skills", "my-skill", "helper.sh"))
+	// Verify .agents/skills/my-skill/helper.sh
+	assertFileExists(t, filepath.Join(repo1, ".agents", "skills", "my-skill", "helper.sh"))
 
 	// Verify resources deployed to repo root
 	assertFileContains(t, filepath.Join(repo1, ".editorconfig"), "root = true")
@@ -218,7 +218,7 @@ include = ["reviewer"]
 	}
 
 	// ── 9. verify second repo has pushed change ────────────────────
-	skill2Deployed := filepath.Join(repo2, ".pi", "skills", "my-skill", "SKILL.md")
+	skill2Deployed := filepath.Join(repo2, ".agents", "skills", "my-skill", "SKILL.md")
 	assertFileContains(t, skill2Deployed, "Modified in repo")
 
 	// ── 10. verify lock file accuracy in repo2 ─────────────────────
@@ -304,7 +304,7 @@ include = ["my-skill"]
 
 	// Primary pi layout files should exist.
 	assertFileContains(t, filepath.Join(repo, "AGENTS.md"), "# Agent")
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "my-skill", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "my-skill", "SKILL.md"))
 
 	// CLAUDE.md should be a full copy.
 	assertFileContains(t, filepath.Join(repo, "CLAUDE.md"), "# Agent")
@@ -312,8 +312,8 @@ include = ["my-skill"]
 	// Claude skill should be a regular copy.
 	assertFileExists(t, filepath.Join(repo, ".claude", "skills", "my-skill", "SKILL.md"))
 
-	// Cursor layout files should exist as regular files.
-	assertFileExists(t, filepath.Join(repo, ".cursor", "skills", "my-skill", "SKILL.md"))
+	// Pi, Cursor, and Codex now share .agents/skills/.
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "my-skill", "SKILL.md"))
 }
 
 // TestIntegrationCherryPick exercises cherry-pick mode (manifest without bundle).
@@ -378,11 +378,11 @@ resources = ["dotfiles"]
 
 	// Verify correct files deployed.
 	assertFileContains(t, filepath.Join(repo, "AGENTS.md"), "Cherry Agent")
-	assertFileContains(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), "# Browse")
+	assertFileContains(t, filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"), "# Browse")
 	assertFileContains(t, filepath.Join(repo, ".editorconfig"), "root = true")
 
 	// "search" skill should NOT be deployed.
-	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "search")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(repo, ".agents", "skills", "search")); !os.IsNotExist(err) {
 		t.Fatal("search skill should not be deployed in cherry-pick mode")
 	}
 
@@ -471,11 +471,11 @@ include = ["my-skill"]
 	}
 
 	// Modify a deployed file and verify diff detects the change.
-	skillDeployed := filepath.Join(repo, ".pi", "skills", "my-skill", "SKILL.md")
+	skillDeployed := filepath.Join(repo, ".agents", "skills", "my-skill", "SKILL.md")
 	mustWrite(t, skillDeployed, "# My Skill\nModified locally\n")
 
 	// Re-load lock and check hashes diverge for deployed.
-	deployedHash, err := lock.HashDir(filepath.Join(repo, ".pi", "skills", "my-skill"))
+	deployedHash, err := lock.HashDir(filepath.Join(repo, ".agents", "skills", "my-skill"))
 	if err != nil {
 		t.Fatalf("hashing deployed skill: %v", err)
 	}
@@ -587,8 +587,8 @@ skills_add = ["personal:my-personal-skill"]
 
 	// Verify files exist.
 	assertFileContains(t, filepath.Join(repo1, "AGENTS.md"), "Work Agent")
-	assertFileContains(t, filepath.Join(repo1, ".pi", "skills", "work-skill", "SKILL.md"), "# Work Skill")
-	assertFileContains(t, filepath.Join(repo1, ".pi", "skills", "my-personal-skill", "SKILL.md"), "# Personal Skill")
+	assertFileContains(t, filepath.Join(repo1, ".agents", "skills", "work-skill", "SKILL.md"), "# Work Skill")
+	assertFileContains(t, filepath.Join(repo1, ".agents", "skills", "my-personal-skill", "SKILL.md"), "# Personal Skill")
 
 	// Verify lock entries have correct store names.
 	lf, err := lock.Load(repo1)
@@ -622,7 +622,7 @@ skills_add = ["personal:my-personal-skill"]
 	personalHashBefore := personalEntry.Hash
 
 	// ── 6. Modify personal skill in the repo ───────────────────────
-	personalSkillDeployed := filepath.Join(repo1, ".pi", "skills", "my-personal-skill", "SKILL.md")
+	personalSkillDeployed := filepath.Join(repo1, ".agents", "skills", "my-personal-skill", "SKILL.md")
 	mustWrite(t, personalSkillDeployed, "# Personal Skill\nModified in repo\n")
 
 	// ── 7. Push — verify change goes to personal store ─────────────
@@ -672,7 +672,7 @@ skills_add = ["personal:my-personal-skill"]
 	}
 
 	// Repo2 should have the pushed modification from repo1.
-	assertFileContains(t, filepath.Join(repo2, ".pi", "skills", "my-personal-skill", "SKILL.md"), "Modified in repo")
+	assertFileContains(t, filepath.Join(repo2, ".agents", "skills", "my-personal-skill", "SKILL.md"), "Modified in repo")
 
 	// Hashes should match.
 	lf2, err := lock.Load(repo2)
@@ -768,7 +768,7 @@ include = ["browse"]
 	// ── 4. Verify files at user-level paths ────────────────────────
 	// Pi layout paths
 	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "User Agent")
-	assertFileContains(t, filepath.Join(home, ".pi", "agent", "skills", "browse", "SKILL.md"), "# Browse")
+	assertFileContains(t, filepath.Join(home, ".agents", "skills", "browse", "SKILL.md"), "# Browse")
 
 	// Claude layout paths (user-all deploys to all)
 	assertFileContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "User Agent")
@@ -793,7 +793,7 @@ include = ["browse"]
 
 	// ── 5. Modify deployed file, push, verify store updated ────────
 	// Modify the pi-layout copy (primary for "all" layout).
-	mustWrite(t, filepath.Join(home, ".pi", "agent", "skills", "browse", "SKILL.md"), "# Browse\nModified by user\n")
+	mustWrite(t, filepath.Join(home, ".agents", "skills", "browse", "SKILL.md"), "# Browse\nModified by user\n")
 
 	pushRes, err := push.Push(stores, "default", home, push.Options{
 		LockFilePath: userLockPath,
@@ -964,8 +964,8 @@ include = ["work-skill"]
 
 	// Verify both skills deployed.
 	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "Work Agent")
-	assertFileContains(t, filepath.Join(home, ".pi", "agent", "skills", "work-skill", "SKILL.md"), "# Work Skill")
-	assertFileContains(t, filepath.Join(home, ".pi", "agent", "skills", "personal-skill", "SKILL.md"), "# Personal Skill")
+	assertFileContains(t, filepath.Join(home, ".agents", "skills", "work-skill", "SKILL.md"), "# Work Skill")
+	assertFileContains(t, filepath.Join(home, ".agents", "skills", "personal-skill", "SKILL.md"), "# Personal Skill")
 
 	// Verify lock entries have correct store provenance.
 	lf, err := lock.LoadFrom(userLockPath)
@@ -994,7 +994,7 @@ include = ["work-skill"]
 	}
 
 	// Modify the personal skill, push, verify it goes to personal store.
-	mustWrite(t, filepath.Join(home, ".pi", "agent", "skills", "personal-skill", "SKILL.md"), "# Personal Skill\nModified\n")
+	mustWrite(t, filepath.Join(home, ".agents", "skills", "personal-skill", "SKILL.md"), "# Personal Skill\nModified\n")
 
 	pushRes, err := push.Push(storesMap, "work", home, push.Options{
 		LockFilePath: userLockPath,
@@ -1102,13 +1102,13 @@ include = ["browse"]
 	assertFileContains(t, filepath.Join(home, "AGENTS.md"), "Shared Agent")
 	assertFileContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Shared Agent")
 	assertFileContains(t, filepath.Join(home, ".cursor", "rules", "agentfiles.md"), "Shared Agent")
-	assertFileExists(t, filepath.Join(home, ".pi", "agent", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(home, ".agents", "skills", "browse", "SKILL.md"))
 	assertFileExists(t, filepath.Join(home, ".claude", "skills", "browse", "SKILL.md"))
 	assertFileExists(t, filepath.Join(home, ".cursor", "skills", "browse", "SKILL.md"))
 
 	// Repo-level paths (pi layout).
 	assertFileContains(t, filepath.Join(repo, "AGENTS.md"), "Shared Agent")
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"))
 
 	// Lock files are independent.
 	userLF, err := lock.LoadFrom(userLockPath)
@@ -1143,7 +1143,7 @@ include = ["browse"]
 	}
 
 	// Modifying repo skill and pushing should NOT affect user deployment.
-	mustWrite(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), "# Browse\nRepo change\n")
+	mustWrite(t, filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"), "# Browse\nRepo change\n")
 	pushRes, err := push.Push(stores, "default", repo, push.Options{})
 	if err != nil {
 		t.Fatalf("repo push: %v", err)
@@ -1153,7 +1153,7 @@ include = ["browse"]
 	}
 
 	// User-level file should still have original content (not synced by push).
-	assertFileContains(t, filepath.Join(home, ".pi", "agent", "skills", "browse", "SKILL.md"), "# Browse\n")
+	assertFileContains(t, filepath.Join(home, ".agents", "skills", "browse", "SKILL.md"), "# Browse\n")
 
 	// But user push should now detect that the store changed and user is stale...
 	// Actually, user push compares deployed vs lock hash, not store. So user push
@@ -1752,12 +1752,12 @@ include = ["tooling/", "search"]
 	}
 
 	// Verify leaf-name deployment paths.
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "search", "SKILL.md"))
-	assertFileContains(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"), "# Browse")
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "search", "SKILL.md"))
+	assertFileContains(t, filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"), "# Browse")
 
 	// Verify NO deployment at group path.
-	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "tooling")); err == nil {
+	if _, err := os.Stat(filepath.Join(repo, ".agents", "skills", "tooling")); err == nil {
 		t.Error("should not deploy at group path")
 	}
 
@@ -1778,7 +1778,7 @@ include = ["tooling/", "search"]
 	}
 
 	// ── 4. Modify deployed skill ───────────────────────────────────
-	browseDeployed := filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md")
+	browseDeployed := filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md")
 	mustWrite(t, browseDeployed, "# Browse\nModified locally\n")
 
 	// ── 5. Push → verify changes land in grouped store path ────────
@@ -1877,9 +1877,9 @@ include = ["search"]
 	}
 
 	// Verify deployment.
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "search", "SKILL.md"))
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "backend", "SKILL.md"))
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "frontend", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "search", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "backend", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "frontend", "SKILL.md"))
 
 	// Verify lock.
 	lf, err := lock.Load(repo)
@@ -1897,7 +1897,7 @@ include = ["search"]
 	}
 
 	// Modify work skill, push, verify routing.
-	mustWrite(t, filepath.Join(repo, ".pi", "skills", "backend", "SKILL.md"), "# Backend\nModified\n")
+	mustWrite(t, filepath.Join(repo, ".agents", "skills", "backend", "SKILL.md"), "# Backend\nModified\n")
 	pushRes, err := push.Push(allStores, "personal", repo, push.Options{})
 	if err != nil {
 		t.Fatalf("push: %v", err)

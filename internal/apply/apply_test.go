@@ -103,7 +103,7 @@ func TestApplyPiLayout(t *testing.T) {
 	}
 
 	// Check skill
-	data, err = os.ReadFile(filepath.Join(repo, ".pi", "skills", "golang", "SKILL.md"))
+	data, err = os.ReadFile(filepath.Join(repo, ".agents", "skills", "golang", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("skill not found: %v", err)
 	}
@@ -176,8 +176,8 @@ func TestApplyCursorLayout(t *testing.T) {
 		t.Errorf("AGENTS.md content = %q", data)
 	}
 
-	// .cursor/skills/refactor/SKILL.md
-	data, err = os.ReadFile(filepath.Join(repo, ".cursor", "skills", "refactor", "SKILL.md"))
+	// .agents/skills/refactor/SKILL.md
+	data, err = os.ReadFile(filepath.Join(repo, ".agents", "skills", "refactor", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("skill not found: %v", err)
 	}
@@ -221,8 +221,8 @@ func TestApplyAllLayout(t *testing.T) {
 		t.Errorf("CLAUDE.md content = %q, want same as AGENTS.md", data)
 	}
 
-	// .pi/skills/debug/SKILL.md (regular)
-	data, err = os.ReadFile(filepath.Join(repo, ".pi", "skills", "debug", "SKILL.md"))
+	// .agents/skills/debug/SKILL.md (regular)
+	data, err = os.ReadFile(filepath.Join(repo, ".agents", "skills", "debug", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("pi skill not found: %v", err)
 	}
@@ -383,12 +383,12 @@ func TestApplySkillOnly(t *testing.T) {
 	}
 
 	// golang should exist
-	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "golang", "SKILL.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(repo, ".agents", "skills", "golang", "SKILL.md")); err != nil {
 		t.Error("golang skill not deployed")
 	}
 
 	// python should NOT exist
-	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "python", "SKILL.md")); err == nil {
+	if _, err := os.Stat(filepath.Join(repo, ".agents", "skills", "python", "SKILL.md")); err == nil {
 		t.Error("python skill should not have been deployed")
 	}
 
@@ -518,7 +518,7 @@ func TestApplyMultiStore(t *testing.T) {
 	}
 
 	// Both skills deployed
-	data, err := os.ReadFile(filepath.Join(repo, ".pi", "skills", "backend", "SKILL.md"))
+	data, err := os.ReadFile(filepath.Join(repo, ".agents", "skills", "backend", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("backend skill not found: %v", err)
 	}
@@ -526,7 +526,7 @@ func TestApplyMultiStore(t *testing.T) {
 		t.Errorf("backend content = %q", data)
 	}
 
-	data, err = os.ReadFile(filepath.Join(repo, ".pi", "skills", "my-utils", "SKILL.md"))
+	data, err = os.ReadFile(filepath.Join(repo, ".agents", "skills", "my-utils", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("my-utils skill not found: %v", err)
 	}
@@ -583,8 +583,8 @@ func TestApplyPrunesStaleAssets(t *testing.T) {
 	}
 
 	// Verify both exist.
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "alpha", "SKILL.md"))
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "beta", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "alpha", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "beta", "SKILL.md"))
 
 	// Re-deploy with only alpha (beta removed from manifest).
 	m2 := &manifest.Manifest{
@@ -603,8 +603,8 @@ func TestApplyPrunesStaleAssets(t *testing.T) {
 	}
 
 	// Alpha still exists, beta is gone.
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "alpha", "SKILL.md"))
-	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "beta")); err == nil {
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "alpha", "SKILL.md"))
+	if _, err := os.Stat(filepath.Join(repo, ".agents", "skills", "beta")); err == nil {
 		t.Error("beta skill should have been pruned")
 	}
 
@@ -650,7 +650,7 @@ func TestApplyGroupedSkill(t *testing.T) {
 	}
 
 	// Deploys using leaf name, not group path.
-	data, err := os.ReadFile(filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
+	data, err := os.ReadFile(filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("skill not found at leaf path: %v", err)
 	}
@@ -659,7 +659,7 @@ func TestApplyGroupedSkill(t *testing.T) {
 	}
 
 	// Should NOT exist at the group path.
-	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "tooling", "browse")); err == nil {
+	if _, err := os.Stat(filepath.Join(repo, ".agents", "skills", "tooling", "browse")); err == nil {
 		t.Error("skill should not be deployed at group path")
 	}
 }
@@ -749,8 +749,8 @@ func TestApplyTwoGroupedSkills(t *testing.T) {
 		t.Errorf("deployed = %d, want 2", res.Deployed)
 	}
 
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "backend", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "backend", "SKILL.md"))
 }
 
 func TestApplySkillOnlyByStorePath(t *testing.T) {
@@ -769,8 +769,8 @@ func TestApplySkillOnlyByStorePath(t *testing.T) {
 		t.Fatalf("Apply: %v", err)
 	}
 
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
-	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "search")); err == nil {
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"))
+	if _, err := os.Stat(filepath.Join(repo, ".agents", "skills", "search")); err == nil {
 		t.Error("search should not be deployed")
 	}
 }
@@ -791,8 +791,8 @@ func TestApplySkillOnlyByLeafName(t *testing.T) {
 		t.Fatalf("Apply: %v", err)
 	}
 
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "browse", "SKILL.md"))
-	if _, err := os.Stat(filepath.Join(repo, ".pi", "skills", "search")); err == nil {
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "browse", "SKILL.md"))
+	if _, err := os.Stat(filepath.Join(repo, ".agents", "skills", "search")); err == nil {
 		t.Error("search should not be deployed")
 	}
 }
@@ -1243,7 +1243,7 @@ func TestApplyPiExtensionSkillOnlySkips(t *testing.T) {
 	}
 
 	// Skill should be deployed.
-	assertFileExists(t, filepath.Join(repo, ".pi", "skills", "golang", "SKILL.md"))
+	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "golang", "SKILL.md"))
 
 	// Pi extension should NOT be deployed (skill-only mode).
 	if _, err := os.Stat(filepath.Join(repo, ".pi", "extensions", "no-model-flag.ts")); err == nil {

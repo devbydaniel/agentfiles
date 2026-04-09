@@ -13,7 +13,7 @@ import (
 
 var applyUserCmd = &cobra.Command{
 	Use:   "apply-user",
-	Short: "Deploy agent files to user-level paths (e.g. ~/.claude/, ~/.pi/)",
+	Short: "Deploy agent files to user-level paths (e.g. ~/.claude/, ~/.agents/)",
 	Long: `Deploy agent files from the store into user-level paths.
 
 Reads the [user] section from the config file, resolves the referenced
@@ -21,9 +21,10 @@ bundle or cherry-picked assets, and copies them to user-level paths
 determined by the configured layout.
 
 What gets deployed (per layout):
-  pi:      ~/AGENTS.md, ~/.pi/skills/<name>/
+  pi:      ~/AGENTS.md, ~/.agents/skills/<name>/
   claude:  ~/.claude/CLAUDE.md, ~/.claude/skills/<name>/
   cursor:  ~/.cursor/rules/agentfiles.md, ~/.cursor/skills/<name>/
+  codex:   ~/AGENTS.md, ~/.agents/skills/<name>/
   all:     All of the above
 
 Lock file is stored at ~/.config/agentfiles/user.lock.

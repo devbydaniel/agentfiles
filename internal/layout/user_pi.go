@@ -9,7 +9,7 @@ type UserPiLayout struct{}
 func (UserPiLayout) Name() string              { return "user-pi" }
 func (UserPiLayout) InstructionMdPath() string { return "AGENTS.md" }
 func (UserPiLayout) SkillPath(name string) string {
-	return filepath.Join(".pi", "agent", "skills", name)
+	return filepath.Join(".agents", "skills", name)
 }
 
 func (l UserPiLayout) InstructionMdEntries() []Entry {

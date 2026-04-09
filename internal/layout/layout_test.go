@@ -7,7 +7,7 @@ import (
 func TestPiLayout(t *testing.T) {
 	l := PiLayout{}
 	assertEqual(t, "AGENTS.md", l.InstructionMdPath())
-	assertEqual(t, ".pi/skills/browse", l.SkillPath("browse"))
+	assertEqual(t, ".agents/skills/browse", l.SkillPath("browse"))
 }
 
 func TestClaudeLayout(t *testing.T) {
@@ -19,13 +19,13 @@ func TestClaudeLayout(t *testing.T) {
 func TestCursorLayout(t *testing.T) {
 	l := CursorLayout{}
 	assertEqual(t, "AGENTS.md", l.InstructionMdPath())
-	assertEqual(t, ".cursor/skills/browse", l.SkillPath("browse"))
+	assertEqual(t, ".agents/skills/browse", l.SkillPath("browse"))
 }
 
 func TestCodexLayout(t *testing.T) {
 	l := CodexLayout{}
 	assertEqual(t, "AGENTS.md", l.InstructionMdPath())
-	assertEqual(t, ".agents/browse", l.SkillPath("browse"))
+	assertEqual(t, ".agents/skills/browse", l.SkillPath("browse"))
 }
 
 func TestGet(t *testing.T) {
@@ -50,7 +50,7 @@ func TestAllLayout(t *testing.T) {
 
 	// Primary paths use pi layout.
 	assertEqual(t, "AGENTS.md", l.InstructionMdPath())
-	assertEqual(t, ".pi/skills/browse", l.SkillPath("browse"))
+	assertEqual(t, ".agents/skills/browse", l.SkillPath("browse"))
 }
 
 func TestAllLayoutInstructionMdEntries(t *testing.T) {
@@ -70,20 +70,18 @@ func TestAllLayoutSkillEntries(t *testing.T) {
 	l := AllLayout{}
 	entries := l.SkillEntries("browse")
 
-	if len(entries) != 4 {
-		t.Fatalf("expected 4 entries, got %d", len(entries))
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
 	}
 
-	assertEntryPath(t, entries[0], ".pi/skills/browse")
+	assertEntryPath(t, entries[0], ".agents/skills/browse")
 	assertEntryPath(t, entries[1], ".claude/skills/browse")
-	assertEntryPath(t, entries[2], ".cursor/skills/browse")
-	assertEntryPath(t, entries[3], ".agents/browse")
 }
 
 func TestUserPiLayout(t *testing.T) {
 	l := UserPiLayout{}
 	assertEqual(t, "AGENTS.md", l.InstructionMdPath())
-	assertEqual(t, ".pi/agent/skills/browse", l.SkillPath("browse"))
+	assertEqual(t, ".agents/skills/browse", l.SkillPath("browse"))
 }
 
 func TestUserClaudeLayout(t *testing.T) {
@@ -101,7 +99,7 @@ func TestUserCursorLayout(t *testing.T) {
 func TestUserCodexLayout(t *testing.T) {
 	l := UserCodexLayout{}
 	assertEqual(t, "AGENTS.md", l.InstructionMdPath())
-	assertEqual(t, ".agents/browse", l.SkillPath("browse"))
+	assertEqual(t, ".agents/skills/browse", l.SkillPath("browse"))
 }
 
 func TestGetUser(t *testing.T) {
@@ -126,7 +124,7 @@ func TestUserAllLayout(t *testing.T) {
 
 	// Primary paths use pi layout.
 	assertEqual(t, "AGENTS.md", l.InstructionMdPath())
-	assertEqual(t, ".pi/agent/skills/browse", l.SkillPath("browse"))
+	assertEqual(t, ".agents/skills/browse", l.SkillPath("browse"))
 }
 
 func TestUserAllLayoutInstructionMdEntries(t *testing.T) {
@@ -147,14 +145,13 @@ func TestUserAllLayoutSkillEntries(t *testing.T) {
 	l := UserAllLayout{}
 	entries := l.SkillEntries("browse")
 
-	if len(entries) != 4 {
-		t.Fatalf("expected 4 entries, got %d", len(entries))
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
 	}
 
-	assertEntryPath(t, entries[0], ".pi/agent/skills/browse")
+	assertEntryPath(t, entries[0], ".agents/skills/browse")
 	assertEntryPath(t, entries[1], ".claude/skills/browse")
 	assertEntryPath(t, entries[2], ".cursor/skills/browse")
-	assertEntryPath(t, entries[3], ".agents/browse")
 }
 
 // --- AgentEntries tests ---

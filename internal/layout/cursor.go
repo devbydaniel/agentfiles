@@ -7,7 +7,7 @@ type CursorLayout struct{}
 
 func (CursorLayout) Name() string                 { return "cursor" }
 func (CursorLayout) InstructionMdPath() string    { return "AGENTS.md" }
-func (CursorLayout) SkillPath(name string) string { return filepath.Join(".cursor", "skills", name) }
+func (CursorLayout) SkillPath(name string) string { return filepath.Join(".agents", "skills", name) }
 
 func (l CursorLayout) InstructionMdEntries() []Entry {
 	return []Entry{{Path: l.InstructionMdPath()}}

@@ -13,8 +13,8 @@ func TestWriteAndReadBack(t *testing.T) {
 	lf := &LockFile{}
 	lf.Deployed.Skills = make(map[string]*Entry)
 	mustRecord(t, lf, AssetInstructions, "", "instructions/ayunis-core.md", "AGENTS.md", "abc123")
-	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", ".pi/skills/browse", "def456")
-	mustRecord(t, lf, AssetSkills, "git-workflow", "skills/git-workflow/", ".pi/skills/git-workflow", "ghi789")
+	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", ".agents/skills/browse", "def456")
+	mustRecord(t, lf, AssetSkills, "git-workflow", "skills/git-workflow/", ".agents/skills/git-workflow", "ghi789")
 
 	if err := Save(dir, lf); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -172,10 +172,10 @@ func TestStoreFieldRoundTrip(t *testing.T) {
 
 	lf := &LockFile{}
 	lf.Deployed.Skills = make(map[string]*Entry)
-	if err := lf.Record(RecordParams{AssetType: AssetSkills, Name: "my-skill", StoreName: "personal", SourcePath: "skills/my-skill/", DeployedPath: ".pi/skills/my-skill", Hash: "aaa111"}); err != nil {
+	if err := lf.Record(RecordParams{AssetType: AssetSkills, Name: "my-skill", StoreName: "personal", SourcePath: "skills/my-skill/", DeployedPath: ".agents/skills/my-skill", Hash: "aaa111"}); err != nil {
 		t.Fatalf("Record: %v", err)
 	}
-	if err := lf.Record(RecordParams{AssetType: AssetSkills, Name: "other-skill", StoreName: "work", SourcePath: "skills/other-skill/", DeployedPath: ".pi/skills/other-skill", Hash: "bbb222"}); err != nil {
+	if err := lf.Record(RecordParams{AssetType: AssetSkills, Name: "other-skill", StoreName: "work", SourcePath: "skills/other-skill/", DeployedPath: ".agents/skills/other-skill", Hash: "bbb222"}); err != nil {
 		t.Fatalf("Record: %v", err)
 	}
 
@@ -212,7 +212,7 @@ func TestLegacyLockNoStoreField(t *testing.T) {
 	legacy := `[deployed]
 [deployed.skills.browse]
 source = "skills/browse/"
-path = ".pi/skills/browse"
+path = ".agents/skills/browse"
 hash = "def456"
 `
 	os.WriteFile(filepath.Join(dir, FileName), []byte(legacy), 0644)
@@ -242,7 +242,7 @@ func TestLoadFromSaveTo(t *testing.T) {
 	lf.Deployed.Skills = make(map[string]*Entry)
 	lf.Deployed.Resources = make(map[string]*Entry)
 	mustRecord(t, lf, AssetInstructions, "", "instructions/test.md", "AGENTS.md", "abc123")
-	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", ".pi/skills/browse", "def456")
+	mustRecord(t, lf, AssetSkills, "browse", "skills/browse/", ".agents/skills/browse", "def456")
 
 	// SaveTo should create parent dirs.
 	if err := SaveTo(lockPath, lf); err != nil {
@@ -355,7 +355,7 @@ func TestLegacyLockNoAgentsField(t *testing.T) {
 	legacy := `[deployed]
 [deployed.skills.browse]
 source = "skills/browse/"
-path = ".pi/skills/browse"
+path = ".agents/skills/browse"
 hash = "def456"
 `
 	os.WriteFile(filepath.Join(dir, FileName), []byte(legacy), 0644)
@@ -421,7 +421,7 @@ func TestPiExtensionEmptyMapInit(t *testing.T) {
 	legacy := `[deployed]
 [deployed.skills.browse]
 source = "skills/browse/"
-path = ".pi/skills/browse"
+path = ".agents/skills/browse"
 hash = "def456"
 `
 	os.WriteFile(filepath.Join(dir, FileName), []byte(legacy), 0644)

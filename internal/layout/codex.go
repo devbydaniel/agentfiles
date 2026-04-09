@@ -7,7 +7,7 @@ type CodexLayout struct{}
 
 func (CodexLayout) Name() string                 { return "codex" }
 func (CodexLayout) InstructionMdPath() string    { return "AGENTS.md" }
-func (CodexLayout) SkillPath(name string) string { return filepath.Join(".agents", name) }
+func (CodexLayout) SkillPath(name string) string { return filepath.Join(".agents", "skills", name) }
 
 func (l CodexLayout) InstructionMdEntries() []Entry {
 	return []Entry{{Path: l.InstructionMdPath()}}

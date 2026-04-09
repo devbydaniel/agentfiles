@@ -9,7 +9,7 @@ type UserCodexLayout struct{}
 func (UserCodexLayout) Name() string              { return "user-codex" }
 func (UserCodexLayout) InstructionMdPath() string { return "AGENTS.md" }
 func (UserCodexLayout) SkillPath(name string) string {
-	return filepath.Join(".agents", name)
+	return filepath.Join(".agents", "skills", name)
 }
 
 func (l UserCodexLayout) InstructionMdEntries() []Entry {
