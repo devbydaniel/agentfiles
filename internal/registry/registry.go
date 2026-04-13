@@ -29,6 +29,8 @@ type Repo struct {
 	AgentsRemove       []string `toml:"agents_remove"`
 	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
 	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
+	HooksAdd           []string `toml:"hooks_add"`
+	HooksRemove        []string `toml:"hooks_remove"`
 	ExecArgs           []string `toml:"exec_args"`
 }
 
@@ -72,6 +74,8 @@ func LoadFromConfig(cfg *config.Config) (*Registry, error) {
 			AgentsRemove:       cr.AgentsRemove,
 			PiExtensionsAdd:    cr.PiExtensionsAdd,
 			PiExtensionsRemove: cr.PiExtensionsRemove,
+			HooksAdd:           cr.HooksAdd,
+			HooksRemove:        cr.HooksRemove,
 			ExecArgs:           cr.ExecArgs,
 		})
 	}

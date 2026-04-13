@@ -24,6 +24,7 @@ type ResolvedManifest struct {
 	Resources    []ResolvedAsset
 	Agents       []ResolvedAsset
 	PiExtensions []ResolvedAsset
+	Hooks        []ResolvedAsset
 }
 
 // Resolve expands a Manifest (possibly referencing a bundle) into a
@@ -72,6 +73,7 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		r.Resources = toResolvedAssets(filterExcluded(b.Resources.Include, b.Resources.Exclude), defaultStore)
 		r.Agents = toResolvedAssets(filterExcluded(b.Agents.Include, b.Agents.Exclude), defaultStore)
 		r.PiExtensions = toResolvedAssets(filterExcluded(b.PiExtensions.Include, b.PiExtensions.Exclude), defaultStore)
+		r.Hooks = toResolvedAssets(filterExcluded(b.Hooks.Include, b.Hooks.Exclude), defaultStore)
 	} else {
 		if m.Instructions != "" {
 			storeName, name := parseStorePrefix(m.Instructions, defaultStore)
@@ -97,6 +99,7 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		r.Resources = parseResolvedAssets(m.Resources, defaultStore)
 		r.Agents = parseResolvedAssets(m.Agents, defaultStore)
 		r.PiExtensions = parseResolvedAssets(m.PiExtensions, defaultStore)
+		r.Hooks = parseResolvedAssets(m.Hooks, defaultStore)
 	}
 
 	// Apply overrides: expand globs in skills_add and skills_remove.
@@ -166,6 +169,28 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		r.Agents = filterExcludedAssets(r.Agents, m.AgentsRemove)
 	}
 
+	// Apply hooks overrides.
+	if len(m.HooksAdd) > 0 {
+		for _, raw := range m.HooksAdd {
+			storeName, name := parseStorePrefix(raw, defaultStore)
+			if _, err := store.LookupStore(stores, storeName); err != nil {
+				return nil, fmt.Errorf("hooks_add %q: %w", raw, err)
+			}
+			if !containsAsset(r.Hooks, name, storeName) {
+				r.Hooks = append(r.Hooks, ResolvedAsset{Name: name, Store: storeName})
+			}
+		}
+	}
+	if len(m.HooksRemove) > 0 {
+		for _, raw := range m.HooksRemove {
+			storeName, _ := parseStorePrefix(raw, defaultStore)
+			if _, err := store.LookupStore(stores, storeName); err != nil {
+				return nil, fmt.Errorf("hooks_remove %q: %w", raw, err)
+			}
+		}
+		r.Hooks = filterExcludedAssets(r.Hooks, m.HooksRemove)
+	}
+
 	// Apply pi_extensions overrides.
 	if len(m.PiExtensionsAdd) > 0 {
 		for _, raw := range m.PiExtensionsAdd {
@@ -214,6 +239,7 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 	allAssets = append(allAssets, r.Resources...)
 	allAssets = append(allAssets, r.Agents...)
 	allAssets = append(allAssets, r.PiExtensions...)
+	allAssets = append(allAssets, r.Hooks...)
 	for _, a := range allAssets {
 		if _, ok := stores[a.Store]; !ok {
 			return nil, fmt.Errorf("store %q not found (referenced by asset %q)", a.Store, a.Name)
@@ -231,6 +257,9 @@ func Resolve(m *Manifest, stores map[string]*store.Store, defaultStore string) (
 		return nil, err
 	}
 	if err := checkNameCollisions("pi_extension", r.PiExtensions); err != nil {
+		return nil, err
+	}
+	if err := checkNameCollisions("hook", r.Hooks); err != nil {
 		return nil, err
 	}
 

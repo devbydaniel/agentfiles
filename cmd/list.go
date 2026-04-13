@@ -11,7 +11,7 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list <skills|bundles|instructions|resources|agents|pi-extensions>",
+	Use:   "list <skills|bundles|instructions|resources|agents|pi-extensions|hooks>",
 	Short: "List items in the agentfiles store",
 	Long: `List assets in the source store by type.
 
@@ -22,6 +22,7 @@ Types:
   resources       Resource directories
   agents          Agent files (shown without .md extension)
   pi-extensions   Pi extension files (.ts) or directories (with index.ts)
+  hooks           Hook files (.json)
 
 Examples:
   af list skills
@@ -133,8 +134,23 @@ Examples:
 			}
 			return nil
 
+		case "hooks":
+			hks, err := s.ListHooks()
+			if err != nil {
+				return err
+			}
+			var names []string
+			for _, h := range hks {
+				names = append(names, h.Name)
+			}
+			sort.Strings(names)
+			for _, n := range names {
+				fmt.Fprintln(cmd.OutOrStdout(), n)
+			}
+			return nil
+
 		default:
-			return fmt.Errorf("unknown list type %q (use skills, bundles, instructions, resources, agents, or pi-extensions)", kind)
+			return fmt.Errorf("unknown list type %q (use skills, bundles, instructions, resources, agents, pi-extensions, or hooks)", kind)
 		}
 	},
 }

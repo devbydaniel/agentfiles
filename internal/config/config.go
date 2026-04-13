@@ -39,6 +39,9 @@ type UserConfig struct {
 	PiExtensions       []string `toml:"pi_extensions"`
 	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
 	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
+	Hooks              []string `toml:"hooks"`
+	HooksAdd           []string `toml:"hooks_add"`
+	HooksRemove        []string `toml:"hooks_remove"`
 }
 
 // Repo is a single repo entry in the config.
@@ -54,6 +57,8 @@ type Repo struct {
 	AgentsRemove       []string `toml:"agents_remove"`
 	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
 	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
+	HooksAdd           []string `toml:"hooks_add"`
+	HooksRemove        []string `toml:"hooks_remove"`
 	ExecArgs           []string `toml:"exec_args"`
 }
 
@@ -158,13 +163,13 @@ func Load(path string) (*Config, error) {
 // validate checks that the user config has valid manifest-style fields.
 func (u *UserConfig) validate() error {
 	hasBundle := u.Bundle != ""
-	hasCherryPick := u.Instructions != "" || len(u.Skills) > 0 || len(u.Agents) > 0 || len(u.PiExtensions) > 0
+	hasCherryPick := u.Instructions != "" || len(u.Skills) > 0 || len(u.Agents) > 0 || len(u.PiExtensions) > 0 || len(u.Hooks) > 0
 
 	if !hasBundle && !hasCherryPick {
-		return fmt.Errorf("must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'agents', 'pi_extensions')")
+		return fmt.Errorf("must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'agents', 'pi_extensions', 'hooks')")
 	}
 	if hasBundle && hasCherryPick {
-		return fmt.Errorf("cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'agents', 'pi_extensions')")
+		return fmt.Errorf("cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'agents', 'pi_extensions', 'hooks')")
 	}
 	if !hasBundle && (len(u.SkillsAdd) > 0 || len(u.SkillsRemove) > 0) {
 		return fmt.Errorf("'skills_add' and 'skills_remove' require 'bundle' to be set")
@@ -174,6 +179,9 @@ func (u *UserConfig) validate() error {
 	}
 	if !hasBundle && (len(u.PiExtensionsAdd) > 0 || len(u.PiExtensionsRemove) > 0) {
 		return fmt.Errorf("'pi_extensions_add' and 'pi_extensions_remove' require 'bundle' to be set")
+	}
+	if !hasBundle && (len(u.HooksAdd) > 0 || len(u.HooksRemove) > 0) {
+		return fmt.Errorf("'hooks_add' and 'hooks_remove' require 'bundle' to be set")
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/devbydaniel/agentfiles/internal/fsutil"
+	"github.com/devbydaniel/agentfiles/internal/hooks"
 )
 
 // AddSkill copies a skill directory into the store's skills directory.
@@ -208,6 +209,69 @@ func (s *Store) AddPiExtension(srcPath string, force bool) (string, bool, error)
 		return "", false, fmt.Errorf("reading source: %w", err)
 	}
 	return name, overwritten, os.WriteFile(dest, data, info.Mode().Perm())
+}
+
+// AddHook copies a hook .json file into store/hooks/<name>.json.
+// The name is derived from the source filename (minus .json extension).
+// Creates the hooks/ directory on demand if missing.
+// Returns the derived name and whether an existing hook was overwritten.
+func (s *Store) AddHook(srcPath string, force bool) (string, bool, error) {
+	abs, err := filepath.Abs(srcPath)
+	if err != nil {
+		return "", false, fmt.Errorf("resolving source path: %w", err)
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return "", false, fmt.Errorf("source path %q does not exist", srcPath)
+	}
+	if info.IsDir() {
+		return "", false, fmt.Errorf("source path %q is a directory, expected a .json file", srcPath)
+	}
+
+	base := filepath.Base(abs)
+	if !strings.HasSuffix(base, ".json") {
+		return "", false, fmt.Errorf("hook file must have .json extension, got %q", base)
+	}
+	name := strings.TrimSuffix(base, ".json")
+
+	if strings.ContainsAny(name, `/\`) || strings.Contains(name, "..") {
+		return "", false, fmt.Errorf("invalid hook name %q: must not contain path separators or '..'", name)
+	}
+
+	// Validate JSON schema.
+	data, err := os.ReadFile(abs)
+	if err != nil {
+		return "", false, fmt.Errorf("reading source: %w", err)
+	}
+	if _, err := hooks.Parse(data); err != nil {
+		return "", false, fmt.Errorf("invalid hook file: %w", err)
+	}
+
+	// Ensure hooks/ directory exists.
+	hooksDir := s.HooksDir()
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		return "", false, fmt.Errorf("creating hooks directory: %w", err)
+	}
+
+	dest := filepath.Join(hooksDir, base)
+
+	cleanDest, err := filepath.Abs(dest)
+	if err != nil {
+		return "", false, fmt.Errorf("resolving dest path: %w", err)
+	}
+	if !strings.HasPrefix(cleanDest, hooksDir+string(filepath.Separator)) && cleanDest != hooksDir {
+		return "", false, fmt.Errorf("invalid hook name %q: resolved path escapes hooks directory", name)
+	}
+
+	overwritten := false
+	if _, err := os.Stat(dest); err == nil {
+		if !force {
+			return "", false, fmt.Errorf("hook %q already exists in store (use --force to overwrite)", name)
+		}
+		overwritten = true
+	}
+
+	return name, overwritten, os.WriteFile(dest, data, 0o644)
 }
 
 // addDir copies srcPath (must be a directory) into parentDir/<basename>/.

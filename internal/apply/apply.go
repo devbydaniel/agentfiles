@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/devbydaniel/agentfiles/internal/agent"
+	"github.com/devbydaniel/agentfiles/internal/hooks"
 	"github.com/devbydaniel/agentfiles/internal/layout"
 	"github.com/devbydaniel/agentfiles/internal/lock"
 	"github.com/devbydaniel/agentfiles/internal/manifest"
@@ -78,6 +79,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 	lf.Deployed.Resources = make(map[string]*lock.Entry)
 	lf.Deployed.Agents = make(map[string]*lock.Entry)
 	lf.Deployed.PiExtensions = make(map[string]*lock.Entry)
+	lf.Deployed.Hooks = make(map[string]*lock.Entry)
 
 	res := &ApplyResult{}
 
@@ -358,6 +360,62 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 		}
 	}
 
+	// Deploy hooks (merge into settings files for Claude/Codex/Cursor).
+	if opts.SkillOnly == "" && len(resolved.Hooks) > 0 {
+		targets := hooks.TargetsForLayout(lay.Name())
+		if len(targets) > 0 {
+			managed := make(map[string]*hooks.HookFile)
+			needsMerge := false
+			for _, hk := range resolved.Hooks {
+				s, err := store.LookupStore(stores, hk.Store)
+				if err != nil {
+					return nil, fmt.Errorf("hook %q: %w", hk.Name, err)
+				}
+				src := filepath.Join(s.HooksDir(), hk.Name+".json")
+				data, err := os.ReadFile(src)
+				if err != nil {
+					return nil, fmt.Errorf("hook %q not found in store %q", hk.Name, hk.Store)
+				}
+				hf, err := hooks.Parse(data)
+				if err != nil {
+					return nil, fmt.Errorf("parsing hook %q: %w", hk.Name, err)
+				}
+
+				h := lock.HashBytes(data)
+				lk := lockKey(hk.Name, hk.Store, defaultStore)
+
+				// Check if this hook has changed since last deploy.
+				oldEntry, existed := oldLF.Deployed.Hooks[lk]
+				if existed && oldEntry.Hash == h && !opts.Force {
+					res.Skipped++
+				} else {
+					managed[hk.Name] = hf
+					needsMerge = true
+					res.Deployed++
+				}
+
+				if err := lf.Record(lock.RecordParams{
+					AssetType:    lock.AssetHooks,
+					Name:         lk,
+					StoreName:    hk.Store,
+					SourcePath:   filepath.Join("hooks", hk.Name+".json"),
+					DeployedPath: targets[0].Path,
+					Hash:         h,
+				}); err != nil {
+					return nil, err
+				}
+			}
+			if needsMerge {
+				for _, t := range targets {
+					fullPath := filepath.Join(repoDir, t.Path)
+					if err := hooks.MergeIntoSettings(fullPath, managed, t.Format); err != nil {
+						return nil, fmt.Errorf("deploying hooks to %s: %w", t.Path, err)
+					}
+				}
+			}
+		}
+	}
+
 	// Clean up assets that were in the old lock but not in the new one.
 	// Skip cleanup when deploying a single skill (partial deploy).
 	if opts.SkillOnly == "" {
@@ -398,6 +456,15 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 	}
 	for _, e := range newLF.Deployed.PiExtensions {
 		newPaths[e.DeployedPath] = true
+	}
+	for _, e := range newLF.Deployed.Hooks {
+		newPaths[e.DeployedPath] = true
+	}
+
+	// Build set of new hook names.
+	newHookNames := make(map[string]bool)
+	for name := range newLF.Deployed.Hooks {
+		newHookNames[name] = true
 	}
 
 	// Remove old instructions if no longer present.
@@ -441,6 +508,26 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 				removed++
 			}
 		}
+	}
+
+	// Remove old hooks from settings files.
+	// Try all possible target files (not just the current layout) so that
+	// layout changes don't leave orphaned entries.
+	var staleHookNames []string
+	for name := range oldLF.Deployed.Hooks {
+		if !newHookNames[name] {
+			staleHookNames = append(staleHookNames, name)
+		}
+	}
+	if len(staleHookNames) > 0 {
+		for _, t := range hooks.AllTargets() {
+			fullPath := filepath.Join(repoDir, t.Path)
+			if err := hooks.RemoveManaged(fullPath, staleHookNames); err != nil {
+				// Log but continue — partial cleanup is better than none.
+				_ = err
+			}
+		}
+		removed += len(staleHookNames)
 	}
 
 	return removed

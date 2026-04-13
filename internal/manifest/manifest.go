@@ -18,12 +18,15 @@ type Manifest struct {
 	Resources          []string `toml:"resources"`
 	Agents             []string `toml:"agents"`
 	PiExtensions       []string `toml:"pi_extensions"`
+	Hooks              []string `toml:"hooks"`
 	SkillsAdd          []string `toml:"skills_add"`
 	SkillsRemove       []string `toml:"skills_remove"`
 	AgentsAdd          []string `toml:"agents_add"`
 	AgentsRemove       []string `toml:"agents_remove"`
 	PiExtensionsAdd    []string `toml:"pi_extensions_add"`
 	PiExtensionsRemove []string `toml:"pi_extensions_remove"`
+	HooksAdd           []string `toml:"hooks_add"`
+	HooksRemove        []string `toml:"hooks_remove"`
 }
 
 // Load reads and parses an .agentfiles manifest from the given directory.
@@ -60,12 +63,15 @@ type UserFields struct {
 	Skills             []string
 	Agents             []string
 	PiExtensions       []string
+	Hooks              []string
 	SkillsAdd          []string
 	SkillsRemove       []string
 	AgentsAdd          []string
 	AgentsRemove       []string
 	PiExtensionsAdd    []string
 	PiExtensionsRemove []string
+	HooksAdd           []string
+	HooksRemove        []string
 }
 
 // FromUserConfig constructs a Manifest from user config fields.
@@ -78,12 +84,15 @@ func FromUserConfig(u UserFields) (*Manifest, error) {
 		Skills:             u.Skills,
 		Agents:             u.Agents,
 		PiExtensions:       u.PiExtensions,
+		Hooks:              u.Hooks,
 		SkillsAdd:          u.SkillsAdd,
 		SkillsRemove:       u.SkillsRemove,
 		AgentsAdd:          u.AgentsAdd,
 		AgentsRemove:       u.AgentsRemove,
 		PiExtensionsAdd:    u.PiExtensionsAdd,
 		PiExtensionsRemove: u.PiExtensionsRemove,
+		HooksAdd:           u.HooksAdd,
+		HooksRemove:        u.HooksRemove,
 	}
 
 	if m.Layout == "" {
@@ -99,13 +108,13 @@ func FromUserConfig(u UserFields) (*Manifest, error) {
 
 func (m *Manifest) validate() error {
 	hasBundle := m.Bundle != ""
-	hasCherryPick := m.Instructions != "" || len(m.Skills) > 0 || len(m.Resources) > 0 || len(m.Agents) > 0 || len(m.PiExtensions) > 0
+	hasCherryPick := m.Instructions != "" || len(m.Skills) > 0 || len(m.Resources) > 0 || len(m.Agents) > 0 || len(m.PiExtensions) > 0 || len(m.Hooks) > 0
 
 	if !hasBundle && !hasCherryPick {
-		return fmt.Errorf("manifest must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'resources', 'agents', 'pi_extensions')")
+		return fmt.Errorf("manifest must set either 'bundle' or cherry-pick fields ('instructions', 'skills', 'resources', 'agents', 'pi_extensions', 'hooks')")
 	}
 	if hasBundle && hasCherryPick {
-		return fmt.Errorf("manifest cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'resources', 'agents', 'pi_extensions')")
+		return fmt.Errorf("manifest cannot set both 'bundle' and cherry-pick fields ('instructions', 'skills', 'resources', 'agents', 'pi_extensions', 'hooks')")
 	}
 
 	if !hasBundle && (len(m.SkillsAdd) > 0 || len(m.SkillsRemove) > 0) {
@@ -118,6 +127,10 @@ func (m *Manifest) validate() error {
 
 	if !hasBundle && (len(m.PiExtensionsAdd) > 0 || len(m.PiExtensionsRemove) > 0) {
 		return fmt.Errorf("'pi_extensions_add' and 'pi_extensions_remove' require 'bundle' to be set")
+	}
+
+	if !hasBundle && (len(m.HooksAdd) > 0 || len(m.HooksRemove) > 0) {
+		return fmt.Errorf("'hooks_add' and 'hooks_remove' require 'bundle' to be set")
 	}
 
 	return nil

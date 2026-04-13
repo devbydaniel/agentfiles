@@ -90,6 +90,11 @@ Requires a prior "af apply" (needs .agentfiles.lock).`,
 			isDir := !strings.HasSuffix(e.DeployedPath, ".ts")
 			items = append(items, item{"pi-extension:" + name, sp, e.DeployedPath, e.Hash, isDir})
 		}
+		// Hooks are merged into shared settings files, so deployed-vs-source
+		// hash comparison doesn't apply. Show them as managed-only entries.
+		for name := range lf.Deployed.Hooks {
+			fmt.Fprintf(out, "%-20s  managed (apply-only)\n", "hook:"+name)
+		}
 
 		sort.Slice(items, func(i, j int) bool { return items[i].name < items[j].name })
 

@@ -21,6 +21,7 @@ const (
 	AssetResources    = "resources"
 	AssetAgents       = "agents"
 	AssetPiExtensions = "pi_extensions"
+	AssetHooks        = "hooks"
 )
 
 type Entry struct {
@@ -36,6 +37,7 @@ type DeployedMap struct {
 	Resources    map[string]*Entry `toml:"resources,omitempty"`
 	Agents       map[string]*Entry `toml:"agents,omitempty"`
 	PiExtensions map[string]*Entry `toml:"pi_extensions,omitempty"`
+	Hooks        map[string]*Entry `toml:"hooks,omitempty"`
 }
 
 type LockFile struct {
@@ -54,6 +56,7 @@ func LoadFrom(path string) (*LockFile, error) {
 	lf.Deployed.Resources = make(map[string]*Entry)
 	lf.Deployed.Agents = make(map[string]*Entry)
 	lf.Deployed.PiExtensions = make(map[string]*Entry)
+	lf.Deployed.Hooks = make(map[string]*Entry)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -77,6 +80,9 @@ func LoadFrom(path string) (*LockFile, error) {
 	}
 	if lf.Deployed.PiExtensions == nil {
 		lf.Deployed.PiExtensions = make(map[string]*Entry)
+	}
+	if lf.Deployed.Hooks == nil {
+		lf.Deployed.Hooks = make(map[string]*Entry)
 	}
 	return lf, nil
 }
@@ -148,6 +154,11 @@ func (lf *LockFile) Record(p RecordParams) error {
 			lf.Deployed.PiExtensions = make(map[string]*Entry)
 		}
 		lf.Deployed.PiExtensions[name] = entry
+	case AssetHooks:
+		if lf.Deployed.Hooks == nil {
+			lf.Deployed.Hooks = make(map[string]*Entry)
+		}
+		lf.Deployed.Hooks[name] = entry
 	default:
 		return fmt.Errorf("unknown asset type: %q", assetType)
 	}

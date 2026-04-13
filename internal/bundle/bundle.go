@@ -17,6 +17,7 @@ type Bundle struct {
 	Resources    ItemList   `toml:"resources"`
 	Agents       ItemList   `toml:"agents"`
 	PiExtensions ItemList   `toml:"pi_extensions"`
+	Hooks        ItemList   `toml:"hooks"`
 }
 
 type bundleMeta struct {

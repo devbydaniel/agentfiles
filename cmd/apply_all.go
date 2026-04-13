@@ -188,6 +188,12 @@ func writeManifest(repo registry.Repo, defaultStore string) error {
 	if len(repo.PiExtensionsRemove) > 0 {
 		lines = append(lines, fmt.Sprintf("pi_extensions_remove = %s", tomlStringArray(repo.PiExtensionsRemove)))
 	}
+	if len(repo.HooksAdd) > 0 {
+		lines = append(lines, fmt.Sprintf("hooks_add = %s", tomlStringArray(repo.HooksAdd)))
+	}
+	if len(repo.HooksRemove) > 0 {
+		lines = append(lines, fmt.Sprintf("hooks_remove = %s", tomlStringArray(repo.HooksRemove)))
+	}
 
 	content := ""
 	for _, l := range lines {
@@ -226,6 +232,9 @@ func userFields(u *config.UserConfig) manifest.UserFields {
 		PiExtensions:       u.PiExtensions,
 		PiExtensionsAdd:    u.PiExtensionsAdd,
 		PiExtensionsRemove: u.PiExtensionsRemove,
+		Hooks:              u.Hooks,
+		HooksAdd:           u.HooksAdd,
+		HooksRemove:        u.HooksRemove,
 	}
 }
 

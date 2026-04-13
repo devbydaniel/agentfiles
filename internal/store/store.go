@@ -12,7 +12,7 @@ import (
 var subdirs = []string{"skills", "instructions", "resources", "bundles"}
 
 // optionalSubdirs are created by Init but not required by Open (backward compat).
-var optionalSubdirs = []string{"agents", "pi_extensions"}
+var optionalSubdirs = []string{"agents", "pi_extensions", "hooks"}
 
 // Store represents an opened agentfiles source store.
 type Store struct {
@@ -25,6 +25,7 @@ func (s *Store) ResourcesDir() string    { return filepath.Join(s.Root, "resourc
 func (s *Store) BundlesDir() string      { return filepath.Join(s.Root, "bundles") }
 func (s *Store) AgentsDir() string       { return filepath.Join(s.Root, "agents") }
 func (s *Store) PiExtensionsDir() string { return filepath.Join(s.Root, "pi_extensions") }
+func (s *Store) HooksDir() string        { return filepath.Join(s.Root, "hooks") }
 
 // Open validates that path is a valid agentfiles store and returns a Store.
 func Open(path string) (*Store, error) {
@@ -203,6 +204,44 @@ func (s *Store) ListPiExtensions() ([]PiExtensionInfo, error) {
 		}
 	}
 	return exts, nil
+}
+
+// HookInfo describes a hook found in the store.
+type HookInfo struct {
+	Name string // Filename without .json extension.
+}
+
+// ListHooks walks hooks/ for .json files and returns their names.
+// Returns an empty slice if the hooks/ directory does not exist.
+func (s *Store) ListHooks() ([]HookInfo, error) {
+	hooksDir := s.HooksDir()
+	if _, err := os.Stat(hooksDir); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	entries, err := os.ReadDir(hooksDir)
+	if err != nil {
+		return nil, fmt.Errorf("listing hooks: %w", err)
+	}
+
+	var hooks []HookInfo
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		base, ok := strings.CutSuffix(name, ".json")
+		if !ok {
+			continue
+		}
+		hooks = append(hooks, HookInfo{
+			Name: base,
+		})
+	}
+	return hooks, nil
 }
 
 // SkillInfo describes a skill found in the store.
