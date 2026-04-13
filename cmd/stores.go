@@ -21,11 +21,41 @@ func resolvedConfigPath() string {
 	return config.DefaultConfigPath()
 }
 
+// looksLikeURL returns true if s looks like a git remote URL rather than
+// a local path or store name.
+func looksLikeURL(s string) bool {
+	return strings.HasPrefix(s, "https://") ||
+		strings.HasPrefix(s, "http://") ||
+		strings.HasPrefix(s, "git@") ||
+		strings.HasPrefix(s, "ssh://") ||
+		strings.HasPrefix(s, "git://")
+}
+
+// cloneStoreFromURL clones a git URL into a temporary directory and
+// returns it as a single-store map. The caller is responsible for
+// cleaning up the returned directory path.
+func cloneStoreFromURL(url string) (stores map[string]*store.Store, defaultStore string, tmpDir string, err error) {
+	tmpDir, err = os.MkdirTemp("", "af-store-*")
+	if err != nil {
+		return nil, "", "", fmt.Errorf("creating temp dir for store clone: %w", err)
+	}
+	s, err := store.InitFromClone(url, tmpDir)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		return nil, "", "", fmt.Errorf("cloning store from %s: %w", url, err)
+	}
+	return map[string]*store.Store{"default": s}, "default", tmpDir, nil
+}
+
 // openStores loads the config and opens all referenced stores,
 // returning a store map and the default store name. If no config exists
 // or no stores are defined, it falls back to the --store flag path
 // (or ~/.agentfiles as last resort).
 func openStores() (map[string]*store.Store, string, error) {
+	if storePath != "" && looksLikeURL(storePath) {
+		return nil, "", fmt.Errorf("--store does not accept git URLs in this command; URL cloning is only supported by 'af apply'")
+	}
+
 	cfg, err := config.Load(resolvedConfigPath())
 	if err != nil {
 		return nil, "", err
@@ -82,6 +112,9 @@ func openStores() (map[string]*store.Store, string, error) {
 // to ~/.agentfiles.
 func openStore() (*store.Store, error) {
 	if storePath != "" {
+		if looksLikeURL(storePath) {
+			return nil, fmt.Errorf("--store does not accept git URLs in this command; URL cloning is only supported by 'af apply'")
+		}
 		// If it looks like a path, open directly.
 		if looksLikePath(storePath) {
 			return store.Open(storePath)
