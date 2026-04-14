@@ -97,10 +97,9 @@ func InitFromClone(url, path string) (*Store, error) {
 	}
 
 	cmd := exec.Command("git", "clone", "--", url, abs)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("git clone: %w", err)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("git clone: %w\n%s", err, out)
 	}
 
 	// After cloning, ensure all subdirs exist (create any missing ones).
