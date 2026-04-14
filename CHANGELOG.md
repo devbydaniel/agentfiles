@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/devbydaniel/agentfiles/compare/v0.5.0...v0.6.0) (2026-04-13)
+
+
+### Features
+
+* add --bundle and --layout flags to af apply for cloud agents ([1620dd5](https://github.com/devbydaniel/agentfiles/commit/1620dd5b7e5121b954903214287db515a323288d))
+* add hooks as a managed asset type ([c44078e](https://github.com/devbydaniel/agentfiles/commit/c44078e2699207c2db29f76f0cec0713d12a5d67))
+
 ## [0.5.0](https://github.com/devbydaniel/agentfiles/compare/v0.4.0...v0.5.0) (2026-04-02)
 
 
