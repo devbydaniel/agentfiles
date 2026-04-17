@@ -31,7 +31,7 @@ When --store is a git URL, the store is cloned automatically.
 
 What gets deployed (per layout):
   pi:      AGENTS.md, .agents/skills/<name>/
-  claude:  CLAUDE.md, .claude/skills/<name>/
+  claude:  .claude/CLAUDE.md, .claude/skills/<name>/
   cursor:  AGENTS.md, .agents/skills/<name>/
   codex:   AGENTS.md, .agents/skills/<name>/
   all:     All of the above (pi primary + claude + cursor + codex copies)

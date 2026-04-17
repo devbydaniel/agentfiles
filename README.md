@@ -196,7 +196,7 @@ Layouts control where files land in the repo. Different AI tools expect differen
 | Layout | Instruction file | Skills | Agents |
 |--------|-----------|--------|--------|
 | `pi` | `AGENTS.md` | `.agents/skills/<name>/` | not supported |
-| `claude` | `CLAUDE.md` | `.claude/skills/<name>/` | `.claude/agents/<name>.md` |
+| `claude` | `.claude/CLAUDE.md` | `.claude/skills/<name>/` | `.claude/agents/<name>.md` |
 | `cursor` | `AGENTS.md` | `.agents/skills/<name>/` | `.cursor/agents/<name>.md` |
 | `codex` | `AGENTS.md` | `.agents/skills/<name>/` | `.codex/agents/<name>.toml` |
 | `all` | All of the above | All of the above | All supported agent paths above |
@@ -682,7 +682,7 @@ af apply
 This creates:
 ```
 AGENTS.md                           ← full copy (pi + cursor + codex share this)
-CLAUDE.md                           ← full copy
+.claude/CLAUDE.md                   ← full copy
 .agents/skills/browse/SKILL.md      ← full copy (shared by pi/cursor/codex)
 .claude/skills/browse/SKILL.md      ← full copy
 ```
@@ -702,8 +702,7 @@ AGENTS.md
 
 ### Claude layout
 ```gitignore
-CLAUDE.md
-.claude/skills/
+.claude/
 .agentfiles.lock
 ```
 
@@ -724,9 +723,8 @@ AGENTS.md
 ### All layout
 ```gitignore
 AGENTS.md
-CLAUDE.md
 .agents/skills/
-.claude/skills/
+.claude/
 .agentfiles.lock
 ```
 

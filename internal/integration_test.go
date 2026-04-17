@@ -307,7 +307,7 @@ include = ["my-skill"]
 	assertFileExists(t, filepath.Join(repo, ".agents", "skills", "my-skill", "SKILL.md"))
 
 	// CLAUDE.md should be a full copy.
-	assertFileContains(t, filepath.Join(repo, "CLAUDE.md"), "# Agent")
+	assertFileContains(t, filepath.Join(repo, ".claude", "CLAUDE.md"), "# Agent")
 
 	// Claude skill should be a regular copy.
 	assertFileExists(t, filepath.Join(repo, ".claude", "skills", "my-skill", "SKILL.md"))

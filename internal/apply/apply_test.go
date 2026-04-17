@@ -129,7 +129,7 @@ func TestApplyClaudeLayout(t *testing.T) {
 		t.Fatalf("Apply: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(repo, "CLAUDE.md"))
+	data, err := os.ReadFile(filepath.Join(repo, ".claude", "CLAUDE.md"))
 	if err != nil {
 		t.Fatalf("CLAUDE.md not found: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestApplyAllLayout(t *testing.T) {
 	}
 
 	// CLAUDE.md (full copy)
-	data, err = os.ReadFile(filepath.Join(repo, "CLAUDE.md"))
+	data, err = os.ReadFile(filepath.Join(repo, ".claude", "CLAUDE.md"))
 	if err != nil {
 		t.Fatalf("CLAUDE.md not found: %v", err)
 	}

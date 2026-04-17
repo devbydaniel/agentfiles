@@ -19,7 +19,7 @@ var validLayouts = []string{"pi", "claude", "cursor", "codex", "all"}
 
 var gitignoreByLayout = map[string][]string{
 	"pi":     {"AGENTS.md", ".agents/skills/"},
-	"claude": {"CLAUDE.md", ".claude/skills/"},
+	"claude": {".claude/"},
 	"cursor": {"AGENTS.md", ".agents/skills/"},
 	"codex":  {"AGENTS.md", ".agents/skills/"},
 }
@@ -40,7 +40,7 @@ Interactive mode (no flags):
 
 Layouts control where deployed files are placed:
   pi       AGENTS.md + .agents/skills/
-  claude   CLAUDE.md + .claude/skills/
+  claude   .claude/CLAUDE.md + .claude/skills/
   cursor   AGENTS.md + .agents/skills/
   codex    AGENTS.md + .agents/skills/
   all      All of the above

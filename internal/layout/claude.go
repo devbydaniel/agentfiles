@@ -5,8 +5,10 @@ import "path/filepath"
 // ClaudeLayout places files according to the Claude Code convention.
 type ClaudeLayout struct{}
 
-func (ClaudeLayout) Name() string                 { return "claude" }
-func (ClaudeLayout) InstructionMdPath() string    { return "CLAUDE.md" }
+func (ClaudeLayout) Name() string { return "claude" }
+func (ClaudeLayout) InstructionMdPath() string {
+	return filepath.Join(".claude", "CLAUDE.md")
+}
 func (ClaudeLayout) SkillPath(name string) string { return filepath.Join(".claude", "skills", name) }
 
 func (l ClaudeLayout) InstructionMdEntries() []Entry {

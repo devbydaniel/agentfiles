@@ -12,7 +12,7 @@ func TestPiLayout(t *testing.T) {
 
 func TestClaudeLayout(t *testing.T) {
 	l := ClaudeLayout{}
-	assertEqual(t, "CLAUDE.md", l.InstructionMdPath())
+	assertEqual(t, ".claude/CLAUDE.md", l.InstructionMdPath())
 	assertEqual(t, ".claude/skills/browse", l.SkillPath("browse"))
 }
 
@@ -63,7 +63,7 @@ func TestAllLayoutInstructionMdEntries(t *testing.T) {
 	}
 
 	assertEntryPath(t, entries[0], "AGENTS.md")
-	assertEntryPath(t, entries[1], "CLAUDE.md")
+	assertEntryPath(t, entries[1], ".claude/CLAUDE.md")
 }
 
 func TestAllLayoutSkillEntries(t *testing.T) {
