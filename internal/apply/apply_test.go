@@ -628,6 +628,56 @@ func assertFileExists(t *testing.T, path string) {
 	}
 }
 
+// Regression: multi-entry layouts ("all") must prune every copy, not just the
+// primary. Previously only the first layout path was tracked in the lock, so
+// removing a skill left orphaned copies under the other tool-specific dirs.
+// For project-level "all", a skill deploys to both .agents/skills/ (pi,
+// cursor, codex share this) and .claude/skills/ (claude has its own).
+func TestApplyAllLayoutPrunesAllPaths(t *testing.T) {
+	s := setupStore(t)
+	stores, defaultStore := singleStoreMap(s)
+	repo := t.TempDir()
+
+	addSkillToStore(t, s, "gamma", "# Gamma")
+	addAgentToStore(t, s, "delta", "---\nname: delta\ndescription: d\n---\n# Delta\n")
+	m := &manifest.Manifest{
+		Layout: "all",
+		Skills: []string{"gamma"},
+		Agents: []string{"delta"},
+	}
+	if _, err := Apply(stores, defaultStore, m, repo, Options{Force: true}); err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+
+	deployed := []string{
+		filepath.Join(".agents", "skills", "gamma", "SKILL.md"),
+		filepath.Join(".claude", "skills", "gamma", "SKILL.md"),
+		filepath.Join(".claude", "agents", "delta.md"),
+		filepath.Join(".cursor", "agents", "delta.md"),
+		filepath.Join(".codex", "agents", "delta.toml"),
+	}
+	for _, p := range deployed {
+		assertFileExists(t, filepath.Join(repo, p))
+	}
+
+	// Re-apply with both assets removed.
+	m2 := &manifest.Manifest{Layout: "all"}
+	res, err := Apply(stores, defaultStore, m2, repo, Options{Force: true})
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if res.Removed != 2 {
+		t.Errorf("removed = %d, want 2 (skill + agent)", res.Removed)
+	}
+
+	for _, p := range deployed {
+		full := filepath.Join(repo, p)
+		if _, err := os.Stat(full); err == nil {
+			t.Errorf("stale copy not pruned: %s", full)
+		}
+	}
+}
+
 // --- Grouped skill tests ---
 
 func TestApplyGroupedSkill(t *testing.T) {

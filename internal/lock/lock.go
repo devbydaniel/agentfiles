@@ -25,10 +25,26 @@ const (
 )
 
 type Entry struct {
-	Store        string `toml:"store,omitempty"`
-	StorePath    string `toml:"source"`
-	DeployedPath string `toml:"path"`
-	Hash         string `toml:"hash"`
+	Store        string   `toml:"store,omitempty"`
+	StorePath    string   `toml:"source"`
+	DeployedPath string   `toml:"path"`
+	ExtraPaths   []string `toml:"extra_paths,omitempty"`
+	Hash         string   `toml:"hash"`
+}
+
+// AllDeployedPaths returns DeployedPath followed by ExtraPaths. Used by
+// pruning to find every copy that was written for an asset under multi-entry
+// layouts (e.g. UserAllLayout deploys the same skill to pi + claude + cursor + codex).
+func (e *Entry) AllDeployedPaths() []string {
+	if e == nil {
+		return nil
+	}
+	out := make([]string, 0, 1+len(e.ExtraPaths))
+	if e.DeployedPath != "" {
+		out = append(out, e.DeployedPath)
+	}
+	out = append(out, e.ExtraPaths...)
+	return out
 }
 
 type DeployedMap struct {
@@ -124,13 +140,14 @@ type RecordParams struct {
 	StoreName    string
 	SourcePath   string
 	DeployedPath string
+	ExtraPaths   []string
 	Hash         string
 }
 
 func (lf *LockFile) Record(p RecordParams) error {
 	assetType := p.AssetType
 	name := p.Name
-	entry := &Entry{Store: p.StoreName, StorePath: p.SourcePath, DeployedPath: p.DeployedPath, Hash: p.Hash}
+	entry := &Entry{Store: p.StoreName, StorePath: p.SourcePath, DeployedPath: p.DeployedPath, ExtraPaths: p.ExtraPaths, Hash: p.Hash}
 	switch assetType {
 	case AssetInstructions:
 		lf.Deployed.Instructions = entry

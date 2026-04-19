@@ -112,9 +112,9 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 			return nil, fmt.Errorf("hashing instruction md: %w", err)
 		}
 		relSource := filepath.Join("instructions", resolved.Instructions.Name+".md")
-		deployedPath := primaryPath(entries)
+		deployedPath, extraPaths := primaryPath(entries), extraPaths(entries)
 		lk := lockKey(resolved.Instructions.Name, resolved.Instructions.Store, defaultStore)
-		if err := lf.Record(lock.RecordParams{AssetType: lock.AssetInstructions, Name: lk, StoreName: resolved.Instructions.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+		if err := lf.Record(lock.RecordParams{AssetType: lock.AssetInstructions, Name: lk, StoreName: resolved.Instructions.Store, SourcePath: relSource, DeployedPath: deployedPath, ExtraPaths: extraPaths, Hash: h}); err != nil {
 			return nil, err
 		}
 		if allSkipped {
@@ -168,9 +168,9 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 			return nil, fmt.Errorf("hashing skill %q: %w", skill.Name, err)
 		}
 		relSource := filepath.Join("skills", filepath.FromSlash(skill.StorePath)) + "/"
-		deployedPath := primaryPath(entries)
+		deployedPath, extras := primaryPath(entries), extraPaths(entries)
 		lk := lockKey(skill.StorePath, skill.Store, defaultStore)
-		if err := lf.Record(lock.RecordParams{AssetType: lock.AssetSkills, Name: lk, StoreName: skill.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+		if err := lf.Record(lock.RecordParams{AssetType: lock.AssetSkills, Name: lk, StoreName: skill.Store, SourcePath: relSource, DeployedPath: deployedPath, ExtraPaths: extras, Hash: h}); err != nil {
 			return nil, err
 		}
 		if allSkipped {
@@ -261,9 +261,9 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 			}
 			h := lock.HashBytes(canonical)
 			relSource := filepath.Join("agents", ag.Name+".md")
-			deployedPath := primaryPath(entries)
+			deployedPath, extras := primaryPath(entries), extraPaths(entries)
 			lk := lockKey(ag.Name, ag.Store, defaultStore)
-			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetAgents, Name: lk, StoreName: ag.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetAgents, Name: lk, StoreName: ag.Store, SourcePath: relSource, DeployedPath: deployedPath, ExtraPaths: extras, Hash: h}); err != nil {
 				return nil, err
 			}
 			if allSkipped {
@@ -333,6 +333,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 			var h string
 			var relSource string
 			var deployedPath string
+			var extras []string
 			if isDir {
 				h, err = lock.HashDir(dirSrc)
 				if err != nil {
@@ -340,6 +341,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 				}
 				relSource = filepath.Join("pi_extensions", ext.Name) + "/"
 				deployedPath = primaryPath(entries)
+				extras = extraPaths(entries)
 			} else {
 				h, err = lock.Hash(fileSrc)
 				if err != nil {
@@ -347,9 +349,12 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 				}
 				relSource = filepath.Join("pi_extensions", ext.Name+".ts")
 				deployedPath = primaryPath(entries) + ".ts"
+				for _, p := range extraPaths(entries) {
+					extras = append(extras, p+".ts")
+				}
 			}
 			lk := lockKey(ext.Name, ext.Store, defaultStore)
-			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetPiExtensions, Name: lk, StoreName: ext.Store, SourcePath: relSource, DeployedPath: deployedPath, Hash: h}); err != nil {
+			if err := lf.Record(lock.RecordParams{AssetType: lock.AssetPiExtensions, Name: lk, StoreName: ext.Store, SourcePath: relSource, DeployedPath: deployedPath, ExtraPaths: extras, Hash: h}); err != nil {
 				return nil, err
 			}
 			if allSkipped {
@@ -440,25 +445,32 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 	removed := 0
 
-	// Collect all deployed paths from the new lock.
+	// Collect all deployed paths from the new lock (primary + extras) so we
+	// don't remove a path that's still legitimately in use under a different
+	// asset's multi-entry deployment.
 	newPaths := make(map[string]bool)
+	addPaths := func(e *lock.Entry) {
+		for _, p := range e.AllDeployedPaths() {
+			newPaths[p] = true
+		}
+	}
 	if newLF.Deployed.Instructions != nil {
-		newPaths[newLF.Deployed.Instructions.DeployedPath] = true
+		addPaths(newLF.Deployed.Instructions)
 	}
 	for _, e := range newLF.Deployed.Skills {
-		newPaths[e.DeployedPath] = true
+		addPaths(e)
 	}
 	for _, e := range newLF.Deployed.Resources {
-		newPaths[e.DeployedPath] = true
+		addPaths(e)
 	}
 	for _, e := range newLF.Deployed.Agents {
-		newPaths[e.DeployedPath] = true
+		addPaths(e)
 	}
 	for _, e := range newLF.Deployed.PiExtensions {
-		newPaths[e.DeployedPath] = true
+		addPaths(e)
 	}
 	for _, e := range newLF.Deployed.Hooks {
-		newPaths[e.DeployedPath] = true
+		addPaths(e)
 	}
 
 	// Build set of new hook names.
@@ -467,47 +479,47 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 		newHookNames[name] = true
 	}
 
-	// Remove old instructions if no longer present.
-	if oldLF.Deployed.Instructions != nil && !newPaths[oldLF.Deployed.Instructions.DeployedPath] {
-		if removeDeployed(repoDir, oldLF.Deployed.Instructions.DeployedPath) {
+	// pruneEntry removes every deployed path for the entry that isn't present
+	// in the new lock. Counted as one asset if anything was removed, to keep
+	// the summary as "N stale assets" rather than "N stale files".
+	pruneEntry := func(e *lock.Entry) {
+		any := false
+		for _, p := range e.AllDeployedPaths() {
+			if newPaths[p] {
+				continue
+			}
+			if removeDeployed(repoDir, p) {
+				any = true
+			}
+		}
+		if any {
 			removed++
 		}
 	}
 
+	// Remove old instructions if no longer present.
+	if oldLF.Deployed.Instructions != nil {
+		pruneEntry(oldLF.Deployed.Instructions)
+	}
+
 	// Remove old skills.
 	for _, e := range oldLF.Deployed.Skills {
-		if !newPaths[e.DeployedPath] {
-			if removeDeployed(repoDir, e.DeployedPath) {
-				removed++
-			}
-		}
+		pruneEntry(e)
 	}
 
 	// Remove old resources.
 	for _, e := range oldLF.Deployed.Resources {
-		if !newPaths[e.DeployedPath] {
-			if removeDeployed(repoDir, e.DeployedPath) {
-				removed++
-			}
-		}
+		pruneEntry(e)
 	}
 
 	// Remove old agents.
 	for _, e := range oldLF.Deployed.Agents {
-		if !newPaths[e.DeployedPath] {
-			if removeDeployed(repoDir, e.DeployedPath) {
-				removed++
-			}
-		}
+		pruneEntry(e)
 	}
 
 	// Remove old pi_extensions.
 	for _, e := range oldLF.Deployed.PiExtensions {
-		if !newPaths[e.DeployedPath] {
-			if removeDeployed(repoDir, e.DeployedPath) {
-				removed++
-			}
-		}
+		pruneEntry(e)
 	}
 
 	// Remove old hooks from settings files.
@@ -649,4 +661,18 @@ func primaryPath(entries []layout.Entry) string {
 		return entries[0].Path
 	}
 	return ""
+}
+
+// extraPaths returns the Paths of all entries after the first. Used alongside
+// primaryPath so multi-entry layouts (e.g. UserAllLayout) record every copy
+// they wrote, which pruneStale needs to clean up when an asset is removed.
+func extraPaths(entries []layout.Entry) []string {
+	if len(entries) <= 1 {
+		return nil
+	}
+	out := make([]string, 0, len(entries)-1)
+	for _, e := range entries[1:] {
+		out = append(out, e.Path)
+	}
+	return out
 }
