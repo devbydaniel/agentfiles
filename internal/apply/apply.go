@@ -423,10 +423,10 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 				}
 
 				var (
-					hf            *hooks.HookFile
-					hash          string
-					sourcePath    string
-					extraPaths    []string
+					hf              *hooks.HookFile
+					hash            string
+					sourcePath      string
+					extraPaths      []string
 					deployedHookDir string
 				)
 

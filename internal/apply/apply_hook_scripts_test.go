@@ -231,12 +231,10 @@ func TestApplyHookDirPrunedOnRemoval(t *testing.T) {
 		t.Fatalf("deploy dir missing after first apply: %v", err)
 	}
 
-	// Second apply drops phoenix.
-	m2 := &manifest.Manifest{Layout: "claude", Instructions: "", Skills: []string{}, HooksRemove: nil, Hooks: []string{}}
-	m2 = &manifest.Manifest{Layout: "claude", Hooks: []string{}}
-	// Need at least one cherry-picked field to pass manifest validation.
-	m2.Instructions = "noop"
+	// Second apply drops phoenix. Manifest validation requires at least one
+	// cherry-picked field, so we pin a trivial instruction to keep it valid.
 	addInstructionToStore(t, s, "noop", "noop")
+	m2 := &manifest.Manifest{Layout: "claude", Instructions: "noop", Hooks: []string{}}
 
 	if _, err := Apply(stores, defaultStore, m2, repo, Options{Force: true}); err != nil {
 		t.Fatalf("second Apply: %v", err)
