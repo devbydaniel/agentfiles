@@ -207,11 +207,13 @@ func (s *Store) ListPiExtensions() ([]PiExtensionInfo, error) {
 
 // HookInfo describes a hook found in the store.
 type HookInfo struct {
-	Name string // Filename without .json extension.
+	Name  string // Logical name (no .json extension for file form).
+	IsDir bool   // True if this is a directory-form hook containing hook.json.
 }
 
-// ListHooks walks hooks/ for .json files and returns their names.
-// Returns an empty slice if the hooks/ directory does not exist.
+// ListHooks walks hooks/ and returns both file-form (<name>.json) and
+// directory-form (<name>/hook.json) entries. Returns an empty slice if the
+// hooks/ directory does not exist. Errors if a name has both forms present.
 func (s *Store) ListHooks() ([]HookInfo, error) {
 	hooksDir := s.HooksDir()
 	if _, err := os.Stat(hooksDir); os.IsNotExist(err) {
@@ -223,24 +225,67 @@ func (s *Store) ListHooks() ([]HookInfo, error) {
 		return nil, fmt.Errorf("listing hooks: %w", err)
 	}
 
-	var hooks []HookInfo
+	byName := make(map[string]HookInfo)
 	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
 		name := e.Name()
 		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if e.IsDir() {
+			// Directory form requires hook.json inside.
+			if _, err := os.Stat(filepath.Join(hooksDir, name, "hook.json")); err != nil {
+				continue
+			}
+			if prev, ok := byName[name]; ok {
+				return nil, fmt.Errorf("hook %q has both file and directory forms in store", prev.Name)
+			}
+			byName[name] = HookInfo{Name: name, IsDir: true}
 			continue
 		}
 		base, ok := strings.CutSuffix(name, ".json")
 		if !ok {
 			continue
 		}
-		hooks = append(hooks, HookInfo{
-			Name: base,
-		})
+		if prev, ok := byName[base]; ok {
+			return nil, fmt.Errorf("hook %q has both file and directory forms in store", prev.Name)
+		}
+		byName[base] = HookInfo{Name: base, IsDir: false}
+	}
+
+	hooks := make([]HookInfo, 0, len(byName))
+	for _, h := range byName {
+		hooks = append(hooks, h)
 	}
 	return hooks, nil
+}
+
+// HookPath resolves the on-disk path for a hook in the store, detecting
+// whether it is file form (<name>.json) or directory form (<name>/ with
+// hook.json inside). Returns an error if neither exists or if both exist.
+func (s *Store) HookPath(name string) (path string, isDir bool, err error) {
+	hooksDir := s.HooksDir()
+	filePath := filepath.Join(hooksDir, name+".json")
+	dirPath := filepath.Join(hooksDir, name)
+
+	fileInfo, fileErr := os.Stat(filePath)
+	dirInfo, dirErr := os.Stat(dirPath)
+
+	hasFile := fileErr == nil && !fileInfo.IsDir()
+	hasDir := dirErr == nil && dirInfo.IsDir()
+
+	if hasFile && hasDir {
+		return "", false, fmt.Errorf("hook %q has both file and directory forms in store; keep only one", name)
+	}
+	if hasDir {
+		if _, err := os.Stat(filepath.Join(dirPath, "hook.json")); err != nil {
+			return "", false, fmt.Errorf("hook directory %q is missing hook.json", name)
+		}
+		return dirPath, true, nil
+	}
+	if hasFile {
+		return filePath, false, nil
+	}
+	return "", false, fmt.Errorf("hook %q not found in store", name)
 }
 
 // SkillInfo describes a skill found in the store.

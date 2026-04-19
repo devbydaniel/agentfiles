@@ -8,8 +8,19 @@ import (
 
 var addHookCmd = &cobra.Command{
 	Use:   "hook <path>",
-	Short: "Add a hook file to the store",
-	Args:  cobra.ExactArgs(1),
+	Short: "Add a hook file or directory to the store",
+	Long: `Add a hook to the source store.
+
+Accepts either form:
+  af add hook ./my-hook.json            → store/hooks/my-hook.json
+  af add hook ./my-hook/                → store/hooks/my-hook/
+                                          (directory must contain hook.json
+                                           plus an optional scripts/ subdir)
+
+Directory-form hooks may reference their own scripts via the
+${AF_HOOK_ROOT} placeholder, which agentfiles substitutes at apply time
+with a shell-portable path to the deployed hook root.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := openStore()
 		if err != nil {

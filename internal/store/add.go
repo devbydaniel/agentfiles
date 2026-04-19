@@ -211,8 +211,10 @@ func (s *Store) AddPiExtension(srcPath string, force bool) (string, bool, error)
 	return name, overwritten, os.WriteFile(dest, data, info.Mode().Perm())
 }
 
-// AddHook copies a hook .json file into store/hooks/<name>.json.
-// The name is derived from the source filename (minus .json extension).
+// AddHook copies a hook into the store's hooks directory.
+// Accepts either a single .json file → store/hooks/<name>.json, or a
+// directory containing hook.json (+ optional scripts/) → store/hooks/<name>/.
+// The name is derived from the source filename or directory basename.
 // Creates the hooks/ directory on demand if missing.
 // Returns the derived name and whether an existing hook was overwritten.
 func (s *Store) AddHook(srcPath string, force bool) (string, bool, error) {
@@ -224,10 +226,19 @@ func (s *Store) AddHook(srcPath string, force bool) (string, bool, error) {
 	if err != nil {
 		return "", false, fmt.Errorf("source path %q does not exist", srcPath)
 	}
-	if info.IsDir() {
-		return "", false, fmt.Errorf("source path %q is a directory, expected a .json file", srcPath)
+
+	hooksDir := s.HooksDir()
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		return "", false, fmt.Errorf("creating hooks directory: %w", err)
 	}
 
+	if info.IsDir() {
+		return s.addHookDir(abs, hooksDir, force)
+	}
+	return s.addHookFile(abs, hooksDir, info, force)
+}
+
+func (s *Store) addHookFile(abs, hooksDir string, info os.FileInfo, force bool) (string, bool, error) {
 	base := filepath.Base(abs)
 	if !strings.HasSuffix(base, ".json") {
 		return "", false, fmt.Errorf("hook file must have .json extension, got %q", base)
@@ -247,15 +258,10 @@ func (s *Store) AddHook(srcPath string, force bool) (string, bool, error) {
 		return "", false, fmt.Errorf("invalid hook file: %w", err)
 	}
 
-	// Ensure hooks/ directory exists.
-	hooksDir := s.HooksDir()
-	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
-		return "", false, fmt.Errorf("creating hooks directory: %w", err)
-	}
+	fileDest := filepath.Join(hooksDir, base)
+	dirDest := filepath.Join(hooksDir, name)
 
-	dest := filepath.Join(hooksDir, base)
-
-	cleanDest, err := filepath.Abs(dest)
+	cleanDest, err := filepath.Abs(fileDest)
 	if err != nil {
 		return "", false, fmt.Errorf("resolving dest path: %w", err)
 	}
@@ -263,15 +269,80 @@ func (s *Store) AddHook(srcPath string, force bool) (string, bool, error) {
 		return "", false, fmt.Errorf("invalid hook name %q: resolved path escapes hooks directory", name)
 	}
 
+	// Reject if the opposite form already exists for this name.
+	if di, err := os.Stat(dirDest); err == nil && di.IsDir() {
+		if !force {
+			return "", false, fmt.Errorf("hook %q already exists as a directory in store (use --force to replace)", name)
+		}
+		if err := os.RemoveAll(dirDest); err != nil {
+			return "", false, fmt.Errorf("removing existing directory-form %q: %w", name, err)
+		}
+	}
+
 	overwritten := false
-	if _, err := os.Stat(dest); err == nil {
+	if _, err := os.Stat(fileDest); err == nil {
 		if !force {
 			return "", false, fmt.Errorf("hook %q already exists in store (use --force to overwrite)", name)
 		}
 		overwritten = true
 	}
 
-	return name, overwritten, os.WriteFile(dest, data, 0o644)
+	_ = info // reserved for future mode preservation; file-form hooks keep 0644.
+	return name, overwritten, os.WriteFile(fileDest, data, 0o644)
+}
+
+func (s *Store) addHookDir(abs, hooksDir string, force bool) (string, bool, error) {
+	name := filepath.Base(abs)
+	if strings.ContainsAny(name, `/\`) || strings.Contains(name, "..") {
+		return "", false, fmt.Errorf("invalid hook name %q: must not contain path separators or '..'", name)
+	}
+
+	// Validate: directory must contain hook.json with a valid schema.
+	hookJSONPath := filepath.Join(abs, hooks.HookJSONFilename)
+	data, err := os.ReadFile(hookJSONPath)
+	if err != nil {
+		return "", false, fmt.Errorf("hook directory %q must contain %s", abs, hooks.HookJSONFilename)
+	}
+	if _, err := hooks.Parse(data); err != nil {
+		return "", false, fmt.Errorf("invalid %s in %q: %w", hooks.HookJSONFilename, abs, err)
+	}
+
+	dirDest := filepath.Join(hooksDir, name)
+	fileDest := filepath.Join(hooksDir, name+".json")
+
+	cleanDest, err := filepath.Abs(dirDest)
+	if err != nil {
+		return "", false, fmt.Errorf("resolving dest path: %w", err)
+	}
+	if !strings.HasPrefix(cleanDest, hooksDir+string(filepath.Separator)) && cleanDest != hooksDir {
+		return "", false, fmt.Errorf("invalid hook name %q: resolved path escapes hooks directory", name)
+	}
+
+	// Reject if the opposite form already exists for this name.
+	if fi, err := os.Stat(fileDest); err == nil && !fi.IsDir() {
+		if !force {
+			return "", false, fmt.Errorf("hook %q already exists as a .json file in store (use --force to replace)", name)
+		}
+		if err := os.Remove(fileDest); err != nil {
+			return "", false, fmt.Errorf("removing existing file-form %q: %w", name, err)
+		}
+	}
+
+	overwritten := false
+	if _, err := os.Stat(dirDest); err == nil {
+		if !force {
+			return "", false, fmt.Errorf("hook %q already exists in store (use --force to overwrite)", name)
+		}
+		overwritten = true
+		if err := os.RemoveAll(dirDest); err != nil {
+			return "", false, fmt.Errorf("removing existing %q: %w", name, err)
+		}
+	}
+
+	if err := fsutil.CopyDir(abs, dirDest); err != nil {
+		return "", false, fmt.Errorf("copying hook directory: %w", err)
+	}
+	return name, overwritten, nil
 }
 
 // addDir copies srcPath (must be a directory) into parentDir/<basename>/.

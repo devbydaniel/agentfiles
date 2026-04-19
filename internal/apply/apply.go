@@ -9,12 +9,49 @@ import (
 	"strings"
 
 	"github.com/devbydaniel/agentfiles/internal/agent"
+	"github.com/devbydaniel/agentfiles/internal/fsutil"
 	"github.com/devbydaniel/agentfiles/internal/hooks"
 	"github.com/devbydaniel/agentfiles/internal/layout"
 	"github.com/devbydaniel/agentfiles/internal/lock"
 	"github.com/devbydaniel/agentfiles/internal/manifest"
 	"github.com/devbydaniel/agentfiles/internal/store"
 )
+
+// hookDeployBase is the repo- or home-relative directory under which agentfiles
+// deploys directory-form hook contents. For user-level applies this becomes
+// $HOME/<hookDeployBaseUser>/<name>; for repo-level it becomes
+// <repoDir>/<hookDeployBaseRepo>/<name>.
+const (
+	hookDeployBaseUser = ".local/share/agentfiles/hooks"
+	hookDeployBaseRepo = ".agentfiles/hooks"
+)
+
+// isUserLayout reports whether a layout name targets user-level paths
+// (e.g. $HOME/.claude/settings.json) rather than a repo root.
+func isUserLayout(layoutName string) bool {
+	return strings.HasPrefix(layoutName, "user-")
+}
+
+// hookDeployDir returns the repoDir-relative path where a directory-form hook's
+// contents are deployed. Used both to actually copy files and as the lock
+// entry's ExtraPath for pruning.
+func hookDeployDir(userLevel bool, name string) string {
+	if userLevel {
+		return filepath.Join(hookDeployBaseUser, name)
+	}
+	return filepath.Join(hookDeployBaseRepo, name)
+}
+
+// hookRootToken returns the shell-portable string that replaces ${AF_HOOK_ROOT}
+// in a hook's commands. User-level uses $HOME-prefixed absolute form so the
+// hook is portable across machines; repo-level uses a relative path resolved
+// against the hook's cwd at execution time (the project root).
+func hookRootToken(userLevel bool, name string) string {
+	if userLevel {
+		return "$HOME/" + hookDeployBaseUser + "/" + name
+	}
+	return hookDeployBaseRepo + "/" + name
+}
 
 // Options controls apply behaviour.
 type Options struct {
@@ -369,6 +406,10 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 	if opts.SkillOnly == "" && len(resolved.Hooks) > 0 {
 		targets := hooks.TargetsForLayout(lay.Name())
 		if len(targets) > 0 {
+			userLevel := isUserLayout(lay.Name())
+			// All resolved hooks are placed into managed so MergeIntoSettings,
+			// which strips every _agentfiles entry before re-adding, doesn't
+			// drop entries whose source content was unchanged on this apply.
 			managed := make(map[string]*hooks.HookFile)
 			needsMerge := false
 			for _, hk := range resolved.Hooks {
@@ -376,36 +417,95 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 				if err != nil {
 					return nil, fmt.Errorf("hook %q: %w", hk.Name, err)
 				}
-				src := filepath.Join(s.HooksDir(), hk.Name+".json")
-				data, err := os.ReadFile(src)
+				hookPath, isDir, err := s.HookPath(hk.Name)
 				if err != nil {
-					return nil, fmt.Errorf("hook %q not found in store %q", hk.Name, hk.Store)
-				}
-				hf, err := hooks.Parse(data)
-				if err != nil {
-					return nil, fmt.Errorf("parsing hook %q: %w", hk.Name, err)
+					return nil, fmt.Errorf("hook %q in store %q: %w", hk.Name, hk.Store, err)
 				}
 
-				h := lock.HashBytes(data)
+				var (
+					hf            *hooks.HookFile
+					hash          string
+					sourcePath    string
+					extraPaths    []string
+					deployedHookDir string
+				)
+
+				if isDir {
+					loaded, _, err := hooks.LoadFromDir(hookPath)
+					if err != nil {
+						return nil, fmt.Errorf("loading hook %q: %w", hk.Name, err)
+					}
+					dirHash, err := lock.HashDir(hookPath)
+					if err != nil {
+						return nil, fmt.Errorf("hashing hook %q: %w", hk.Name, err)
+					}
+					hash = dirHash
+					sourcePath = filepath.Join("hooks", hk.Name) + "/"
+
+					hookRootRel := hookDeployDir(userLevel, hk.Name)
+					deployedHookDir = hookRootRel
+					extraPaths = []string{hookRootRel}
+
+					subbed, err := hooks.Substitute(loaded, hookRootToken(userLevel, hk.Name))
+					if err != nil {
+						return nil, fmt.Errorf("substituting placeholders in hook %q: %w", hk.Name, err)
+					}
+					hf = subbed
+				} else {
+					data, err := os.ReadFile(hookPath)
+					if err != nil {
+						return nil, fmt.Errorf("hook %q not found in store %q", hk.Name, hk.Store)
+					}
+					parsed, err := hooks.Parse(data)
+					if err != nil {
+						return nil, fmt.Errorf("parsing hook %q: %w", hk.Name, err)
+					}
+					hf = parsed
+					hash = lock.HashBytes(data)
+					sourcePath = filepath.Join("hooks", hk.Name+".json")
+				}
+
 				lk := lockKey(hk.Name, hk.Store, defaultStore)
 
-				// Check if this hook has changed since last deploy.
 				oldEntry, existed := oldLF.Deployed.Hooks[lk]
-				if existed && oldEntry.Hash == h && !opts.Force {
+				if existed && oldEntry.Hash == hash && !opts.Force {
 					res.Skipped++
 				} else {
-					managed[hk.Name] = hf
 					needsMerge = true
 					res.Deployed++
+					if isDir {
+						fullDest := filepath.Join(repoDir, deployedHookDir)
+						if err := os.RemoveAll(fullDest); err != nil {
+							return nil, fmt.Errorf("clearing hook deploy dir %s: %w", fullDest, err)
+						}
+						if err := fsutil.CopyDir(hookPath, fullDest); err != nil {
+							return nil, fmt.Errorf("deploying hook %q scripts: %w", hk.Name, err)
+						}
+					}
 				}
+
+				// Dir-form hooks: even on skip, ensure scripts exist on disk
+				// (a previous apply may have been interrupted after the lock
+				// was updated but before the scripts were written).
+				if isDir {
+					fullDest := filepath.Join(repoDir, deployedHookDir)
+					if _, err := os.Stat(fullDest); os.IsNotExist(err) {
+						if err := fsutil.CopyDir(hookPath, fullDest); err != nil {
+							return nil, fmt.Errorf("restoring hook %q scripts: %w", hk.Name, err)
+						}
+					}
+				}
+
+				managed[hk.Name] = hf
 
 				if err := lf.Record(lock.RecordParams{
 					AssetType:    lock.AssetHooks,
 					Name:         lk,
 					StoreName:    hk.Store,
-					SourcePath:   filepath.Join("hooks", hk.Name+".json"),
+					SourcePath:   sourcePath,
 					DeployedPath: targets[0].Path,
-					Hash:         h,
+					ExtraPaths:   extraPaths,
+					Hash:         hash,
 				}); err != nil {
 					return nil, err
 				}
@@ -526,9 +626,14 @@ func pruneStale(repoDir string, oldLF, newLF *lock.LockFile) int {
 	// Try all possible target files (not just the current layout) so that
 	// layout changes don't leave orphaned entries.
 	var staleHookNames []string
-	for name := range oldLF.Deployed.Hooks {
+	for name, e := range oldLF.Deployed.Hooks {
 		if !newHookNames[name] {
 			staleHookNames = append(staleHookNames, name)
+			// Directory-form hooks record their deployed content dir in
+			// ExtraPaths; remove it so leftover scripts don't linger.
+			for _, p := range e.ExtraPaths {
+				removeDeployed(repoDir, p)
+			}
 		}
 	}
 	if len(staleHookNames) > 0 {

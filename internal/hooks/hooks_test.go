@@ -65,6 +65,100 @@ func TestParse(t *testing.T) {
 	})
 }
 
+func TestLoadFromDir(t *testing.T) {
+	t.Run("happy path with scripts", func(t *testing.T) {
+		dir := t.TempDir()
+		writeHookJSON(t, dir, `{"event": "Stop", "hooks": [{"type": "command", "command": "${AF_HOOK_ROOT}/scripts/go.sh"}]}`)
+		scriptsDir := filepath.Join(dir, "scripts")
+		if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(scriptsDir, "go.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		hf, hasScripts, err := LoadFromDir(dir)
+		if err != nil {
+			t.Fatalf("LoadFromDir: %v", err)
+		}
+		if !hasScripts {
+			t.Error("hasScripts = false, want true")
+		}
+		if hf.Event != "Stop" {
+			t.Errorf("Event = %q", hf.Event)
+		}
+	})
+
+	t.Run("no scripts dir", func(t *testing.T) {
+		dir := t.TempDir()
+		writeHookJSON(t, dir, `{"event": "Stop", "hooks": [{"type": "command", "command": "echo hi"}]}`)
+
+		_, hasScripts, err := LoadFromDir(dir)
+		if err != nil {
+			t.Fatalf("LoadFromDir: %v", err)
+		}
+		if hasScripts {
+			t.Error("hasScripts = true, want false")
+		}
+	})
+
+	t.Run("empty scripts dir still reports true", func(t *testing.T) {
+		dir := t.TempDir()
+		writeHookJSON(t, dir, `{"event": "Stop", "hooks": [{"type": "command", "command": "echo hi"}]}`)
+		if err := os.MkdirAll(filepath.Join(dir, "scripts"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		_, hasScripts, err := LoadFromDir(dir)
+		if err != nil {
+			t.Fatalf("LoadFromDir: %v", err)
+		}
+		if !hasScripts {
+			t.Error("hasScripts = false, want true (empty dir still counts)")
+		}
+	})
+
+	t.Run("scripts as file, not dir", func(t *testing.T) {
+		dir := t.TempDir()
+		writeHookJSON(t, dir, `{"event": "Stop", "hooks": [{"type": "command", "command": "echo hi"}]}`)
+		if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("not a dir"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		_, hasScripts, err := LoadFromDir(dir)
+		if err != nil {
+			t.Fatalf("LoadFromDir: %v", err)
+		}
+		if hasScripts {
+			t.Error("hasScripts = true, want false (scripts must be a directory)")
+		}
+	})
+
+	t.Run("missing hook.json", func(t *testing.T) {
+		dir := t.TempDir()
+		_, _, err := LoadFromDir(dir)
+		if err == nil {
+			t.Fatal("expected error for missing hook.json")
+		}
+	})
+
+	t.Run("invalid hook.json", func(t *testing.T) {
+		dir := t.TempDir()
+		writeHookJSON(t, dir, `{"event": "", "hooks": []}`)
+		_, _, err := LoadFromDir(dir)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+	})
+}
+
+func writeHookJSON(t *testing.T, dir, content string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, HookJSONFilename), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestEventNameForCursor(t *testing.T) {
 	tests := []struct {
 		input string
