@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/devbydaniel/agentfiles/compare/v0.6.0...v0.7.0) (2026-04-19)
+
+
+### Features
+
+* place claude layout CLAUDE.md inside .claude/ ([c7ce6f5](https://github.com/devbydaniel/agentfiles/commit/c7ce6f53c3bda348a840be31fadc2d268124965e))
+
+
+### Bug Fixes
+
+* prune all deployed paths for multi-entry layouts ([50d142d](https://github.com/devbydaniel/agentfiles/commit/50d142d4ca217ab644a2fe8e9b238cacbf0f4cee))
+* surface git clone stderr in store clone errors ([8baf7da](https://github.com/devbydaniel/agentfiles/commit/8baf7da054aec22595a2de719b180e177fbc67c6))
+
 ## [0.6.0](https://github.com/devbydaniel/agentfiles/compare/v0.5.0...v0.6.0) (2026-04-13)
 
 
