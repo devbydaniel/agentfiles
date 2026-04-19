@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/devbydaniel/agentfiles/compare/v0.7.0...v0.8.0) (2026-04-19)
+
+
+### Features
+
+* ship scripts with hooks via directory form and ${AF_HOOK_ROOT} ([83a7949](https://github.com/devbydaniel/agentfiles/commit/83a79497668afd85684688f0c61ed52e8c3cffb3))
+
 ## [0.7.0](https://github.com/devbydaniel/agentfiles/compare/v0.6.0...v0.7.0) (2026-04-19)
 
 
