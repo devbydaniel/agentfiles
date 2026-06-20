@@ -95,6 +95,13 @@ func TestApplyHookDirRepoLevel(t *testing.T) {
 	repo := t.TempDir()
 	m := &manifest.Manifest{Layout: "claude", Hooks: []string{"phoenix"}}
 
+	// Regression: real af-managed repos always carry a ".agentfiles" manifest
+	// *file*. The repo-level hook deploy dir must not collide with it, or every
+	// apply fails with "open .agentfiles/hooks: not a directory".
+	if err := os.WriteFile(filepath.Join(repo, ".agentfiles"), []byte("layout = \"claude\"\n"), 0o644); err != nil {
+		t.Fatalf("writing manifest file: %v", err)
+	}
+
 	stores, defaultStore := singleStoreMap(s)
 	res, err := Apply(stores, defaultStore, m, repo, Options{Force: true})
 	if err != nil {
@@ -104,15 +111,15 @@ func TestApplyHookDirRepoLevel(t *testing.T) {
 		t.Errorf("deployed = %d, want 1", res.Deployed)
 	}
 
-	// Scripts copied under <repo>/.agentfiles/hooks/phoenix/.
-	scriptPath := filepath.Join(repo, ".agentfiles", "hooks", "phoenix", "scripts", "phoenix.sh")
+	// Scripts copied under <repo>/.agentfiles-hooks/phoenix/.
+	scriptPath := filepath.Join(repo, ".agentfiles-hooks", "phoenix", "scripts", "phoenix.sh")
 	if _, err := os.Stat(scriptPath); err != nil {
 		t.Fatalf("script not deployed: %v", err)
 	}
 
 	// Command substituted to a repo-relative path.
 	got := readFirstHookCommand(t, filepath.Join(repo, ".claude", "settings.json"), "Stop")
-	want := ".agentfiles/hooks/phoenix/scripts/phoenix.sh"
+	want := ".agentfiles-hooks/phoenix/scripts/phoenix.sh"
 	if got != want {
 		t.Errorf("command = %q, want %q", got, want)
 	}
@@ -126,7 +133,7 @@ func TestApplyHookDirRepoLevel(t *testing.T) {
 	if !ok {
 		t.Fatal("lock missing hook 'phoenix'")
 	}
-	if len(entry.ExtraPaths) != 1 || entry.ExtraPaths[0] != filepath.Join(".agentfiles", "hooks", "phoenix") {
+	if len(entry.ExtraPaths) != 1 || entry.ExtraPaths[0] != filepath.Join(".agentfiles-hooks", "phoenix") {
 		t.Errorf("ExtraPaths = %v", entry.ExtraPaths)
 	}
 	if entry.StorePath != filepath.Join("hooks", "phoenix")+"/" {
@@ -190,7 +197,7 @@ func TestApplyHookFileAndDirCoexist(t *testing.T) {
 		t.Errorf("simple command = %q", simpleCmd)
 	}
 	scriptedCmd := readFirstHookCommand(t, filepath.Join(repo, ".claude", "settings.json"), "Stop")
-	if !strings.Contains(scriptedCmd, ".agentfiles/hooks/scripted/scripts/s.sh") {
+	if !strings.Contains(scriptedCmd, ".agentfiles-hooks/scripted/scripts/s.sh") {
 		t.Errorf("scripted command = %q", scriptedCmd)
 	}
 
@@ -206,7 +213,7 @@ func TestApplyHookFileAndDirCoexist(t *testing.T) {
 		t.Errorf("after re-apply, simple command = %q", simpleCmd2)
 	}
 	scriptedCmd2 := readFirstHookCommand(t, filepath.Join(repo, ".claude", "settings.json"), "Stop")
-	if !strings.Contains(scriptedCmd2, ".agentfiles/hooks/scripted/scripts/s.sh") {
+	if !strings.Contains(scriptedCmd2, ".agentfiles-hooks/scripted/scripts/s.sh") {
 		t.Errorf("after re-apply, scripted command = %q", scriptedCmd2)
 	}
 }
@@ -226,7 +233,7 @@ func TestApplyHookDirPrunedOnRemoval(t *testing.T) {
 	if _, err := Apply(stores, defaultStore, m1, repo, Options{Force: true}); err != nil {
 		t.Fatalf("first Apply: %v", err)
 	}
-	deployDir := filepath.Join(repo, ".agentfiles", "hooks", "phoenix")
+	deployDir := filepath.Join(repo, ".agentfiles-hooks", "phoenix")
 	if _, err := os.Stat(deployDir); err != nil {
 		t.Fatalf("deploy dir missing after first apply: %v", err)
 	}
@@ -247,7 +254,7 @@ func TestApplyHookDirPrunedOnRemoval(t *testing.T) {
 	// Settings.json should no longer have the phoenix entry.
 	data, err := os.ReadFile(filepath.Join(repo, ".claude", "settings.json"))
 	if err == nil {
-		if strings.Contains(string(data), ".agentfiles/hooks/phoenix") {
+		if strings.Contains(string(data), ".agentfiles-hooks/phoenix") {
 			t.Errorf("settings.json still references phoenix: %s", data)
 		}
 	}
