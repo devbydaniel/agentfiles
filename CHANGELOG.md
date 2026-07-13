@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/devbydaniel/agentfiles/compare/v0.8.0...v0.8.1) (2026-06-20)
+
+
+### Bug Fixes
+
+* **apply:** deploy repo-level hooks beside the manifest, not under it ([8f96805](https://github.com/devbydaniel/agentfiles/commit/8f968058b4b81ec1c29ab1563d7492c8c7b0679f))
+
 ## [0.8.0](https://github.com/devbydaniel/agentfiles/compare/v0.7.0...v0.8.0) (2026-04-19)
 
 
