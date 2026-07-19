@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/devbydaniel/agentfiles/compare/v0.8.1...v0.8.2) (2026-07-19)
+
+
+### Bug Fixes
+
+* **version:** report embedded module version for go-installed binaries ([37401f6](https://github.com/devbydaniel/agentfiles/commit/37401f67b141cbd5ba27ff0ea39f38a0215865a7))
+
 ## [0.8.1](https://github.com/devbydaniel/agentfiles/compare/v0.8.0...v0.8.1) (2026-06-20)
 
 
