@@ -164,9 +164,18 @@ Examples:
 func writeManifest(repo registry.Repo, defaultStore string) error {
 	var lines []string
 
-	if repo.Store != "" && repo.Store != defaultStore {
-		lines = append(lines, fmt.Sprintf("store = %q", repo.Store))
+	// Always emit "store", even when it matches defaultStore. Omitting it makes
+	// the generated manifest depend on the machine's global default_store: the
+	// same repo deployed from two hosts (e.g. a laptop defaulting to "work" and
+	// a container defaulting to "private") would get two different manifests,
+	// so whichever host ran apply-all last leaves the other with a dirty tree.
+	// An explicit store also lets "af apply" work from inside the repo, which
+	// resolves the bundle against default_store rather than the registry entry.
+	repoStore := repo.Store
+	if repoStore == "" {
+		repoStore = defaultStore
 	}
+	lines = append(lines, fmt.Sprintf("store = %q", repoStore))
 	lines = append(lines, fmt.Sprintf("bundle = %q", repo.Bundle))
 	lines = append(lines, fmt.Sprintf("layout = %q", repo.Layout))
 
