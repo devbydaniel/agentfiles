@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.3](https://github.com/devbydaniel/agentfiles/compare/v0.8.2...v0.8.3) (2026-08-03)
+
+
+### Bug Fixes
+
+* **apply-all:** always write 'store' into the generated manifest ([#11](https://github.com/devbydaniel/agentfiles/issues/11)) ([9d83c7f](https://github.com/devbydaniel/agentfiles/commit/9d83c7f45d693bea3e28fc08487d724bf7db6c0b))
+
 ## [0.8.2](https://github.com/devbydaniel/agentfiles/compare/v0.8.1...v0.8.2) (2026-07-19)
 
 
