@@ -6,6 +6,23 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
+)
+
+// DeployBaseUser and DeployBaseRepo are the home- and repo-relative directories
+// under which agentfiles deploys directory-form hook contents (used by
+// internal/apply). They double as an ownership signal during merging: an entry
+// whose commands all point into one of these directories is agentfiles-managed
+// even when its _agentfiles marker is missing — other writers of the settings
+// file (notably Claude Code) re-serialize hook entries and drop unknown fields.
+//
+// DeployBaseRepo must NOT live under ".agentfiles/" — that path is the repo
+// manifest *file* (".agentfiles"), so ".agentfiles/hooks" collides with it and
+// every repo-level apply fails with "open .agentfiles/hooks: not a directory".
+// It sits beside the manifest instead, mirroring ".agentfiles.lock".
+const (
+	DeployBaseUser = ".local/share/agentfiles/hooks"
+	DeployBaseRepo = ".agentfiles-hooks"
 )
 
 // MergeIntoSettings merges managed hooks into a settings/hooks JSON file.
@@ -40,11 +57,12 @@ func MergeIntoSettings(settingsPath string, managed map[string]*HookFile, format
 		}
 	}
 
-	// Remove all previously managed entries (those with _agentfiles field).
+	// Remove all previously managed entries: those with an _agentfiles field,
+	// plus marker-stripped survivors whose commands identify them as ours.
 	for event, entries := range existingHooks {
 		var kept []json.RawMessage
 		for _, entry := range entries {
-			if !hasAgentfilesMarker(entry) {
+			if !hasAgentfilesMarker(entry) && !isStrippedManagedEntry(entry) {
 				kept = append(kept, entry)
 			}
 		}
@@ -208,6 +226,40 @@ func buildNestedEntry(name string, hf *HookFile) (json.RawMessage, error) {
 		return nil, fmt.Errorf("marshaling hook entry %q: %w", name, err)
 	}
 	return data, nil
+}
+
+// isStrippedManagedEntry reports whether an unmarked entry is agentfiles-managed
+// anyway: it has at least one command, and every command points into an
+// agentfiles hook deploy dir. Covers both the nested shape
+// ({matcher, hooks: [{command}]}) and the flat Cursor shape ({command, ...}).
+// File-form hooks with commands outside the deploy dirs are not reclaimable
+// this way; they still rely on the _agentfiles marker.
+func isStrippedManagedEntry(entry json.RawMessage) bool {
+	var obj struct {
+		Command string `json:"command"`
+		Hooks   []struct {
+			Command string `json:"command"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(entry, &obj); err != nil {
+		return false
+	}
+	cmds := make([]string, 0, len(obj.Hooks)+1)
+	if obj.Command != "" {
+		cmds = append(cmds, obj.Command)
+	}
+	for _, h := range obj.Hooks {
+		cmds = append(cmds, h.Command)
+	}
+	if len(cmds) == 0 {
+		return false
+	}
+	for _, cmd := range cmds {
+		if !strings.Contains(cmd, DeployBaseUser+"/") && !strings.Contains(cmd, DeployBaseRepo+"/") {
+			return false
+		}
+	}
+	return true
 }
 
 // hasAgentfilesMarker returns true if the JSON entry contains an "_agentfiles" field.
