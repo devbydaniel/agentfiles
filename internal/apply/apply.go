@@ -20,15 +20,11 @@ import (
 // hookDeployBase is the repo- or home-relative directory under which agentfiles
 // deploys directory-form hook contents. For user-level applies this becomes
 // $HOME/<hookDeployBaseUser>/<name>; for repo-level it becomes
-// <repoDir>/<hookDeployBaseRepo>/<name>.
-//
-// hookDeployBaseRepo must NOT live under ".agentfiles/" — that path is the repo
-// manifest *file* (".agentfiles"), so ".agentfiles/hooks" collides with it and
-// every repo-level apply fails with "open .agentfiles/hooks: not a directory".
-// It sits beside the manifest instead, mirroring ".agentfiles.lock".
+// <repoDir>/<hookDeployBaseRepo>/<name>. The values live in the hooks package,
+// which also uses them to reclaim marker-stripped managed entries during merge.
 const (
-	hookDeployBaseUser = ".local/share/agentfiles/hooks"
-	hookDeployBaseRepo = ".agentfiles-hooks"
+	hookDeployBaseUser = hooks.DeployBaseUser
+	hookDeployBaseRepo = hooks.DeployBaseRepo
 )
 
 // isUserLayout reports whether a layout name targets user-level paths

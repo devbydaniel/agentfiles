@@ -417,6 +417,79 @@ func TestMergeIntoSettings_CreatesFile(t *testing.T) {
 	}
 }
 
+func TestMergeIntoSettings_ReclaimsStrippedMarkers(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	// Simulate a settings file rewritten by another tool (e.g. Claude Code),
+	// which drops the _agentfiles marker from managed entries: two stripped
+	// copies of a managed hook sit next to a genuine user hook.
+	managedCmd := `$HOME/` + DeployBaseUser + `/sync-skills/scripts/sync.sh`
+	stripped := `{"matcher": "startup", "hooks": [{"type": "command", "command": "` + managedCmd + `"}]}`
+	userEntry := `{"hooks": [{"type": "command", "command": "$HOME/bin/mine.sh"}]}`
+	initial := `{"hooks": {"SessionStart": [` + stripped + `, ` + stripped + `, ` + userEntry + `]}}`
+	if err := os.WriteFile(settingsPath, []byte(initial), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	managed := map[string]*HookFile{
+		"sync-skills": {
+			Event:   "SessionStart",
+			Matcher: "startup",
+			Hooks:   []json.RawMessage{json.RawMessage(`{"type": "command", "command": "` + managedCmd + `"}`)},
+		},
+	}
+	if err := MergeIntoSettings(settingsPath, managed, FormatNested); err != nil {
+		t.Fatalf("MergeIntoSettings: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var topLevel map[string]json.RawMessage
+	json.Unmarshal(data, &topLevel)
+	var hooks map[string][]json.RawMessage
+	json.Unmarshal(topLevel["hooks"], &hooks)
+
+	// The stripped duplicates must be reclaimed: one marked managed entry
+	// plus the untouched user hook.
+	if len(hooks["SessionStart"]) != 2 {
+		t.Fatalf("SessionStart hooks = %d, want 2", len(hooks["SessionStart"]))
+	}
+	var markers, userKept int
+	for _, e := range hooks["SessionStart"] {
+		if extractAgentfilesMarker(e) == "sync-skills" {
+			markers++
+		} else if !hasAgentfilesMarker(e) {
+			userKept++
+		}
+	}
+	if markers != 1 {
+		t.Errorf("marked sync-skills entries = %d, want 1", markers)
+	}
+	if userKept != 1 {
+		t.Errorf("user entries kept = %d, want 1", userKept)
+	}
+}
+
+func TestIsStrippedManagedEntry(t *testing.T) {
+	cases := []struct {
+		name  string
+		entry string
+		want  bool
+	}{
+		{"nested managed", `{"hooks": [{"command": "$HOME/` + DeployBaseUser + `/x/run.sh"}]}`, true},
+		{"nested repo-level managed", `{"hooks": [{"command": "` + DeployBaseRepo + `/x/run.sh"}]}`, true},
+		{"flat managed", `{"command": "$HOME/` + DeployBaseUser + `/x/run.sh"}`, true},
+		{"user hook", `{"hooks": [{"command": "$HOME/bin/mine.sh"}]}`, false},
+		{"mixed commands", `{"hooks": [{"command": "$HOME/` + DeployBaseUser + `/x/run.sh"}, {"command": "$HOME/bin/mine.sh"}]}`, false},
+		{"no commands", `{"matcher": "startup"}`, false},
+	}
+	for _, tc := range cases {
+		if got := isStrippedManagedEntry(json.RawMessage(tc.entry)); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestRemoveManaged(t *testing.T) {
 	dir := t.TempDir()
 	settingsPath := filepath.Join(dir, "settings.json")
