@@ -279,7 +279,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 				if err != nil {
 					return nil, fmt.Errorf("converting agent %q for %s: %w", ag.Name, e.Path, err)
 				}
-				skipped, warn, deployErr := deployFile(filepath.Join(repoDir, e.Path), data, opts.Force)
+				skipped, warn, deployErr := deployFile(filepath.Join(repoDir, e.Path), data, 0o644, opts.Force)
 				if deployErr != nil {
 					return nil, fmt.Errorf("deploying agent %q to %s: %w", ag.Name, e.Path, deployErr)
 				}
@@ -359,7 +359,7 @@ func Apply(stores map[string]*store.Store, defaultStore string, m *manifest.Mani
 					if err != nil {
 						return nil, fmt.Errorf("reading pi_extension %q: %w", ext.Name, err)
 					}
-					skipped, warn, err := deployFile(filepath.Join(repoDir, e.Path+".ts"), data, opts.Force)
+					skipped, warn, err := deployFile(filepath.Join(repoDir, e.Path+".ts"), data, 0o644, opts.Force)
 					if err != nil {
 						return nil, fmt.Errorf("deploying pi_extension %q to %s.ts: %w", ext.Name, e.Path, err)
 					}
@@ -686,11 +686,13 @@ func deployCopy(dest, src string, force bool) (bool, string, error) {
 	if err != nil {
 		return false, "", err
 	}
-	return deployFile(dest, data, force)
+	return deployFile(dest, data, info.Mode().Perm(), force)
 }
 
-// deployFile writes data to dest, respecting force flag.
-func deployFile(dest string, data []byte, force bool) (bool, string, error) {
+// deployFile writes data to dest with the given permissions, respecting force flag.
+// Callers copying from the store pass the source file's mode so executable
+// scripts stay executable.
+func deployFile(dest string, data []byte, perm fs.FileMode, force bool) (bool, string, error) {
 	if !force {
 		if _, err := os.Lstat(dest); err == nil {
 			warn := fmt.Sprintf("warning: skipping %s (already exists, use --force to overwrite)", dest)
@@ -702,7 +704,7 @@ func deployFile(dest string, data []byte, force bool) (bool, string, error) {
 	}
 	// Remove existing (could be symlink or regular file).
 	os.Remove(dest)
-	return false, "", os.WriteFile(dest, data, 0o644)
+	return false, "", os.WriteFile(dest, data, perm)
 }
 
 // copyDir recursively copies src directory to dest.
@@ -723,11 +725,15 @@ func copyDir(dest, src string, force bool) (bool, string, error) {
 			return os.MkdirAll(target, 0o755)
 		}
 
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		skipped, warn, err := deployFile(target, data, force)
+		skipped, warn, err := deployFile(target, data, info.Mode().Perm(), force)
 		if err != nil {
 			return err
 		}
