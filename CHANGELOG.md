@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.4](https://github.com/devbydaniel/agentfiles/compare/v0.8.3...v0.8.4) (2026-10-25)
+
+
+### Bug Fixes
+
+* **apply:** keep file modes when deploying skills and resources ([#14](https://github.com/devbydaniel/agentfiles/issues/14)) ([b2269e5](https://github.com/devbydaniel/agentfiles/commit/b2269e5668e6eeb811cd3ca4211ccfcc7504fe77))
+
 ## [0.8.3](https://github.com/devbydaniel/agentfiles/compare/v0.8.2...v0.8.3) (2026-08-03)
 
 
